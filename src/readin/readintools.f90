@@ -337,7 +337,7 @@ CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal         ! Default values as cha
 REAL                      :: GetRealArray(nReals)        ! Real array read from setup file or initialized with default values
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=255)        :: HelpStr  ! ?
+CHARACTER(LEN=255+nReals*50) :: HelpStr  ! ?
 CHARACTER(LEN=8)          :: DefMsg  ! ?
 INTEGER                   :: iReal  ! ?
 !===================================================================================================================================
