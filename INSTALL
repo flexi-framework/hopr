@@ -1,0 +1,10 @@
+To install the code, go to Makefile.defs and specify the compiler, either Intel 
+COMPILER=INTEL
+or GNU:
+COMPILER=GNU
+
+then compile the code with
+
+> make
+
+this will also compile all libraries in the share folder

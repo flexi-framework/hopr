@@ -1,0 +1,21 @@
+/**
+@mainpage HOPR - High Order Preprocessor
+
+@image html HOPR.png
+
+@section Introduction
+HOPR (High Order Preprocessor) is an open-source software for the generation of three-dimensional unstructured high-order meshes.
+These meshes are needed for high-order methods like Discontinuous Galerkin schemes, Spectral Element Methods or pFEM, if boundary
+conditions have to be applied at curved domain boundaries, like for example a flow past a cylinder or a sphere.
+
+The software was developed in the Numerics Research Group of Prof. Claus-Dieter Munz at the Institute of Aerodynamics and 
+Gasdynamics at the University Stuttgart. Copyright (C) 2014
+
+HOPR is a free software: you can redistribute it and/or modify it under the terms of the GNU General Public License 
+as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+@section Start
+You might want to start by looking at <a href="./hopr_8f90.html">here</a>.
+@section Download
+You can download HOPR <a href="https://wiki.iag.uni-stuttgart.de/hopr/">here</a>.
+*/
