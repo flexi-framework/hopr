@@ -218,7 +218,7 @@ CHARACTER(LEN=*),OPTIONAL,INTENT(IN) :: Proposal ! Default values as character s
 REAL                                 :: GetReal  ! Real read from setup file or initialized with default value
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-CHARACTER(LEN=255)                   :: HelpStr  ! ?
+CHARACTER(LEN=500)                   :: HelpStr  ! ?
 CHARACTER(LEN=8)                     :: DefMsg  ! ?
 !===================================================================================================================================
 ! Read-in ini file if not done already
@@ -621,7 +621,7 @@ SUBROUTINE getPImultiplies(helpstr)
 ! it with the value of pi=3.1415... etc. and oes a multiplication.
 !===================================================================================================================================
 ! MODULES
-    USE iso_varying_string
+USE iso_varying_string
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -631,50 +631,50 @@ CHARACTER(LEN=*),INTENT(INOUT) :: helpstr   ! Input character string
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-    type(varying_string)      :: separator  ! ?
-    type(varying_string)      :: astr,bstr,cstr,dstr  ! ?
-    CHARACTER(LEN=500)        :: dummystr  ! ?
-    REAL                      :: PI  ! ?
-    REAL                      :: adummy  ! ?
-    LOGICAL                   :: finished  ! ?
+TYPE(varying_string)      :: separator  ! ?
+TYPE(varying_string)      :: astr,bstr,cstr,dstr  ! ?
+CHARACTER(LEN=1000)       :: dummystr  ! ?
+REAL                      :: PI  ! ?
+REAL                      :: adummy  ! ?
+LOGICAL                   :: finished  ! ?
 !===================================================================================================================================
-  !Initialiazation
-  dstr=var_str("")
-  PI=ACOS(-1.)
-  finished=.false.
-  !Replace all occurences of pi in the string by one symbol
-  helpstr=replace(helpstr,"PI","@",every=.true.)  ! Insert value of Pi
-  helpstr=replace(helpstr,"pi","@",every=.true.)  ! Insert value of Pi
-  helpstr=replace(helpstr,"pI","@",every=.true.)  ! Insert value of Pi
-  helpstr=replace(helpstr,"Pi","@",every=.true.)  ! Insert value of Pi
-  astr=var_str(helpstr)
-  ! loop over string
-  DO WHILE(.NOT. finished)
-    !split sting at "@-occurences"
-    CALL split(astr,bstr,"@",separator,back=.false.) !bStr is string in front of @
-    IF(len(char(separator)) .NE. 0)THEN 
-      ! we have found something, bnow get the factor in front of @
-      CALL split(bstr,cstr," ",separator,back=.true.)
-      IF(LEN(char(cstr)) .EQ. 0)THEN
-        !no factor
-        adummy=1
-      ELSE
-        !extract factor 
-        dummystr=trim(char(cstr))
-        READ(dummystr,*)adummy
-      ENDIF
-      !do the multiplication and recombine the string into "dstr"
-      adummy=PI*adummy
-      WRITE(dummystr,'(2a,1X,E23.15)')trim(char(dstr)),trim(char(bstr)),adummy
-      dstr=var_str(dummystr)
+!Initialiazation
+dstr=var_str("")
+PI=ACOS(-1.)
+finished=.false.
+!Replace all occurences of pi in the string by one symbol
+helpstr=replace(helpstr,"PI","@",every=.true.)  ! Insert value of Pi
+helpstr=replace(helpstr,"pi","@",every=.true.)  ! Insert value of Pi
+helpstr=replace(helpstr,"pI","@",every=.true.)  ! Insert value of Pi
+helpstr=replace(helpstr,"Pi","@",every=.true.)  ! Insert value of Pi
+astr=var_str(helpstr)
+! loop over string
+DO WHILE(.NOT. finished)
+  !split sting at "@-occurences"
+  CALL split(astr,bstr,"@",separator,back=.false.) !bStr is string in front of @
+  IF(len(char(separator)) .NE. 0)THEN 
+    ! we have found something, bnow get the factor in front of @
+    CALL split(bstr,cstr," ",separator,back=.true.)
+    IF(LEN(char(cstr)) .EQ. 0)THEN
+      !no factor
+      adummy=1
     ELSE
-      ! we did not find anything now recombine the remaining string into "dstr"
-      WRITE(dummystr,'(2a)')trim(char(dstr)),trim(char(bstr))
-      dstr=var_str(dummystr)
-      finished=.true.
-    END IF
-  END DO
-  helpstr=trim(char(dstr))
+      !extract factor 
+      dummystr=trim(char(cstr))
+      READ(dummystr,*)adummy
+    ENDIF
+    !do the multiplication and recombine the string into "dstr"
+    adummy=PI*adummy
+    WRITE(dummystr,'(2a,1X,E23.15)')trim(char(dstr)),trim(char(bstr)),adummy
+    dstr=var_str(dummystr)
+  ELSE
+    ! we did not find anything now recombine the remaining string into "dstr"
+    WRITE(dummystr,'(2a)')trim(char(dstr)),trim(char(bstr))
+    dstr=var_str(dummystr)
+    finished=.true.
+  END IF
+END DO
+helpstr=trim(char(dstr))
 END SUBROUTINE getPImultiplies
 
 END MODULE MOD_ReadInTools

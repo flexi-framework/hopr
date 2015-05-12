@@ -16,12 +16,11 @@
 #                      NEHALEM   (HLRS Nehalem cluster)
 #                      CRAY      (HLRS Cray cluster)
 #=================================================================================================================================#
-#INIFILE=$(MAINDIR)ini/parameter.ini
-COMPILER=GNU
+COMPILER=INTEL_MPI
 MACHINE=AUTO  # AUTO, CRAY, NEHALEM or leave empty
 CGNS_INT=32
 BLAS_LAPACK=T
-BUILD_HDF5=T
+BUILD_HDF5=
 
 #=================================================================================================================================#
 # GET MACHINE ENVIRONMENT 
