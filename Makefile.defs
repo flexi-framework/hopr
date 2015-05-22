@@ -16,11 +16,11 @@
 #                      NEHALEM   (HLRS Nehalem cluster)
 #                      CRAY      (HLRS Cray cluster)
 #=================================================================================================================================#
-COMPILER=INTEL_MPI
+COMPILER=GNU
 MACHINE=AUTO  # AUTO, CRAY, NEHALEM or leave empty
 CGNS_INT=32
 BLAS_LAPACK=T
-BUILD_HDF5=
+BUILD_HDF5=T
 
 #=================================================================================================================================#
 # GET MACHINE ENVIRONMENT 
@@ -65,10 +65,12 @@ HDF5_LIBS  = -lhdf5_fortran -lhdf5
 ifeq ($(MACHINE),)
   ifeq ($(HDF5_DIR),)
     BUILD_HDF5=T
-    HDF5_VERSION = 1.8.14
-    HDF5_BASE = ../share/$(SHARECOMP)/hdf5-$(HDF5_VERSION)/hdf5
   else
     HDF5_BASE = $(HDF5_DIR)
+  endif
+  ifneq ($(BUILD_HDF5),)
+    HDF5_VERSION = 1.8.14
+    HDF5_BASE = ../share/$(SHARECOMP)/hdf5-$(HDF5_VERSION)/hdf5
   endif
 endif
 
