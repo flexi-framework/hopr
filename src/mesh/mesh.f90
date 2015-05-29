@@ -294,6 +294,16 @@ SplitToHex=GETLOGICAL('SplitToHex','.FALSE.')   ! split all elements to hexa
 nFineHexa=GETINT('nFineHexa','1')               ! split all hexa by a factor 
 
 
+meshPostDeform=GETINT('MeshPostDeform','0')
+SELECT CASE(MeshPostDeform)
+CASE(0) !do nothing
+CASE(1,2) 
+  PostDeform_R0=GETREAL('PostDeform_R0','1.')
+CASE DEFAULT
+  CALL abort(__STAMP__,&
+             'This MeshPostDeform case is not implemented.',MeshPostDeform)
+END SELECT
+
 ! Connect
 ConformConnect=GETLOGICAL('ConformConnect','.TRUE.') ! Fast connect for conform mesh
 
@@ -368,6 +378,7 @@ USE MOD_GlobalUniqueNodes,ONLY: GlobalUniqueNodes
 USE MOD_CartMesh,         ONLY: CartesianMesh
 USE MOD_CurvedCartMesh,   ONLY: CurvedCartesianMesh
 USE MOD_Mesh_Tools,       ONLY: CountSplines,Netvisu,BCvisu,chkspl_surf,chkspl_vol
+USE MOD_Mesh_Tools,       ONLY: PostDeform
 USE MOD_Output_HDF5,      ONLY: WriteMeshToHDF5
 USE MOD_Mesh_Jacobians,   ONLY: CheckJacobians
 USE MOD_Readin_ANSA
@@ -562,6 +573,8 @@ CALL FindElemTypes()
 IF(doZcorrection) CALL zCorrection()
 
 CALL CheckNodeConnectivity()
+
+CALL PostDeform()
 
 ! apply meshscale before output (default)
 IF(doScale.AND.postScale) CALL ApplyMeshScale(FirstElem)

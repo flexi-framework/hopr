@@ -32,8 +32,13 @@ INTERFACE chkSpl_vol
   MODULE PROCEDURE chkSpl_vol
 END INTERFACE
 
+INTERFACE PostDeform
+  MODULE PROCEDURE PostDeform
+END INTERFACE
+
 PUBLIC::CountSplines,NetVisu,BCVisu
 PUBLIC::chkspl_surf,chkspl_vol
+PUBLIC::PostDeform
 !===================================================================================================================================
 
 CONTAINS
@@ -553,5 +558,113 @@ CALL Visualize(3,nVal,Nplot,nCurveds,VarNames,Coord,Values,FileString)
 DEALLOCATE(VarNames,Coord,Values,xNode,x,xt1,xt2,xt3,Jac)
 CALL Timer(.FALSE.)
 END SUBROUTINE chkSpl_Vol
+
+
+SUBROUTINE PostDeform()
+!===================================================================================================================================
+! input x,y,z node coordinates are transformed by a smooth (!) mapping to new x,y,z coordinates 
+!===================================================================================================================================
+!MODULE INPUT VARIABLES
+USE MOD_Globals
+USE MOD_Mesh_Vars,ONLY:firstElem,tElem,MeshPostDeform
+!MODULE OUTPUT VARIABLES
+! MODULES
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+TYPE(tElem),POINTER          :: aElem   ! ?
+REAL                         :: x_loc(3)! ?
+INTEGER                      :: iNode   ! ?
+!===================================================================================================================================
+IF(MeshPostDeform.EQ.0) RETURN
+WRITE(UNIT_stdOut,'(132("~"))')
+WRITE(UNIT_stdOut,'(A)')'POST DEFORM THE MESH...'
+CALL Timer(.TRUE.)
+aElem=>FirstElem
+DO WHILE(ASSOCIATED(aElem))
+  DO iNode=1,aElem%nNodes
+    aElem%Node(iNode)%np%tmp=-1
+  END DO
+  DO iNode=1,aElem%nCurvedNodes
+    aElem%CurvedNode(iNode)%np%tmp=-1
+  END DO
+  aElem=>aElem%nextElem
+END DO ! WHILE(ASSOCIATED(aElem))
+aElem=>FirstElem
+DO WHILE(ASSOCIATED(aElem))
+  DO iNode=1,aElem%nNodes
+    IF(aElem%Node(iNode)%np%tmp.EQ.-1)THEN
+      x_loc(:)=aElem%Node(iNode)%np%x(:)
+      aElem%Node(iNode)%np%x(:)=PostDeformFunc(x_loc)
+      aElem%Node(iNode)%np%tmp=0
+    END IF
+  END DO
+  DO iNode=1,aElem%nCurvedNodes
+    IF(aElem%CurvedNode(iNode)%np%tmp.EQ.-1)THEN
+      x_loc(:)=aElem%CurvedNode(iNode)%np%x(:)
+      aElem%CurvedNode(iNode)%np%x(:)=PostDeformFunc(x_loc)
+      aElem%CurvedNode(iNode)%np%tmp=0
+    END IF
+  END DO
+  aElem=>aElem%nextElem
+END DO ! WHILE(ASSOCIATED(aElem))
+CALL Timer(.FALSE.)
+END SUBROUTINE PostDeform
+
+
+
+FUNCTION PostDeformFunc(X) RESULT(xout)
+!===================================================================================================================================
+! input x,y,z node coordinates are transformed by a smooth (!) mapping to new x,y,z coordinates 
+!===================================================================================================================================
+!MODULE INPUT VARIABLES
+USE MOD_Globals
+USE MOD_Mesh_Vars,ONLY:MeshPostDeform,PostDeform_R0  
+!MODULE OUTPUT VARIABLES
+! MODULES
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+REAL,INTENT(IN) :: x(3) ! contains original xyz coords
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL            :: Xout(3)    ! contains new XYZ position 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL            :: dx(3),xi(3),alpha
+!===================================================================================================================================
+dx=0.
+SELECT CASE(MeshPostDeform)
+CASE(1) ! 2D box, x,y in [-1,1]^2, to cylinder with radius PostDeform_R0
+
+  IF(SUM(x(1:2)**2).GT.0.)THEN
+    xi(1:2)=(/x(1)-x(2),x(1)+x(2)/)*0.5
+    alpha=(1.-PRODUCT(1.-x(1:2)**2))
+    dx(1:2)=x(1:2)*alpha*(PostDeform_R0*SQRT(0.5)*SUM(ABS(xi(1:2)))/SQRT(SUM(xi(1:2)**2))-1.)
+  END IF
+  xout=x+dx
+CASE(2) ! 2D box, x,y in [-1,1]^2, to cylinder with radius PostDeform_R0
+  IF(ABS(x(2)).LT.ABS(x(1)))THEN !left and right quater
+    dx(1)=SIGN(1.,x(1))*(PostDeform_R0*COS(0.25*Pi*x(2))-1)
+    dx(2)=            PostDeform_R0*SIN(0.25*Pi*x(2)) -x(2)
+  ELSE
+    dx(1)=            PostDeform_R0*SIN(0.25*Pi*x(1)) -x(1)
+    dx(2)=SIGN(1.,x(2))*(PostDeform_R0*COS(0.25*Pi*x(1))-1)
+  END IF
+  dx(1:2)=dx(1:2)* (ABS(x(1)-x(2))+ABS(x(1)+x(2)))*0.5 ! *(1.-(1.-x(1)**2)*(1.-x(2)**2))
+  xout=x+dx
+END SELECT
+
+END FUNCTION PostDeformFunc
 
 END MODULE MOD_Mesh_Tools
