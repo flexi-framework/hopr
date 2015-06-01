@@ -16,6 +16,7 @@ INTEGER                     :: DebugVisuLevel             !=0, only linear mesh,
 INTEGER                     :: outputFormat               !=0: VTK, =1 tecplot ascii, =2 CGNS 
 CHARACTER(LEN=100)          :: sfc_type                   ! morton or hilbert
 LOGICAL                     :: doSortIJK
+LOGICAL                     :: useSpaceFillingCurve
 LOGICAL                     :: OutputInitDone
 !===================================================================================================================================
 END MODULE MOD_Output_Vars

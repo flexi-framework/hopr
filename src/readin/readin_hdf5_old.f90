@@ -47,8 +47,6 @@ REAL,ALLOCATABLE               :: ElemWeight(:)
 REAL,ALLOCATABLE               :: ElemBarycenters(:,:)
 REAL,ALLOCATABLE               :: NodeCoords(:,:)
 INTEGER,ALLOCATABLE            :: NodeMap(:)
-INTEGER,ALLOCATABLE            :: Elem_IJK(:,:)
-INTEGER                        :: nElems_IJK(3)
 INTEGER                        :: nGlobalElems
 INTEGER                        :: nElems,nSides,nNodes,locnSides,locnNodes
 INTEGER                        :: ElemCounter(11,2)
@@ -81,6 +79,9 @@ USE MOD_Mesh_Vars,ONLY:nMeshElems
 USE MOD_Mesh_Vars,ONLY:nNodesElemSideMapping,ElemSideMapping
 USE MOD_Mesh_Vars,ONLY:BoundaryType
 USE MOD_Mesh_Vars,ONLY:getNewElem,getNewNode,getNewBC,getNewSide
+USE MOD_IO_HDF5,  ONLY:nElems_IJK,Elem_IJK
+USE MOD_Readin_HDF5,ONLY:dataSetExists
+USE MOD_Output_Vars,ONLY:useSpaceFillingcurve
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -100,8 +101,11 @@ LOGICAL                        :: oriented  ! ?
 CHARACTER(LEN=255)             :: ElemWeightFile  ! ?
 LOGICAL                        :: fileExists  ! ?
 LOGICAL                        :: doConnection  ! ?
+LOGICAL                        :: exists  ! ?
 !===================================================================================================================================
 IF(initMesh) RETURN
+! for old hdf5 meshes, the old sorting is kept for compatibility with old state files
+useSpaceFillingcurve=.FALSE.
 INQUIRE (FILE=TRIM(FileString), EXIST=fileExists)
 IF(.NOT.FileExists)  CALL abort(__STAMP__, &
         'readMesh from HDF5, file "'//TRIM(FileString)//'" does not exist',999,999.)
@@ -444,6 +448,15 @@ IF(i1+j1 .GT. 0) THEN
   LOGWRITE(*,*)'..',k1
   CALL abort(__STAMP__, &
     'missing Connection of Side: with/without BC',i1,REAL(j1))
+END IF
+
+
+! Read elem IJK sorting from file, but beware maybe mesh is resorted later
+CALL dataSetExists(File_ID,'nElems_IJK',exists)
+IF(exists)THEN
+  CALL ReadArrayFromHDF5(File_ID,'nElems_IJK',1,(/3/),0,IntegerArray=nElems_IJK)
+  ALLOCATE(Elem_IJK(PRODUCT(nElems_IJK),3))
+  CALL ReadArrayFromHDF5(File_ID,'Elem_IJK',2,(/PRODUCT(nElems_IJK),3/),0,IntegerArray=Elem_IJK)
 END IF
 
 i1=0

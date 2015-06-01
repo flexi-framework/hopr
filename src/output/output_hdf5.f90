@@ -31,7 +31,7 @@ SUBROUTINE WriteMeshToHDF5(FileString)
 USE MOD_Mesh_Vars,ONLY:tElem,tSide
 USE MOD_Mesh_Vars,ONLY:FirstElem
 USE MOD_Mesh_Vars,ONLY:N
-USE MOD_Output_Vars,ONLY:dosortIJK
+USE MOD_Output_Vars,ONLY:dosortIJK,useSpaceFillingCurve
 USE MOD_Mesh_Vars,ONLY:nUserDefinedBoundaries,BoundaryName,BoundaryType
 USE MOD_Mesh_Basis,ONLY:ISORIENTED
 ! IMPLICIT VARIABLE HANDLING
@@ -123,7 +123,13 @@ DO WHILE(ASSOCIATED(Elem))
 END DO
 
 ! prepare sorting by space filling curve
-CALL SpaceFillingCurve()
+! NOTE: SpaceFillingcurve is not used, if existing hdf5 mesh is read in and the sorting should stay identical
+IF(useSpaceFillingCurve)THEN
+  CALL SpaceFillingCurve()
+ELSE
+END IF
+IF(ALLOCATED(ElemBarycenters)) DEALLOCATE(ElemBarycenters)
+ALLOCATE(ElemBarycenters(1:nElems,3))
 
 !set unique nodes and Side Indices
 ElemID=0
@@ -133,11 +139,14 @@ Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))
   ElemID=ElemID+1 
   Elem%ind=ElemID
+  ElemBarycenters(ElemID,:)=0.
   DO i=1,Elem%nNodes
+    ElemBarycenters(ElemID,:)=ElemBarycenters(ElemID,:)+Elem%Node(i)%np%x
     IF(Elem%Node(i)%np%ind.NE.-88888) CYCLE
     NodeID=NodeID+1
     Elem%Node(i)%np%ind=NodeID
   END DO
+  ElemBarycenters(ElemID,:)=ElemBarycenters(ElemID,:)/REAL(Elem%nNodes)
   DO i=1,Elem%nCurvedNodes
     IF(Elem%CurvedNode(i)%np%ind.NE.-88888) CYCLE
     NodeID=NodeID+1
