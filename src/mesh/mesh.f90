@@ -299,6 +299,7 @@ SELECT CASE(MeshPostDeform)
 CASE(0) !do nothing
 CASE(1,2) 
   PostDeform_R0=GETREAL('PostDeform_R0','1.')
+  PostDeform_Rtorus=GETREAL('PostDeform_Rtorus','-1.')
 CASE DEFAULT
   CALL abort(__STAMP__,&
              'This MeshPostDeform case is not implemented.',MeshPostDeform)

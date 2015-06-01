@@ -626,7 +626,7 @@ FUNCTION PostDeformFunc(X) RESULT(xout)
 !===================================================================================================================================
 !MODULE INPUT VARIABLES
 USE MOD_Globals
-USE MOD_Mesh_Vars,ONLY:MeshPostDeform,PostDeform_R0  
+USE MOD_Mesh_Vars,ONLY:MeshPostDeform,PostDeform_R0,PostDeform_Rtorus 
 !MODULE OUTPUT VARIABLES
 ! MODULES
 ! IMPLICIT VARIABLE HANDLING
@@ -645,7 +645,7 @@ REAL            :: dx(3),xi(3),alpha,dx1(3),dx2(3)
 !===================================================================================================================================
 dx=0.
 SELECT CASE(MeshPostDeform)
-CASE(1) ! 2D box, x,y in [-1,1]^2, to cylinder with radius PostDeform_R0
+CASE(1) ! 2D box, x,y in [-1,1]^2, to cylinder with radius PostDeform_R0 (with PostDeform_Rtorus>0 to a torus, with zperiodic [0,1])
         ! all points outside [-1,1]^2 will be mapped directly to a circle (p.e. 2,2 => sqrt(0.5)*PostDeform_R0*(2,2) )
         ! inside [-1,1]^2 and outside [-0.5,0.5]^2 there will be a blending from a circle to a square
         ! the inner square [-0.5,0.5]^2 will be a linear blending of the bounding curves
@@ -675,7 +675,13 @@ CASE(1) ! 2D box, x,y in [-1,1]^2, to cylinder with radius PostDeform_R0
     dx(1:2)=alpha*dx(1:2)
   END IF
   xout(1:2)=PostDeform_R0*SQRT(0.5)*(x(1:2)+dx(1:2))
-  xout(3)=x(3)
+  IF(PostDeform_Rtorus.LT.0.)THEN
+    xout(3)=x(3) !cylinder
+  ELSE !torus, z must be [0,1] and periodic  !!
+    xout(3)=(xout(1)+PostDeform_Rtorus)*SIN(2*Pi*x(3))
+    xout(1)=(xout(1)+PostDeform_Rtorus)*COS(2*Pi*x(3))
+  END IF
+     
 END SELECT
 
 END FUNCTION PostDeformFunc
