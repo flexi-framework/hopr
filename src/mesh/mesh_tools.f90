@@ -641,28 +641,41 @@ REAL            :: Xout(3)    ! contains new XYZ position
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-REAL            :: dx(3),xi(3),alpha
+REAL            :: dx(3),xi(3),alpha,dx1(3),dx2(3)
 !===================================================================================================================================
 dx=0.
 SELECT CASE(MeshPostDeform)
 CASE(1) ! 2D box, x,y in [-1,1]^2, to cylinder with radius PostDeform_R0
-
-  IF(SUM(x(1:2)**2).GT.0.)THEN
-    xi(1:2)=(/x(1)-x(2),x(1)+x(2)/)*0.5
-    alpha=(1.-PRODUCT(1.-x(1:2)**2))
-    dx(1:2)=x(1:2)*alpha*(PostDeform_R0*SQRT(0.5)*SUM(ABS(xi(1:2)))/SQRT(SUM(xi(1:2)**2))-1.)
+        ! all points outside [-1,1]^2 will be mapped directly to a circle (p.e. 2,2 => sqrt(0.5)*PostDeform_R0*(2,2) )
+        ! inside [-1,1]^2 and outside [-0.5,0.5]^2 there will be a blending from a circle to a square
+        ! the inner square [-0.5,0.5]^2 will be a linear blending of the bounding curves
+  IF((ABS(x(1)).LT.0.5).AND.(ABS(x(2)).LT.0.5))THEN !inside [-0.5,0.5]^2
+    !right side at x=0.5
+    dx1(1)=0.5*SQRT(2.)*COS(0.25*Pi*x(2)/0.5)-0.5
+    dx1(2)=(0.5*SQRT(2.)*SIN(0.25*Pi*x(2)/0.5)-x(2))
+    !upper side at y=0.5
+    dx2(1)=0.5*SQRT(2.)*SIN(0.25*Pi*x(1)/0.5)-x(1)
+    dx2(2)=0.5*SQRT(2.)*COS(0.25*Pi*x(1)/0.5)-0.5
+    alpha=0.5
+    dx(1:2)=alpha*2*(dx1(1:2)*(/x(1),ABS(x(1))/)+dx2(1:2)*(/ABS(x(2)),x(2)/))
+  ELSE !outside [-0.5,0.5]^2
+    IF(ABS(x(2)).LT.ABS(x(1)))THEN !left and right quater
+      dx(1)=x(1)*SQRT(2.)*COS(0.25*Pi*x(2)/x(1))-x(1)
+      dx(2)=x(1)*SQRT(2.)*SIN(0.25*Pi*x(2)/x(1))-x(2)
+    ELSEIF(ABS(x(2)).GE.ABS(x(1)))THEN !upper and lower quater
+      dx(1)=x(2)*SQRT(2.)*SIN(0.25*Pi*x(1)/x(2))-x(1)
+      dx(2)=x(2)*SQRT(2.)*COS(0.25*Pi*x(1)/x(2))-x(2)
+    END IF
+    IF((ABS(x(1)).LE.1).AND.(ABS(x(2)).LE.1))THEN
+      !alpha=(1.-PRODUCT(1.-x(1:2)**2)) !only <1 inside [-1,1]^2
+      alpha=MAX(ABS(x(1)),ABS(x(2)))
+    ELSE !outside [-1,1]^2
+      alpha=1.
+    END IF
+    dx(1:2)=alpha*dx(1:2)
   END IF
-  xout=x+dx
-CASE(2) ! 2D box, x,y in [-1,1]^2, to cylinder with radius PostDeform_R0
-  IF(ABS(x(2)).LT.ABS(x(1)))THEN !left and right quater
-    dx(1)=SIGN(1.,x(1))*(PostDeform_R0*COS(0.25*Pi*x(2))-1)
-    dx(2)=            PostDeform_R0*SIN(0.25*Pi*x(2)) -x(2)
-  ELSE
-    dx(1)=            PostDeform_R0*SIN(0.25*Pi*x(1)) -x(1)
-    dx(2)=SIGN(1.,x(2))*(PostDeform_R0*COS(0.25*Pi*x(1))-1)
-  END IF
-  dx(1:2)=dx(1:2)* (ABS(x(1)-x(2))+ABS(x(1)+x(2)))*0.5 ! *(1.-(1.-x(1)**2)*(1.-x(2)**2))
-  xout=x+dx
+  xout(1:2)=PostDeform_R0*SQRT(0.5)*(x(1:2)+dx(1:2))
+  xout(3)=x(3)
 END SELECT
 
 END FUNCTION PostDeformFunc
