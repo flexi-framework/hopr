@@ -581,7 +581,7 @@ DO iZone=1,nZones
             CALL getNewBC(aSide%BC)
             aSide%BC%BCIndex    = CartMesh%BCIndex(iSide)
             aSide%BC%BCType     = BoundaryType(aSide%BC%BCIndex,1)
-            aSide%curveIndex    = 0
+            aSide%curveIndex    = BoundaryType(aSide%BC%BCIndex,2)
             aSide%BC%BCstate    = BoundaryType(aSide%BC%BCIndex,3)
             aSide%BC%BCalphaInd = BoundaryType(aSide%BC%BCIndex,4)
           END IF
