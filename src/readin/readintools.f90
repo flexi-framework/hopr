@@ -106,7 +106,6 @@ CHARACTER(LEN=8)                     :: DefMsg  ! ?
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
-ReadInDone=.TRUE.
 
 IF (PRESENT(Proposal)) THEN
   CALL FindStr(Key,GetStr,DefMsg,Proposal)
@@ -140,7 +139,6 @@ TYPE(tString),POINTER                :: Str1  ! ?
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
-ReadInDone=.TRUE.
 
 CntStr=0
 CALL LowCase(Key,TmpKey)
@@ -160,7 +158,8 @@ IF (CntStr.EQ.0) THEN
     CntStr=IntProposal
   ELSE
     SWRITE(UNIT_StdOut,*) 'Inifile missing necessary keyword item : ',TRIM(TmpKey)
-    CALL abort(__STAMP__,'Code stopped!',999,999.)
+    CALL abort(__STAMP__, &
+         'Code stopped during inifile parsing!')
   END IF
 END IF
 END FUNCTION CNTSTR
@@ -188,7 +187,6 @@ CHARACTER(LEN=8)                     :: DefMsg  ! ?
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
-ReadInDone=.TRUE.
 
 IF (PRESENT(Proposal)) THEN
   CALL FindStr(Key,HelpStr,DefMsg,Proposal)
@@ -223,7 +221,6 @@ CHARACTER(LEN=8)                     :: DefMsg  ! ?
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
-ReadInDone=.TRUE.
 
 IF (PRESENT(Proposal)) THEN
   CALL FindStr(Key,HelpStr,DefMsg,Proposal)
@@ -260,7 +257,6 @@ CHARACTER(LEN=8)                     :: DefMsg  ! ?
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
-ReadInDone=.TRUE.
 
 IF (PRESENT(Proposal)) THEN
   CALL FindStr(Key,HelpStr,DefMsg,Proposal)
@@ -297,7 +293,6 @@ INTEGER                   :: iInteger  ! ?
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
-ReadInDone=.TRUE.
 
 IF (PRESENT(Proposal)) THEN
   CALL FindStr(Key,HelpStr,DefMsg,Proposal)
@@ -343,7 +338,6 @@ INTEGER                   :: iReal  ! ?
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
-ReadInDone=.TRUE.
 
 IF (PRESENT(Proposal)) THEN
   CALL FindStr(Key,HelpStr,DefMsg,Proposal)
@@ -474,7 +468,123 @@ DO WHILE(EOF.NE.IOSTAT_END)
     END IF
 END DO
 CLOSE(103)
+ReadInDone=.TRUE.
+
+CALL UserDefinedVars()
+
+
 END SUBROUTINE FillStrings
+
+SUBROUTINE UserDefinedVars()
+!===================================================================================================================================
+! Get the user defined variables 
+!===================================================================================================================================
+! MODULES
+USE iso_varying_string
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+INTEGER                          :: i,j,nDefVars
+TYPE(Varying_String),ALLOCATABLE :: DefVar(:,:)
+TYPE(tString),POINTER            :: Str1  ! ?
+TYPE(Varying_String)             :: vStr,vStr1,vStr2
+LOGICAL                          :: found
+!===================================================================================================================================
+nDefVars=CNTSTR('defvar','0')
+IF(nDefVars.EQ.0) RETURN
+SWRITE(UNIT_StdOut,'(A,I4,A)')' | Found ',nDefVars,' UserDefined variables: '
+ALLOCATE(DefVar(2,nDefVars))
+DO i=1,nDefVars
+  CALL GetDefVar(DefVar(:,i))
+  !check if part of the variable name was used before
+  DO j=1,i-1
+    IF (INDEX(TRIM(CHAR(DefVar(1,i))),TRIM(CHAR(DefVar(1,j)))).NE.0) THEN
+      SWRITE(UNIT_StdOut,*) '!! WARNING !! Problem with DEFVAR ', TRIM(CHAR(DefVar(1,i)))
+      SWRITE(UNIT_StdOut,*) '  a part of this variable name was already used in DEFVAR ' ,TRIM(CHAR(DefVar(1,j)))
+      CALL abort(__STAMP__, &
+         'DEFVAR: do not reuse same strings for variable names! Code stopped during inifile parsing!')
+    END IF
+  END DO
+END DO !i=1,nDefVars
+Str1=>FirstString
+DO WHILE(ASSOCIATED(Str1))
+  vStr=Str1%Str
+  CALL Split(vStr,vStr1,"=",back=.FALSE.) 
+  CALL Split(vStr,vStr2,"=",back=.TRUE.) 
+  found=.FALSE.
+  DO i=1,nDefVars
+    IF (INDEX(TRIM(CHAR(vStr2)),TRIM(CHAR(DefVar(1,i)))).NE.0) THEN
+      found=.TRUE.
+      vStr2=replace(vStr2,TRIM(CHAR(DefVar(1,i))),TRIM(CHAR(DefVar(2,i))),Every=.TRUE.)
+    END IF
+  END DO !i=1,nDefVars
+  IF(Found)THEN
+    !SWRITE(UNIT_StdOut,*)'DEBUG, ',TRIM(CHAR(Str1%str))
+    Str1%Str=CHAR(vStr1)//'='//CHAR(vStr2)
+    !SWRITE(UNIT_StdOut,*)' >>>>>>',TRIM(CHAR(Str1%str))
+  END IF !found
+  ! Next string in list
+  Str1=>Str1%NextStr
+END DO !WHILE Str1 associated
+
+END SUBROUTINE UserDefinedVars 
+
+
+SUBROUTINE GetDefVar(DefVar)
+!===================================================================================================================================
+! Get the user defined variables 
+!===================================================================================================================================
+! MODULES
+USE iso_varying_string
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+TYPE(Varying_String):: DefVar(2)   !Name, Value
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+CHARACTER(LEN=255)  :: HelpStr  ! ?
+CHARACTER(LEN=255)  :: aStr  ! ?
+CHARACTER(LEN=8)    :: DefMsg  ! ?
+TYPE(Varying_String):: vStr,vStr1,vStr2
+REAL                :: DefVarVal
+LOGICAL             :: DefVarIsInt
+!===================================================================================================================================
+CALL FindStr('DEFVAR',HelpStr,DefMsg)
+CALL LowCase(HelpStr,aStr)
+vStr=aStr
+
+CALL Split(vStr,vStr1,":",back=.FALSE.) 
+CALL Split(vStr,vStr2,":",back=.TRUE.) 
+
+DefVarIsInt=(CHAR(vStr1).EQ.'(int)') 
+
+IF((.NOT.DefVarIsInt).AND.(.NOT.(CHAR(vStr1).EQ.'(real)')))THEN
+  SWRITE(UNIT_StdOut,*) 'DEFVAR not correctly defined: ',TRIM(HelpStr)
+    CALL abort(__STAMP__, &
+         'Code stopped during inifile parsing!')
+END IF
+vStr=VStr2
+CALL Split(vStr,vStr1,"=",back=.FALSE.) 
+CALL Split(vStr,vStr2,"=",back=.TRUE.) 
+DefVar(1)=vStr1
+DefVar(2)=vStr2
+aStr=CHAR(DefVar(2))
+READ(aStr,*)DefVarVal
+IF(DefVarIsInt) THEN
+  SWRITE(UNIT_StdOut,'(A3,A30,A3,I33,A3,A7,A3)')' | ',TRIM(CHAR(DefVar(1))),' | ', INT(DefVarVal),' | ','=>INT  ',' | '
+ELSE
+  SWRITE(UNIT_StdOut,'(A3,A30,A3,E33.5,A3,A7,A3)')' | ',TRIM(CHAR(DefVar(1))),' | ', DefVarVal,' | ','=>REAL ',' | '
+END IF
+
+END SUBROUTINE GetDefVar 
 
 
 SUBROUTINE GetNewString(Str)
@@ -558,7 +668,8 @@ DO WHILE(.NOT.Found)
   IF (.NOT.ASSOCIATED(Str1)) THEN
     IF (.NOT.PRESENT(Proposal)) THEN
       SWRITE(UNIT_StdOut,*) 'Inifile missing necessary keyword item : ',TRIM(TmpKey)
-      CALL abort(__STAMP__,'Code stopped!',999,999.)
+      CALL abort(__STAMP__, &
+           'Code stopped during inifile parsing!')
     ELSE ! Return default value
 !      CALL LowCase(TRIM(Proposal),Str)
       Str=TRIM(Proposal)
