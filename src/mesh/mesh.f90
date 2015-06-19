@@ -299,6 +299,8 @@ SELECT CASE(MeshPostDeform)
 CASE(0) !do nothing
 CASE(1,2) 
   PostDeform_R0=GETREAL('PostDeform_R0','1.')
+  PostDeform_Lz=GETREAL('PostDeform_Lz','1.')
+  PostDeform_sq=GETINT('PostDeform_sq','0')
   PostDeform_Rtorus=GETREAL('PostDeform_Rtorus','-1.')
 CASE DEFAULT
   CALL abort(__STAMP__,&

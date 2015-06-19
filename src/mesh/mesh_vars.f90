@@ -260,6 +260,8 @@ LOGICAL                        :: OrientZ
 !-----------------------------------------------------------------------------------------------------------------------------------
 INTEGER                        :: MeshPostDeform ! Function index (off: 0) 
 REAL                           :: PostDeform_R0  
+REAL                           :: PostDeform_Lz  
+INTEGER                        :: PostDeform_sq  
 REAL                           :: PostDeform_Rtorus  
 
 ! INTERFACES -----------------------------------------------------------------------------------------------------------------------
