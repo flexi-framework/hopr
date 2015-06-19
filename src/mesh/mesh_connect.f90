@@ -98,10 +98,10 @@ DO WHILE(ASSOCIATED(Elem))
 END DO
 
 WRITE(UNIT_stdOut,'(A)')   '-----------------------------------'
-WRITE(UNIT_stdOut,'(A,I8)')'number of sides          : ',nTotalSides
-WRITE(UNIT_stdOut,'(A,I8)')'number of Inner sides    : ',nTotalSides-nBCSides
-WRITE(UNIT_stdOut,'(A,I8)')'number of BC sides       : ',nBCSides
-WRITE(UNIT_stdOut,'(A,I8)')'number of periodic sides : ',nPeriodicSides
+WRITE(UNIT_stdOut,'(A,I12)')'number of sides          : ',nTotalSides
+WRITE(UNIT_stdOut,'(A,I12)')'number of Inner sides    : ',nTotalSides-nBCSides
+WRITE(UNIT_stdOut,'(A,I12)')'number of BC sides       : ',nBCSides
+WRITE(UNIT_stdOut,'(A,I12)')'number of periodic sides : ',nPeriodicSides
 WRITE(UNIT_stdOut,'(A)')   '-----------------------------------'
 
 WRITE(UNIT_stdOut,'(A)')'Insert periodic sides...'

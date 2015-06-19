@@ -258,7 +258,7 @@ iSurfElem=0
 DO iSect=1,nSect ! Vol. and Face elems
   ! Read in Elem indMin & indMax
   CALL CG_SECTION_READ_F(CGNSfile,CGNSBase,iZone,iSect,CGname,SectionElemType,IndMin,IndMax,nBCElems,ParentDataFlag,iError)
-  WRITE(*,*)'   read section',TRIM(CGname)
+  WRITE(UNIT_StdOut,*)'   read section',TRIM(CGname)
   IF (iError .NE. CG_OK) CALL abortCGNS(__STAMP__,CGNSFile)
   IF(SectionElemType .LT. TRI_3) CYCLE !ignore additional sections with data <nDim-1
   CALL CG_ELEMENTDATASIZE_F(CGNSFile,CGNSBase,iZone,iSect,nSectElems,iError)  ! Get number of connectivity values
@@ -542,6 +542,7 @@ PP_CGNS_INT_TYPE              :: NormalIndex(3)  ! ?
 PP_CGNS_INT_TYPE              :: NormalListSize  ! ?
 PP_CGNS_INT_TYPE ,ALLOCATABLE :: BCElems(:,:)  ! ?
 PP_CGNS_INT_TYPE ,ALLOCATABLE :: NormalList(:)  ! ?
+LOGICAL                       :: zFit
 !===================================================================================================================================
 ALLOCATE(isize(meshDim,3))
 ALLOCATE(DimVec(meshDim,2))
@@ -562,19 +563,18 @@ ELSE
   irmax(1:2)=isize(:,1)
   irmax(3)=(N_loc+1)*nSkip
 END IF
-IF(useCurveds) THEN 
-  DO k=1,meshDim
-    IF (MOD((irmax(k)-1),(step)).NE.0) THEN
-      STOP 'Boundary Order*nSkip does not fit with mesh size' 
+WRITE(UNIT_stdOut,'(A,A,A,3I8)')'Read Zone ',TRIM(CGname),', with block elem size:',irmax(:)-1
+
+DO k=1,meshDim
+  IF (MOD((irmax(k)-1),(step)).NE.0) THEN
+    IF(useCurveds) THEN 
+      WRITE(UNIT_StdOut,'(A)') 'WARNING: cannot read block, step=(order-1)*nSkip does not fit with block elem size.'
+    ELSE
+      WRITE(UNIT_StdOut,'(A)') 'WARNING: cannot read block, nSkip does not fit with block elem size.'
     END IF
-  END DO
-ELSE
-  DO k=1,meshDim
-    IF (MOD((irmax(k)-1),(step)).NE.0) THEN
-      STOP 'nSkip does not fit with mesh size' 
-    END IF
-  END DO
-END IF
+    RETURN
+  END IF
+END DO
 
 ! Allocate list for node Coordinates
 IF(meshdim.EQ.3) THEN
@@ -636,34 +636,24 @@ IF(nSkipZ.NE.nSkip)THEN
   CASE(1)
     stepk=step*nSkipZ/nSkip
     nSkipk=nSkipZ
-    IF (MOD((irmax(1)-1),(stepk)).NE.0) THEN
-      IF(useCurveds)THEN
-        STOP 'Boundary Order*nSkipZ does not fit with mesh size' 
-      ELSE
-        STOP 'nSkipZ does not fit with mesh size' 
-      END IF
-    END IF
+    zFit=.NOT.(MOD((irmax(1)-1),(stepk)).NE.0)
   CASE(2)
     stepl=step*nSkipZ/nSkip
     nSkipl=nSkipZ
-    IF (MOD((irmax(2)-1),(stepl)).NE.0) THEN
-      IF(useCurveds)THEN
-        STOP 'Boundary Order*nSkipZ does not fit with mesh size' 
-      ELSE
-        STOP 'nSkipZ does not fit with mesh size' 
-      END IF
-    END IF
+    zFit=.NOT.(MOD((irmax(2)-1),(stepl)).NE.0)
   CASE(3)
     stepm=step*nSkipZ/nSkip
     nSkipm=nSkipZ
-    IF (MOD((irmax(3)-1),(stepm)).NE.0) THEN
-      IF(useCurveds)THEN
-        STOP 'Boundary Order*nSkipZ does not fit with mesh size' 
-      ELSE
-        STOP 'nSkipZ does not fit with mesh size' 
-      END IF
-    END IF
+    zFit=.NOT.(MOD((irmax(3)-1),(stepm)).NE.0)
   END SELECT 
+  IF(.NOT.zfit)THEN
+    IF(useCurveds)THEN
+      WRITE(UNIT_StdOut,'(A)') 'WARNING: cannot read block, step=(order-1)*nSkipZ does not fit with block elem size.'
+    ELSE
+      WRITE(UNIT_StdOut,'(A)') 'WARNING: cannot read block, nSkipZ does not fit with block elem size.'
+    END IF
+    RETURN
+  END IF !zfit
 END IF !nSkipZ NE nSkip
 
 
@@ -761,7 +751,7 @@ DO iBC=1,nCGNSBC !Loop over all BCs
       DO k=1,meshDim
         IF(((BCElems(k,1).NE.irmax(k)).AND.(BCElems(k,1).NE.1)).AND. &
            ((BCElems(k,2).NE.irmax(k)).AND.(BCElems(k,2).NE.1))) THEN
-          WRITE(*,*)'WARNING: Block face has multiple boundary faces, BoundaryName:',TRIM(FamilyName)
+          WRITE(UNIT_StdOut,*)'WARNING: Block face has multiple boundary faces, BoundaryName: ',TRIM(FamilyName)
         END IF
         IF(BCElems(k,1).EQ.BCElems(k,2))&
           BCIndex(iBC,1) = MERGE(SideMap(k,1),SideMap(k,2),BCElems(k,1).EQ.1) ! else irmax(k)
@@ -771,7 +761,7 @@ DO iBC=1,nCGNSBC !Loop over all BCs
   END IF
   IF(PntSetType.EQ.PointList)THEN
     IF(nBCElems.EQ.1) THEN
-       WRITE(*,*) 'Warning: Single point BC. Zone No,BC no, BCname, ',iZone,iBC,FamilyName
+       WRITE(UNIT_StdOut,*) 'Warning: Single point BC. Zone No,BC no, BCname, ',iZone,iBC,FamilyName
     ELSE
       ! loop through the point list and detect BC Faces
       ! ONLY WORKS WITH BLOCKS WITH irmax > 2 !!
@@ -875,6 +865,7 @@ DO WHILE(ASSOCIATED(aElem))
   END DO !WHILE(ASSOCIATED(aSide))
   aElem=>aElem%nextElem
 END DO !WHILE(ASSOCIATED(aElem))
+DEALLOCATE(BCIndex,BCTypeIndex,countBCs,nBCFaces)
 END SUBROUTINE ReadCGNSMeshStruct
 
 
@@ -1013,7 +1004,7 @@ DO iZone=1,nCGNSZones
   DO iSect=1,nSect ! Vol. and Face elems
     ! Read in Elem indMin & indMax
     CALL CG_SECTION_READ_F(CGNSfile,CGNSBase,iZone,iSect,CGname,SectionElemType,IndMin,IndMax,nBCElems,ParentDataFlag,iError)
-    WRITE(*,*)'   read section',TRIM(CGname)
+    WRITE(UNIT_StdOut,*)'   read section',TRIM(CGname)
     IF (iError .NE. CG_OK) CALL abortCGNS(__STAMP__,CGNSFile)
     IF(SectionElemType .LT. TRI_3) CYCLE !ignore additional sections with data <nDim-1
     CALL CG_ELEMENTDATASIZE_F(CGNSFile,CGNSBase,iZone,iSect,nSectElems,iError)  ! Get number of connectivity values
@@ -1174,7 +1165,7 @@ CALL cg_nbases_f(CGNSfile,nB,ier)
 IF (ier .NE. CG_OK) &
   CALL abortCGNS(__STAMP__,CGNSFile)
 IF(nB .GT. 1) THEN
-  WRITE(*,*)'Warning, more than one bases in file : ',TRIM(fileName),' taking only first one'
+  WRITE(UNIT_StdOut,*)'Warning, more than one bases in file : ',TRIM(fileName),' taking only first one'
 END IF
 
 IF(externBase) THEN
