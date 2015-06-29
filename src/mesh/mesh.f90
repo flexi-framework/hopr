@@ -167,6 +167,7 @@ ELSE
 END IF
 
 ! Geometry
+preScale=GETLOGICAL('preScaleMesh','.FALSE.') ! apply scaling either after readin or before output
 postScale=GETLOGICAL('postScaleMesh','.FALSE.') ! apply scaling either after readin or before output
 MeshScale=GETREAL('meshScale','1.0')           ! scaling factor applied to node coordinates during read in
 doScale  = (ABS(MeshScale-1.).GT.RealTolerance)
@@ -221,6 +222,10 @@ IF(useCurveds) THEN
     ALLOCATE(ExactSurfFunc(2*nExactSurfFuncs))
     ExactSurfFunc(:)=GETINTARRAY('exactSurfFunc',2*nExactSurfFuncs) !(Curvedindex,exactsurffunc,...)
   END IF
+
+  ! If domain is curved, try to uncurve it and leave only the sides with BCs speciefied curved
+  onlyCurveBoundaries=GETLOGICAL('onlyCurveBoundaries','.FALSE.')
+
 END IF !usecurveds
 BoundaryOrder=N+1
 
@@ -371,7 +376,8 @@ USE MOD_zcorrection,      ONLY: OrientElemsToZ
 USE MOD_SplitToHex,       ONLY: SplitElementsToHex,SplitAllHexa
 USE MOD_Output_Vars,      ONLY: DebugVisu,DebugVisuLevel
 USE MOD_Curved,           ONLY: SplitToSpline,ReconstructNormals,getExactNormals,deleteDuplicateNormals,readNormals
-USE MOD_Curved,           ONLY: create3dSplines,curvedEdgesToSurf,buildCurvedElementsFromVolume,curvedSurfacesToElem
+USE MOD_Curved,           ONLY: create3dSplines,curvedEdgesToSurf,curvedSurfacesToElem
+USE MOD_Curved,           ONLY: buildCurvedElementsFromVolume,buildCurvedElementsFromBoundarySides
 USE MOD_Curved,           ONLY: readNormals
 USE MOD_Curved,           ONLY: ProjectToExactSurfaces
 USE MOD_Mesh_Basis,       ONLY: BuildEdges,ElemGeometry,FindElemTypes
@@ -521,7 +527,11 @@ IF(.NOT.curvedFound) curvingMethod=-1
 IF(useCurveds)THEN
   IF(meshIsAlreadyCurved)THEN
     ! if curved nodes have been read in and mesh should not be modified, just distribute nodes
-    CALL buildCurvedElementsFromVolume()
+    IF(onlyCurveBoundaries)THEN
+      CALL buildCurvedElementsFromBoundarySides()
+    ELSE
+      CALL buildCurvedElementsFromVolume()
+    END IF
   ELSE
     ! Build curved mesh
     SELECT CASE(curvingMethod)
@@ -564,6 +574,7 @@ IF(useCurveds)THEN
   END IF
 
   CALL CountSplines()
+
 END IF ! useCurveds
 
 ! make all nodes unique
@@ -578,6 +589,7 @@ IF(doZcorrection) CALL zCorrection()
 CALL CheckNodeConnectivity()
 
 CALL PostDeform()
+
 
 ! apply meshscale before output (default)
 IF(doScale.AND.postScale) CALL ApplyMeshScale(FirstElem)

@@ -49,6 +49,10 @@ INTERFACE buildCurvedElementsFromVolume
   MODULE PROCEDURE buildCurvedElementsFromVolume
 END INTERFACE
 
+INTERFACE buildCurvedElementsFromBoundarySides
+  MODULE PROCEDURE buildCurvedElementsFromBoundarySides
+END INTERFACE
+
 INTERFACE curvedEdgesToSurf
   MODULE PROCEDURE curvedEdgesToSurf
 END INTERFACE
@@ -63,7 +67,7 @@ END INTERFACE
 
 PUBLIC::SplitToSpline,ReconstructNormals,getExactNormals,deleteDuplicateNormals,create3DSplines,curvEdedgesToSurf
 PUBLIC::ProjectToExactSurfaces
-PUBLIC::CurvedSurfacesToElem,readNormals,buildCurvedElementsFromVolume
+PUBLIC::CurvedSurfacesToElem,readNormals,buildCurvedElementsFromVolume,buildCurvedElementsFromBoundarySides
 !===================================================================================================================================
 
 CONTAINS
@@ -1026,7 +1030,7 @@ IF(N .LE. 1) RETURN
 Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))
   ! check if element is really curved or only bilinear
-  CALL curvedVolToSurf(Elem)
+  CALL curvedVolToSurf(Elem,onlyBoundarySides=.FALSE.)
   Side => Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
     CALL curvedSurfToEdges(Side)
@@ -1037,9 +1041,95 @@ END DO
 
 END SUBROUTINE buildCurvedElementsFromVolume
 
-SUBROUTINE curvedVolToSurf(Elem)
+SUBROUTINE buildCurvedElementsFromBoundarySides()
 !===================================================================================================================================
 ! set surface curvednode pointers from existing curved volume 
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars,ONLY:tElem,tSide,FirstElem,N,deleteNode
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+TYPE(tElem),POINTER          :: Elem  ! ?
+TYPE(tSide),POINTER          :: Side  ! ?
+INTEGER                      :: iNode
+!===================================================================================================================================
+IF(N .LE. 1) RETURN
+
+Elem=>firstElem
+DO WHILE(ASSOCIATED(Elem))
+  ! check if element is really curved or only bilinear
+  CALL curvedVolToSurf(Elem,onlyBoundarySides=.TRUE.)
+  Side => Elem%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    IF(ASSOCIATED(Side%BC).AND.Side%curveIndex.GT.0) &
+      CALL curvedSurfToEdges(Side)
+    Side => Side%nextElemSide
+  END DO
+  Elem=>Elem%nextElem
+END DO
+CALL curvedEdgesToSurf()
+
+Elem=>firstElem
+DO WHILE(ASSOCIATED(Elem))
+  DO iNode=1,Elem%nCurvedNodes
+    Elem%CurvedNode(iNode)%np%tmp=0
+  END DO
+  Side => Elem%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    DO iNode=1,Side%nNodes
+      Side%Node(iNode)%np%tmp=0
+    END DO
+    DO iNode=1,Side%nCurvedNodes
+      Side%CurvedNode(iNode)%np%tmp=0
+    END DO
+    Side => Side%nextElemSide
+  END DO
+  Elem=>Elem%nextElem
+END DO
+
+Elem=>firstElem
+DO WHILE(ASSOCIATED(Elem))
+  Side => Elem%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    IF(ASSOCIATED(Side%BC).AND.Side%curveIndex.GT.0)THEN
+      DO iNode=1,Side%nNodes
+        Side%Node(iNode)%np%tmp=-222
+      END DO
+      DO iNode=1,Side%nCurvedNodes
+        Side%CurvedNode(iNode)%np%tmp=-333
+      END DO
+    END IF
+    Side => Side%nextElemSide
+  END DO
+  Elem=>Elem%nextElem
+END DO
+
+Elem=>firstElem
+DO WHILE(ASSOCIATED(Elem))
+  DO iNode=1,Elem%nCurvedNodes
+    IF(Elem%CurvedNode(iNode)%np%tmp.GE.0)THEN
+      CALL deleteNode(Elem%CurvedNode(iNode)%np)
+    END IF
+  END DO
+  DEALLOCATE(Elem%CurvedNode)
+  Elem%nCurvedNodes=0
+  Elem=>Elem%nextElem
+END DO
+CALL curvedSurfacesToElem()
+
+END SUBROUTINE buildCurvedElementsFromBoundarySides
+
+SUBROUTINE curvedVolToSurf(Elem,onlyBoundarySides)
+!===================================================================================================================================
+! Curved elements are only created adjacent to boundary sides with a curveIndex > 0.
+! Here only the surface information is taken for curving the elements.
+! All other elements remain linear (except for elements adjacent to curved edges).
 !===================================================================================================================================
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:tElem,tSide,tNodePtr
@@ -1050,6 +1140,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 TYPE(tElem),POINTER,INTENT(IN)          :: Elem  ! ?
+LOGICAL,INTENT(IN)                      :: onlyBoundarySides
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1065,6 +1156,12 @@ END DO; END DO
 
 Side=>Elem%firstSide
 DO WHILE(ASSOCIATED(Side))
+  IF(onlyBoundarySides)THEN
+    IF(.NOT.ASSOCIATED(Side%BC).OR.Side%CurveIndex.LE.0)THEN
+      Side=>Side%nextElemSide
+      CYCLE
+    END IF
+  END IF
   ! Volume to reference side
   SELECT CASE(Elem%nNodes)
   CASE(4) !Tetraeder

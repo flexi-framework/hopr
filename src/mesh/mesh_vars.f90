@@ -164,6 +164,7 @@ LOGICAL                        :: checkElemJacobians     ! check if Jacobians ar
 TYPE(tElem) ,POINTER           :: firstElem              ! pointer to first element in order to start a loop
 TYPE(tElem) ,POINTER           :: firstSplitElem         ! pointer to first element in splitted elem list for curveds
 LOGICAL                        :: doScale                ! scaling factor gt realtolerance
+LOGICAL                        :: preScale               ! apply scaling after readin or before output
 LOGICAL                        :: postScale              ! apply scaling after readin or before output
 REAL                           :: MeshScale              ! scaling factor applied to Node Coordinates during read in
 REAL                           :: SpaceQuandt            ! Characteristic length in the mesh. Used as tolerance 
@@ -201,6 +202,8 @@ LOGICAL                        :: useCurveds             ! switch .TRUE.= we wan
 LOGICAL                        :: rebuildCurveds         ! switch .TRUE.= if curveds are already present in the mesh, delete them
                                                          ! and rebuild them using our methods
 LOGICAL                        :: meshIsAlreadyCurved    ! flag: mesh is already curved (GMSH, HDF5, block CGNS)
+LOGICAL                        :: onlyCurveBoundaries    ! flag: if volume curved mesh use only geo
+                                                         ! from boundary sides, rest is linear
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! CURVE GRID GENERATOR
 !-----------------------------------------------------------------------------------------------------------------------------------
