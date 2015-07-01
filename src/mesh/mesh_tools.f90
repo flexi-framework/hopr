@@ -448,6 +448,7 @@ USE MOD_Basis_Vars,ONLY:Vdm_Visu_Hexa,D_Visu_Hexa
 USE MOD_Basis_Vars,ONLY:VisuHexaMapInv
 USE MOD_Basis_Vars,ONLY:nVisu
 USE MOD_Output    ,ONLY:Visualize
+USE MOD_Output_vars,ONLY:Visu_sJ_limit
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -465,6 +466,7 @@ CHARACTER(LEN=255),ALLOCATABLE  :: VarNames(:)  ! ?
 REAL,ALLOCATABLE                :: xNode(:,:),x(:,:),xt1(:,:),xt2(:,:),xt3(:,:),Jac(:)  ! ?
 REAL,ALLOCATABLE                :: Coord(:,:,:),Values(:,:,:)   ! ?
 REAL                            :: smaxJac  ! ?
+INTEGER,ALLOCATABLE             :: ElemMap(:),ElemMapInv(:)  ! for visu_sJ_limit
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'WRITE CURVED VOLUME VISUALIZATION...'
@@ -500,11 +502,12 @@ ALLOCATE(xt2(Nplot_p1_3,3))
 ALLOCATE(xt3(Nplot_p1_3,3))
 ALLOCATE(Jac(Nplot_p1_3))
 
-nVal=3
+nVal=4
 ALLOCATE(VarNames(nVal))
 VarNames(1)='elemind'
 VarNames(2)='Jacobian'
 VarNames(3)='scaledJacobian'
+VarNames(4)='scaledJacElem'
 
 ALLOCATE(Coord(    3,Nplot_p1_3,nCurveds))
 ALLOCATE(Values(nVal,Nplot_p1_3,nCurveds))
@@ -548,12 +551,38 @@ DO WHILE(ASSOCIATED(Elem))
         END DO
       END DO
       Values(1,:,iElem)=Elem%ind
+      Values(4,:,iElem)=MINVAL(Values(3,:,iElem))
     END SELECT
   END IF
   Elem=>Elem%nextElem
 END DO
-
-CALL Visualize(3,nVal,Nplot,nCurveds,VarNames,Coord,Values,FileString)
+IF(Visu_sJ_limit.LT.1.)THEN
+  ALLOCATE(ElemMap(nCurveds))
+  ElemMap=0
+  j=0
+  DO iElem=1,nCurveds
+    IF(MINVAL(Values(3,:,iElem)).LE.Visu_sJ_limit)THEN
+      j=j+1
+      ElemMap(iElem)=j
+    END IF
+  END DO
+  IF(j.GT.0)THEN
+    WRITE(UNIT_stdOut,'(A,I12,A,F6.3,A)')'Found',j,' elements with sJ<= ',Visu_sJ_limit,' to visualize...'
+    ALLOCATE(ElemMapInv(j))
+    j=0
+    DO iElem=1,nCurveds
+      IF(ElemMap(iElem).GT.0) THEN
+        j=j+1
+        ElemMapInv(j)=iElem
+      END IF
+    END DO
+    CALL Visualize(3,nVal,Nplot,j,VarNames,Coord(:,:,ElemMapInv),Values(:,:,ElemMapInv),FileString)
+    DEALLOCATE(ElemMapInv)
+  END IF !j>0
+  DEALLOCATE(ElemMap)
+ELSE
+  CALL Visualize(3,nVal,Nplot,nCurveds,VarNames,Coord,Values,FileString)
+END IF !Visu_sJ_limit < 1
 
 DEALLOCATE(VarNames,Coord,Values,xNode,x,xt1,xt2,xt3,Jac)
 CALL Timer(.FALSE.)

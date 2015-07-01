@@ -78,6 +78,8 @@ DebugVisu  =GETLOGICAL('DebugVisu','.FALSE.')
 IF(DebugVisu) THEN
   DebugVisuLevel=GETINT('DebugVisuLevel','0')  
   OutputFormat  =GETINT('OutputFormat','0')  
+  IF(DebugVisuLevel.GE.2) &
+    Visu_sJ_limit  =GETREAL('Visu_sJ_limit','1.')  
 END IF
 
 sfc_type  =GETSTR('sfc_type','hilbert')
