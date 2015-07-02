@@ -1041,7 +1041,7 @@ END DO
 
 END SUBROUTINE buildCurvedElementsFromVolume
 
-SUBROUTINE buildCurvedElementsFromBoundarySides()
+SUBROUTINE buildCurvedElementsFromBoundarySides(nCurvedBoundaryLayers)
 !===================================================================================================================================
 ! set surface curvednode pointers from existing curved volume 
 !===================================================================================================================================
@@ -1051,58 +1051,89 @@ USE MOD_Mesh_Vars,ONLY:tElem,tSide,FirstElem,N,deleteNode
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+INTEGER,INTENT(IN)           :: nCurvedBoundaryLayers
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 TYPE(tElem),POINTER          :: Elem  ! ?
 TYPE(tSide),POINTER          :: Side  ! ?
-INTEGER                      :: iNode
+INTEGER                      :: iNode,iLayer  ! ?
+LOGICAL                      :: onlyBL ! ?
 !===================================================================================================================================
-IF(N .LE. 1) RETURN
+IF(N .LE. 1 .OR. nCurvedBoundaryLayers .LT. 0) RETURN
 
+! mark layers, start with first layer at BC where either side or whole element can be curved
+iLayer=MERGE(0,1,           nCurvedBoundaryLayers.EQ.0)
+onlyBL=MERGE(.TRUE.,.FALSE.,nCurvedBoundaryLayers.EQ.0)
 Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))
-  ! check if element is really curved or only bilinear
-  CALL curvedVolToSurf(Elem,onlyBoundarySides=.TRUE.)
-  Side => Elem%firstSide
-  DO WHILE(ASSOCIATED(Side))
-    IF(ASSOCIATED(Side%BC).AND.Side%curveIndex.GT.0) &
-      CALL curvedSurfToEdges(Side)
-    Side => Side%nextElemSide
-  END DO
-  Elem=>Elem%nextElem
-END DO
-CALL curvedEdgesToSurf()
-
-Elem=>firstElem
-DO WHILE(ASSOCIATED(Elem))
+  Elem%tmp=-999
   DO iNode=1,Elem%nCurvedNodes
-    Elem%CurvedNode(iNode)%np%tmp=0
+    Elem%CurvedNode(iNode)%np%tmp=-999
   END DO
-  Side => Elem%firstSide
-  DO WHILE(ASSOCIATED(Side))
-    DO iNode=1,Side%nNodes
-      Side%Node(iNode)%np%tmp=0
-    END DO
-    DO iNode=1,Side%nCurvedNodes
-      Side%CurvedNode(iNode)%np%tmp=0
-    END DO
-    Side => Side%nextElemSide
+  DO iNode=1,Elem%nNodes
+    Elem%Node(iNode)%np%tmp=999 ! never delete corner nodes
   END DO
-  Elem=>Elem%nextElem
-END DO
-
-Elem=>firstElem
-DO WHILE(ASSOCIATED(Elem))
   Side => Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
     IF(ASSOCIATED(Side%BC).AND.Side%curveIndex.GT.0)THEN
+      Elem%tmp=iLayer
+      Side%tmp=iLayer
+    ELSE
+      Side%tmp=-999
+    END IF
+    Side => Side%nextElemSide
+  END DO
+  Elem=>Elem%nextElem
+END DO
+! now mark other elements layer by layer
+DO iLayer=2,nCurvedBoundaryLayers
+  Elem=>firstElem
+  DO WHILE(ASSOCIATED(Elem))
+    IF(Elem%tmp.EQ.-999)THEN
+      Side => Elem%firstSide
+      DO WHILE(ASSOCIATED(Side))
+        IF(ASSOCIATED(Side%Connection))THEN
+          IF(Side%Connection%elem%tmp.EQ.iLayer-1) &
+            Elem%tmp=iLayer
+        END IF
+        Side => Side%nextElemSide
+      END DO
+    END IF
+    Elem=>Elem%nextElem
+  END DO
+END DO
+
+Elem=>firstElem
+DO WHILE(ASSOCIATED(Elem))
+  IF(Elem%tmp.GE.0)   CALL curvedVolToSurf(Elem,onlyBoundarySides=onlyBL)
+  Side => Elem%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    IF(Side%tmp.GE.0 .OR. Elem%tmp.GT.0) CALL curvedSurfToEdges(Side)
+    Side => Side%nextElemSide
+  END DO
+  Elem=>Elem%nextElem
+END DO
+
+CALL curvedEdgesToSurf(keepExistingCurveds=.TRUE.)
+
+! Mark all curved nodes which will not be deleted
+Elem=>firstElem
+DO WHILE(ASSOCIATED(Elem))
+  IF(Elem%tmp.GT.0)THEN
+    DO iNode=1,Elem%nCurvedNodes
+      Elem%CurvedNode(iNode)%np%tmp=999
+    END DO
+  END IF
+  Side => Elem%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    IF(Side%tmp.GE.0)THEN
       DO iNode=1,Side%nNodes
-        Side%Node(iNode)%np%tmp=-222
+        Side%Node(iNode)%np%tmp=999
       END DO
       DO iNode=1,Side%nCurvedNodes
-        Side%CurvedNode(iNode)%np%tmp=-333
+        Side%CurvedNode(iNode)%np%tmp=999
       END DO
     END IF
     Side => Side%nextElemSide
@@ -1113,7 +1144,7 @@ END DO
 Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))
   DO iNode=1,Elem%nCurvedNodes
-    IF(Elem%CurvedNode(iNode)%np%tmp.GE.0)THEN
+    IF(Elem%CurvedNode(iNode)%np%tmp.NE.999)THEN
       CALL deleteNode(Elem%CurvedNode(iNode)%np)
     END IF
   END DO
@@ -2000,7 +2031,7 @@ DEALLOCATE(edgeNode,aNormal,foundNormals)
 END SUBROUTINE getTangentialVectors
 
 
-SUBROUTINE curvedEdgesToSurf()
+SUBROUTINE curvedEdgesToSurf(keepExistingCurveds)
 !===================================================================================================================================
 ! Blend edges of a side to a curved side 
 !===================================================================================================================================
@@ -2010,6 +2041,7 @@ USE MOD_Mesh_Vars,ONLY:tElem,tSide,FirstElem
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+LOGICAL                   :: keepExistingCurveds
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -2021,6 +2053,33 @@ INTEGER                   :: i,nAns  ! ?
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,*)'CREATING CURVED SURFACES FROM CURVED EDGES ...'
 CALL Timer(.TRUE.)
+
+IF(keepExistingCurveds)THEN
+  Elem=>firstElem
+  DO WHILE(ASSOCIATED(Elem))
+    Side=>Elem%firstSide
+    DO WHILE(ASSOCIATED(Side))
+      IF(.NOT.ASSOCIATED(Side%Connection)  .OR. &
+         .NOT.ASSOCIATED(Side%curvedNode)  .OR. &
+              ASSOCIATED(Side%BC)         ) THEN
+        Side=>Side%nextElemSide
+        CYCLE
+      END IF
+
+      IF(.NOT.ASSOCIATED(Side%Connection%CurvedNode))THEN
+        nAns=Side%nCurvedNodes
+        Side%Connection%nCurvedNodes=nAns
+        ALLOCATE(Side%Connection%CurvedNode(nAns))
+        DO i=1,nAns
+          Side%Connection%CurvedNode(i)%np=>Side%CurvedNode(i)%np
+        END DO
+        Side%Connection%curveIndex=Side%curveIndex
+      END IF
+      Side=>Side%nextElemSide
+    END DO
+    Elem=>Elem%nextElem
+  END DO
+END IF
 
 Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))
@@ -2046,7 +2105,7 @@ DO WHILE(ASSOCIATED(Elem))
     !check connection, but for periodic BCs Splines are not copied!
     IF(ASSOCIATED(Side%Connection))THEN
       IF(.NOT.ASSOCIATED(Side%BC)) THEN
-        IF(ASSOCIATED(Side%Connection%CurvedNode)) THEN
+        IF(ASSOCIATED(Side%Connection%CurvedNode).AND..NOT.keepExistingCurveds) THEN
           CALL ABORT(__STAMP__,'connection already curved...')
         END IF
         nAns=Side%nCurvedNodes
@@ -2257,7 +2316,7 @@ WRITE(UNIT_stdOut,*)'CREATING CURVED ELEMENTS FROM CURVED SURFACES ...'
 CALL Timer(.TRUE.)
 
 ! first build unique curved / bilinear sides
-CALL curvedEdgesToSurf()
+CALL curvedEdgesToSurf(keepExistingCurveds=.FALSE.)
 
 Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))

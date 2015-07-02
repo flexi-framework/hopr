@@ -198,12 +198,12 @@ INTEGER                        :: nSkipZ                 ! for structured CGNS r
 INTEGER                        :: nBoundarySplines=0     ! Counter for boundary splines
 INTEGER                        :: nPeriodicSplines=0     ! Counter for splines at periodic boundaries
 INTEGER                        :: nInnerSplines   =0     ! Counter for inner splines
+INTEGER                        :: nCurvedBoundaryLayers  ! flag: if volume curved mesh use only geo
+                                                         ! from boundary sides, rest is linear
 LOGICAL                        :: useCurveds             ! switch .TRUE.= we want to use curved elements (INPUT)
 LOGICAL                        :: rebuildCurveds         ! switch .TRUE.= if curveds are already present in the mesh, delete them
                                                          ! and rebuild them using our methods
 LOGICAL                        :: meshIsAlreadyCurved    ! flag: mesh is already curved (GMSH, HDF5, block CGNS)
-LOGICAL                        :: onlyCurveBoundaries    ! flag: if volume curved mesh use only geo
-                                                         ! from boundary sides, rest is linear
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! CURVE GRID GENERATOR
 !-----------------------------------------------------------------------------------------------------------------------------------

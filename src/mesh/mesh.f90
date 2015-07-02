@@ -224,7 +224,9 @@ IF(useCurveds) THEN
   END IF
 
   ! If domain is curved, try to uncurve it and leave only the sides with BCs speciefied curved
-  onlyCurveBoundaries=GETLOGICAL('onlyCurveBoundaries','.FALSE.')
+  ! -1: deactivated, 0: only boundary is curved, 1: only first element is curved,
+  ! 2-n: first n layers from the boundary are curved (not implemented yet)
+  nCurvedBoundaryLayers=GETINT('nCurvedBoundaryLayers','-1')
 
 END IF !usecurveds
 BoundaryOrder=N+1
@@ -527,8 +529,8 @@ IF(.NOT.curvedFound) curvingMethod=-1
 IF(useCurveds)THEN
   IF(meshIsAlreadyCurved)THEN
     ! if curved nodes have been read in and mesh should not be modified, just distribute nodes
-    IF(onlyCurveBoundaries)THEN
-      CALL buildCurvedElementsFromBoundarySides()
+    IF(nCurvedBoundaryLayers.GE.0)THEN
+      CALL buildCurvedElementsFromBoundarySides(nCurvedBoundaryLayers)
     ELSE
       CALL buildCurvedElementsFromVolume()
     END IF
@@ -546,7 +548,7 @@ IF(useCurveds)THEN
         CALL deleteDuplicateNormals()
       END SELECT
       CALL create3DSplines()              ! Reconstruct curved boundaries
-      CALL curvedEdgesToSurf()
+      CALL curvedEdgesToSurf(keepExistingCurveds=.FALSE.)
     CASE(3) ! STAR/ANSA: generate curved mesh from subgrid
       SELECT CASE(SplitMeshMode)
       CASE(3)
@@ -560,10 +562,10 @@ IF(useCurveds)THEN
       CALL Connect2DMesh(FirstSplitElem)
       IF(doScale.AND..NOT.postScale) CALL ApplyMeshScale(FirstSplitElem)
       CALL splitToSpline()
-      CALL curvedEdgesToSurf()
+      CALL curvedEdgesToSurf(keepExistingCurveds=.FALSE.)
     CASE(4) !!!only in combination with icem cgns meshes!!!! 
       CALL readSpecEdges()
-      CALL curvedEdgesToSurf()
+      CALL curvedEdgesToSurf(keepExistingCurveds=.FALSE.)
       ! jetzt muessen bei allen randbedingungen die curved sind, die Edge%curvedNode(:) besetzt sein
     CASE DEFAULT
       ! don't curve
