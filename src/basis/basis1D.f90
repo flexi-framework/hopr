@@ -44,6 +44,10 @@ INTERFACE InitializeVandermonde
    MODULE PROCEDURE InitializeVandermonde
 END INTERFACE
 
+INTERFACE ALMOSTEQUAL
+   MODULE PROCEDURE ALMOSTEQUAL
+END INTERFACE
+
 PUBLIC:: Vandermonde1D
 PUBLIC:: GradVandermonde1D
 PUBLIC:: JacobiP
@@ -52,6 +56,7 @@ PUBLIC:: ChebyGaussLobNodesAndWeights
 PUBLIC:: PolynomialDerivativeMatrix
 PUBLIC:: BarycentricWeights
 PUBLIC:: InitializeVandermonde
+PUBLIC:: ALMOSTEQUAL
 !===================================================================================================================================
 
 CONTAINS
@@ -62,8 +67,6 @@ SUBROUTINE  JacobiP(nNodes,x,alpha,beta,Deg,P)
 ! w(x)=(1-x)^alpha(1+x)^beta
 ! \int_{-1}^{1} P_i^{(alpha,beta)}(x) P_j^{(alpha,beta)}(x) w(x) dx = \delta_{ij}
 !===================================================================================================================================
-! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -132,8 +135,6 @@ SUBROUTINE  GradJacobiP(nNodes,x,alpha,beta,Deg,GradP)
 ! w(x)=(1-x)^alpha(1+x)^beta
 ! \int_{-1}^{1} P_i^{(alpha,beta)}(x) P_j^{(alpha,beta)}(x) w(x) dx = \delta_{ij}
 !===================================================================================================================================
-! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -164,8 +165,6 @@ SUBROUTINE  JacobiP_all(nNodes,x,alpha,beta,Deg,P)
 ! w(x)=(1-x)^alpha(1+x)^beta
 ! \int_{-1}^{1} P_i^{(alpha,beta)}(x) P_j^{(alpha,beta)}(x) w(x) dx = \delta_{ij}
 !===================================================================================================================================
-! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -229,8 +228,6 @@ SUBROUTINE  GradJacobiP_all(nNodes,x,alpha,beta,Deg,GradP)
 ! w(x)=(1-x)^alpha(1+x)^beta
 ! \int_{-1}^{1} P_i^{(alpha,beta)}(x) P_j^{(alpha,beta)}(x) w(x) dx = \delta_{ij}
 !===================================================================================================================================
-! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -262,8 +259,6 @@ SUBROUTINE Vandermonde1D(nNodes1D,Deg,r1D,VdM1D)
 ! computes on a given set of nodes and a given polynomial degree
 ! the Vandermonde Matrix to 1D orthonormal Legendre polyonomials in reference space [-1,1]
 !===================================================================================================================================
-! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -284,8 +279,6 @@ SUBROUTINE GradVandermonde1D(nNodes1D,Deg,r1D,gradVdM1D)
 ! computes on a given set of nodes and a given polynomial degree
 ! the Gradient Vandermonde Matrix to 1D orthonormal Legendre polyonomials in reference space [-1,1]
 !===================================================================================================================================
-! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -300,12 +293,40 @@ REAL,INTENT(OUT)             :: gradVdM1D(0:nNodes1D-1,0:Deg)   ! ?
 CALL GradJacobiP_all(nNodes1D,r1D, 0, 0,Deg,gradVdM1D(:,:))
 END SUBROUTINE GradVandermonde1D
 
+
+
+SUBROUTINE ChebyshevGaussNodesAndWeights(N_in,xGP,wGP)
+!===================================================================================================================================
+! algorithm 27, Kopriva
+!===================================================================================================================================
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+!input parameters
+INTEGER,INTENT(IN)        :: N_in       ! polynomial degree, (N_in+1) CLpoints 
+!-----------------------------------------------------------------------------------------------------------------------------------
+!output parameters
+REAL,INTENT(OUT)          :: xGP(0:N_in)  ! Gausspoint positions for the reference interval [-1,1]
+REAL,INTENT(OUT),OPTIONAL :: wGP(0:N_in)  ! Gausspoint weights
+!-----------------------------------------------------------------------------------------------------------------------------------
+!local variables
+INTEGER                   :: iGP
+!===================================================================================================================================
+DO iGP=0,N_in
+  xGP(iGP)=-cos((2*iGP+1)/(2*REAL(N_in)+2)*ACOS(-1.))
+END DO
+IF(PRESENT(wGP))THEN
+  DO iGP=0,N_in
+    wGP(iGP)=ACOS(-1.)/REAL(N_in+1)
+  END DO
+END IF
+END SUBROUTINE ChebyshevGaussNodesAndWeights
+
+
+
 SUBROUTINE ChebyGaussLobNodesAndWeights(N_in,xGP,wGP)
 !===================================================================================================================================
 ! algorithm 27, Kopriva
 !===================================================================================================================================
-! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -328,20 +349,200 @@ IF(PRESENT(wGP))THEN
   wGP(0)=wGP(0)*0.5
   wGP(N_in)=wGP(N_in)*0.5
 END IF
-
-! Debugging:
-
-!SWRITE(*,*) "########### I am HERE: ChebyGaussLobNodesAndWeights"
-
-
 END SUBROUTINE ChebyGaussLobNodesAndWeights
+
+
+
+SUBROUTINE LegendreGaussNodesAndWeights(N_in,xGP,wGP)
+!===================================================================================================================================
+! algorithm 23, Kopriva
+! starting with Chebychev point positions, a Newton method is used to find the roots 
+! of the Legendre Polynomial L_(N_in+1), which are the positions of Gausspoints
+! uses LegendrePolynomialAndDerivative subroutine
+!===================================================================================================================================
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+!input parameters
+INTEGER,INTENT(IN)        :: N_in              ! polynomial degree, (N_in+1) Gausspoints 
+!-----------------------------------------------------------------------------------------------------------------------------------
+!output parameters
+REAL,INTENT(OUT)          :: xGP(0:N_in)       ! Gausspoint positions for the reference interval [-1,1]
+REAL,INTENT(OUT),OPTIONAL :: wGP(0:N_in)       ! Gausspoint weights
+!-----------------------------------------------------------------------------------------------------------------------------------
+!local variables
+INTEGER                   :: nIter = 10     ! max. number of newton iterations
+REAL                      :: Tol   = 1.E-15 ! tolerance for Newton iteration
+INTEGER                   :: iGP,iter
+REAL                      :: L_Np1,Lder_Np1 ! L_{N_in+1},Lder_{N_in+1}
+REAL                      :: dx             ! Newton step
+REAL                      :: cheb_tmp       ! temporary variable for evaluation of chebychev node positions
+!===================================================================================================================================
+IF(N_in .EQ. 0) THEN
+  xGP=0.
+  IF(PRESENT(wGP))wGP=2.
+  RETURN
+ELSEIF(N_in.EQ.1)THEN
+  xGP(0)=-sqrt(1./3.)
+  xGP(N_in)=-xGP(0)
+  IF(PRESENT(wGP))wGP=1.
+  RETURN
+ELSE ! N_in>1
+  cheb_tmp=2.*atan(1.)/REAL(N_in+1) ! pi/(2N+2)
+  DO iGP=0,(N_in+1)/2-1 !since points are symmetric, only left side is computed
+    xGP(iGP)=-cos(cheb_tmp*REAL(2*iGP+1)) !initial guess
+    ! Newton iteration
+    DO iter=0,nIter
+      CALL LegendrePolynomialAndDerivative(N_in+1,xGP(iGP),L_Np1,Lder_Np1)
+      dx=-L_Np1/Lder_Np1
+      xGP(iGP)=xGP(iGP)+dx
+      IF(abs(dx).LT.Tol*abs(xGP(iGP))) EXIT
+    END DO ! iter
+    IF(iter.GT.nIter) THEN
+      WRITE(*,*) 'maximum iteration steps >10 in Newton iteration for Legendre Gausspoint'
+      xGP(iGP)=-cos(cheb_tmp*REAL(2*iGP+1)) !initial guess
+      ! Newton iteration
+      DO iter=0,nIter
+        WRITE(*,*)iter,xGP(iGP)    !DEBUG  
+        CALL LegendrePolynomialAndDerivative(N_in+1,xGP(iGP),L_Np1,Lder_Np1)
+        dx=-L_Np1/Lder_Np1
+        xGP(iGP)=xGP(iGP)+dx
+        IF(abs(dx).LT.Tol*abs(xGP(iGP))) EXIT
+      END DO !iter
+      STOP 
+    END IF ! (iter.GT.nIter)
+    CALL LegendrePolynomialAndDerivative(N_in+1,xGP(iGP),L_Np1,Lder_Np1)
+    xGP(N_in-iGP)=-xGP(iGP)
+    IF(PRESENT(wGP))THEN
+      !wGP(iGP)=2./((1.-xGP(iGP)*xGP(iGP))*Lder_Np1*Lder_Np1) !if Legendre not normalized
+      wGP(iGP)=(2.*N_in+3)/((1.-xGP(iGP)*xGP(iGP))*Lder_Np1*Lder_Np1)
+      wGP(N_in-iGP)=wGP(iGP)
+    END IF
+  END DO !iGP
+END IF ! N_in
+IF(mod(N_in,2) .EQ. 0) THEN
+  xGP(N_in/2)=0.
+  CALL LegendrePolynomialAndDerivative(N_in+1,xGP(N_in/2),L_Np1,Lder_Np1)
+  !IF(PRESENT(wGP))wGP(N_in/2)=2./(Lder_Np1*Lder_Np1) !if Legendre not normalized
+  IF(PRESENT(wGP))wGP(N_in/2)=(2.*N_in+3)/(Lder_Np1*Lder_Np1)
+END IF ! (mod(N_in,2) .EQ. 0)
+END SUBROUTINE LegendreGaussNodesAndWeights
+
+
+
+SUBROUTINE qAndLEvaluation(N_in,x,q,qder,L)
+!===================================================================================================================================
+! algorithm 24, Kopriva
+! evaluate the polynomial q=L_{N_in+1}-L_{N_in-1} and its derivative at position x[-1,1] 
+! recursive algorithm using the N_in-1 N_in-2 Legendre polynomials
+!===================================================================================================================================
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+!input parameters
+INTEGER,INTENT(IN) :: N_in                               ! polynomial degree
+REAL,INTENT(IN)    :: x                               ! coordinate value in the interval [-1,1]
+!-----------------------------------------------------------------------------------------------------------------------------------
+!output parameters
+REAL,INTENT(OUT)   :: L,q,qder                        ! L_N(xi), d/dxi L_N(xi)
+!-----------------------------------------------------------------------------------------------------------------------------------
+!local variables
+INTEGER            :: iLegendre
+REAL               :: L_Nm1,L_Nm2                     ! L_{N_in-2},L_{N_in-1}
+REAL               :: Lder,Lder_Nm1,Lder_Nm2          ! Lder_{N_in-2},Lder_{N_in-1}
+!===================================================================================================================================
+L_Nm2=1.
+L_Nm1=x
+Lder_Nm2=0.
+Lder_Nm1=1.
+DO iLegendre=2,N_in
+  L=(REAL(2*iLegendre-1)*x*L_Nm1 - REAL(iLegendre-1)*L_Nm2)/REAL(iLegendre)
+  Lder=Lder_Nm2 + REAL(2*iLegendre-1)*L_Nm1
+  L_Nm2=L_Nm1
+  L_Nm1=L
+  Lder_Nm2=Lder_Nm1
+  Lder_Nm1=Lder
+END DO ! iLegendre
+q=REAL(2*N_in+1)/REAL(N_in+1)*(x*L -L_Nm2) !L_{N_in+1}-L_{N_in-1} !L_Nm2 is L_Nm1, L_Nm1 was overwritten!
+qder= REAL(2*N_in+1)*L             !Lder_{N_in+1}-Lder_{N_in-1} 
+END SUBROUTINE qAndLEvaluation
+
+
+
+SUBROUTINE LegGaussLobNodesAndWeights(N_in,xGP,wGP)
+!===================================================================================================================================
+! algorithm 25, Kopriva
+! starting with initial guess by Parter Relation, a Newton method is used to find the roots 
+! of the Legendre Polynomial Lder_(N_in), which are the positions of Gausspoints
+! uses qAndLEvaluation subroutine
+!===================================================================================================================================
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+!input parameters
+INTEGER,INTENT(IN)        :: N_in                ! polynomial degree (N_in+1) Gausspoints 
+!-----------------------------------------------------------------------------------------------------------------------------------
+!output parameters
+REAL,INTENT(OUT)          :: xGP(0:N_in)         ! Gausspoint positions for the reference interval [-1,1]
+REAL,INTENT(OUT),OPTIONAL :: wGP(0:N_in)         ! Gausspoint weights
+!-----------------------------------------------------------------------------------------------------------------------------------
+!local variables
+INTEGER                   :: nIter = 10       ! max. number of newton iterations
+REAL                      :: Tol   = 1.E-15   !tolerance for Newton iteration
+INTEGER                   :: iGP,iter
+REAL                      :: q,qder,L         !q=L_{N_in+1}-L_{N_in-1},qder is derivative, L=L_{N_in}
+REAL                      :: dx               !Newton step
+REAL                      :: pi,cont1,cont2   !temporary variable for evaluation of parter nodes positions
+!===================================================================================================================================
+xGP(0)=-1.
+xGP(N_in)= 1.
+IF(PRESENT(wGP))THEN
+  wGP(0)= 2./REAL(N_in*(N_in+1))
+  wGP(N_in)=wGP(0)
+END IF
+IF(N_in.GT.1)THEN
+  pi=4.*atan(1.)
+  cont1=pi/REAL(N_in) ! pi/N_in
+  cont2=3./(REAL(8*N_in)*pi) ! 3/(8*N_in*pi)
+  DO iGP=1,(N_in+1)/2-1 !since points are symmetric, only left side is computed
+    xGP(iGP)=-cos(cont1*(REAL(iGP)+0.25)-cont2/(REAL(iGP)+0.25)) !initial guess
+    ! Newton iteration
+    DO iter=0,nIter
+      CALL qAndLEvaluation(N_in,xGP(iGP),q,qder,L)
+      dx=-q/qder
+      xGP(iGP)=xGP(iGP)+dx
+      IF(abs(dx).LT.Tol*abs(xGP(iGP))) EXIT
+    END DO ! iter
+    IF(iter.GT.nIter) THEN
+      WRITE(*,*) 'maximum iteration steps >10 in Newton iteration for LGL point:'
+      xGP(iGP)=-cos(cont1*(REAL(iGP)+0.25)-cont2/(REAL(iGP)+0.25)) !initial guess
+      ! Newton iteration
+      DO iter=0,nIter
+        WRITE(*,*)'iter,x^i',iter,xGP(iGP)     !DEBUG 
+        CALL qAndLEvaluation(N_in,xGP(iGP),q,qder,L)
+        dx=-q/qder
+        xGP(iGP)=xGP(iGP)+dx
+        IF(abs(dx).LT.Tol*abs(xGP(iGP))) EXIT
+      END DO ! iter
+      STOP 
+    END IF ! (iter.GT.nIter)
+    CALL qAndLEvaluation(N_in,xGP(iGP),q,qder,L)
+    xGP(N_in-iGP)=-xGP(iGP)
+    IF(PRESENT(wGP))THEN
+      wGP(iGP)=wGP(0)/(L*L)
+      wGP(N_in-iGP)=wGP(iGP)
+    END IF
+  END DO ! iGP
+END IF !(N_in.GT.1)
+IF(mod(N_in,2) .EQ. 0) THEN
+  xGP(N_in/2)=0.
+  CALL qAndLEvaluation(N_in,xGP(N_in/2),q,qder,L)
+  IF(PRESENT(wGP))wGP(N_in/2)=wGP(0)/(L*L)
+END IF ! (mod(N_in,2) .EQ. 0)
+END SUBROUTINE LegGaussLobNodesAndWeights
 
 
 SUBROUTINE BarycentricWeights(N_in,xGP,wBary)
 !===================================================================================================================================
 ! algorithm 30, Kopriva
 !===================================================================================================================================
-! MODULES
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -370,8 +571,6 @@ SUBROUTINE PolynomialDerivativeMatrix(N_in,xGP,D)
 !===================================================================================================================================
 ! algorithm 37, Kopriva
 !===================================================================================================================================
-! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -404,8 +603,6 @@ SUBROUTINE LagrangeInterpolationPolys(x,N_in,xGP,wBary,L)
 ! Computes all Lagrange functions evaluated at position x in [-1;1]
 ! Uses function ALMOSTEQUAL
 !===================================================================================================================================
-! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -450,9 +647,6 @@ SUBROUTINE InitializeVandermonde(N_In,N_Out,wBary_In,xi_In,xi_Out,Vdm)
 ! build a 1D Vandermonde matrix using the lagrange basis functions of degree
 ! N_In, evaluated at the interpolation points xi_Out
 !===================================================================================================================================
-! MODULES
-!USE MOD_Interpolation_Vars
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -469,9 +663,57 @@ INTEGER            :: iXi  ! ?
 !===================================================================================================================================
 DO iXi=0,N_Out
   CALL LagrangeInterpolationPolys(xi_Out(iXi),N_In,xi_In,wBary_In,Vdm(iXi,:))
-!l(0:N_In)
 END DO
 END SUBROUTINE InitializeVandermonde
+
+
+
+SUBROUTINE LegendrePolynomialAndDerivative(N_in,x,L,Lder)
+!===================================================================================================================================
+! algorithm 22, Kopriva
+! evaluate the Legendre polynomial L_N and its derivative at position x[-1,1] 
+! recursive algorithm using the N_in-1 N_in-2 Legendre polynomials
+!===================================================================================================================================
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+!input parameters
+INTEGER,INTENT(IN)        :: N_in     ! polynomial degree, (N+1) CLpoints 
+REAL,INTENT(IN)    :: x      ! coordinate value in the interval [-1,1]
+!-----------------------------------------------------------------------------------------------------------------------------------
+!output parameters
+REAL,INTENT(OUT)    :: L,Lder  ! L_N(xi), d/dxi L_N(xi)
+!-----------------------------------------------------------------------------------------------------------------------------------
+!local variables
+INTEGER :: iLegendre
+REAL    :: L_Nm1,L_Nm2 ! L_{N_in-2},L_{N_in-1}
+REAL    :: Lder_Nm1,Lder_Nm2 ! Lder_{N_in-2},Lder_{N_in-1}
+!===================================================================================================================================
+IF(N_in .EQ. 0)THEN
+  L=1.
+  Lder=0.
+ELSEIF(N_in .EQ. 1) THEN
+  L=x
+  Lder=1.
+ELSE ! N_in > 1
+  L_Nm2=1.
+  L_Nm1=x
+  Lder_Nm2=0.
+  Lder_Nm1=1.
+  DO iLegendre=2,N_in
+    L=(REAL(2*iLegendre-1)*x*L_Nm1 - REAL(iLegendre-1)*L_Nm2)/REAL(iLegendre)
+    Lder=Lder_Nm2 + REAL(2*iLegendre-1)*L_Nm1
+    L_Nm2=L_Nm1
+    L_Nm1=L
+    Lder_Nm2=Lder_Nm1
+    Lder_Nm1=Lder
+  END DO !iLegendre=2,N_in
+END IF ! N_in
+!normalize
+L=L*SQRT(REAL(N_in)+0.5)
+Lder=Lder*SQRT(REAL(N_in)+0.5)
+END SUBROUTINE LegendrePolynomialAndDerivative
+
+
 
 FUNCTION ALMOSTEQUAL(x,y)
 !===================================================================================================================================
@@ -480,26 +722,22 @@ FUNCTION ALMOSTEQUAL(x,y)
 ! Depends on PP_RealTolerance
 ! Takes into account that x,y is located in-between [-1;1]
 !===================================================================================================================================
-! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+!input parameters
 REAL,INTENT(IN) :: x,y         ! 2 scalar real numbers
 !-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+!output parameters
 LOGICAL         :: AlmostEqual ! TRUE if |x-y| < 2*PP_RealTolerance
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
+!local variables
 !===================================================================================================================================
-
 AlmostEqual=.FALSE.
 IF((x.EQ.0.).OR.(y.EQ.0.)) THEN
-  IF(ABS(x-y).LE.2.*RealTolerance) AlmostEqual=.TRUE.
+  IF(ABS(x-y).LE.2.*PP_RealTolerance) AlmostEqual=.TRUE.
 ELSE ! x, y not zero
-  IF((ABS(x-y).LE.RealTolerance*ABS(x)).AND.((ABS(x-y).LE.RealTolerance*ABS(y)))) AlmostEqual=.TRUE.
+  IF((ABS(x-y).LE.PP_RealTolerance*ABS(x)).AND.((ABS(x-y).LE.PP_RealTolerance*ABS(y)))) AlmostEqual=.TRUE.
 END IF ! x,y zero
-
 END FUNCTION ALMOSTEQUAL
 
 END MODULE MOD_Basis1D

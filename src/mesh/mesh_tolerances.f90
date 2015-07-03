@@ -72,7 +72,7 @@ REAL                  :: r,tol  ! ?
 IF (PRESENT(tolin)) THEN
   tol=tolin
 ELSE
-  tol=RealTolerance
+  tol=PP_MeshTolerance
 END IF
 tol=tol*SpaceQuandt
 ! use L_2 vektor norm

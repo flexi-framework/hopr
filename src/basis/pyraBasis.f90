@@ -1,3 +1,4 @@
+#include "defines.f90"
 MODULE MOD_pyraBasis
 !===================================================================================================================================
 ! ?
@@ -179,13 +180,11 @@ REAL,INTENT(IN)              :: r(nNodes),s(nNodes),t(nNodes)   ! ?
 REAL,INTENT(OUT)             :: a(nNodes),b(nNodes),c(nNodes)   ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-INTEGER                     :: iNode  ! ?
-REAL                        :: RealTolerance  ! ?
+INTEGER                      :: iNode  ! ?
 !===================================================================================================================================
 WRITE(*,*)'entering rst_to_abc'
-RealTolerance=1.0E-8
 DO iNode=1,nNodes
-  IF(ABS(1.-t(iNode)).LT.RealTolerance)THEN
+  IF(ABS(1.-t(iNode)).LT.PP_RealTolerance)THEN
     a(iNode)=-1.
     b(iNode)=-1.
   ELSE

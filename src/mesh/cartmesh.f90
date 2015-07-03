@@ -411,19 +411,19 @@ DO iZone=1,nZones
     CASE(3)
       e1(i_Dim)=CartMesh%Corner(i_Dim,5)-CartMesh%Corner(i_Dim,1)
     END SELECT
-    IF(ABS(CartMesh%l0(i_Dim)) .LT. RealTolerance ) THEN !l0 = 0 = inactive
-      IF(ABS(CartMesh%factor(i_Dim)) .LT. RealTolerance ) THEN !fac= 0 = equidistant
+    IF(ABS(CartMesh%l0(i_Dim)) .LT. PP_RealTolerance ) THEN !l0 = 0 = inactive
+      IF(ABS(CartMesh%factor(i_Dim)) .LT. PP_RealTolerance ) THEN !fac= 0 = equidistant
         fac(i_Dim)=1.       
       ELSE ! stretched, (nElem,f) given
         fac(i_Dim)=(ABS(CartMesh%factor(i_Dim)))**(SIGN(1.,CartMesh%factor(i_Dim))) ! sign for direction 
       END IF
     ELSE !l0 active
       dx(i_Dim)=e1(i_Dim)/ABS(cartMesh%l0(i_Dim)) ! l/l0
-      IF(dx(i_Dim) .LT. (1.-RealTolerance)) THEN ! l0 > l
+      IF(dx(i_Dim) .LT. (1.-PP_RealTolerance)) THEN ! l0 > l
         !CALL abort(__STAMP__,  & 
          stop  'stretching error, length l0 longer than grid region, in direction '  !,i_Dim,999.)
       END IF
-      IF(ABS(CartMesh%factor(i_Dim)) .LT. RealTolerance ) THEN ! fac=0 , (nElem,l0) given, fac calculated
+      IF(ABS(CartMesh%factor(i_Dim)) .LT. PP_RealTolerance ) THEN ! fac=0 , (nElem,l0) given, fac calculated
         ! 
       ELSE ! (factor, l0) given, change nElems
         fac(i_Dim)=(ABS(CartMesh%factor(i_Dim)))**(SIGN(1.,CartMesh%factor(i_Dim)*CartMesh%l0(i_Dim))) ! sign for direction 
@@ -443,9 +443,9 @@ DO iZone=1,nZones
         fac(i_Dim)=dx(i_Dim)-1.
       ELSE !nElems > 2
         fac(i_Dim)=dx(i_Dim)/nElems(i_Dim) !start value for Newton iteration
-        IF (abs(fac(i_Dim)-1.) .GT. RealTolerance) THEN ! NEWTON iteration, only if not equidistant case
+        IF (abs(fac(i_Dim)-1.) .GT. PP_RealTolerance) THEN ! NEWTON iteration, only if not equidistant case
           F=1.
-          DO WHILE (ABS(F) .GT. RealTolerance)
+          DO WHILE (ABS(F) .GT. PP_RealTolerance)
             F = fac(i_Dim)**nElems(i_Dim) + dx(i_Dim)*(1.-fac(i_Dim)) -1. ! non-linear function
             dF= nElems(i_Dim)*fac(i_Dim)**(nElems(i_Dim)-1) -dx(i_Dim)  !dF/dfac
             fac(i_Dim)= fac(i_Dim) - F/dF
@@ -459,13 +459,13 @@ DO iZone=1,nZones
     IF( ABS((nElems(i_Dim)-1.)*LOG(fac(i_Dim))/LOG(10.)) .GE. 4. )                      &
       !CALL abort(__STAMP__, &
        stop  'stretching error, length ratio > 1.0E4 in direction '  !,i_Dim,999.)
-    IF(ABS(fac(i_Dim)-1.) .GT. RealTolerance ) THEN
+    IF(ABS(fac(i_Dim)-1.) .GT. PP_RealTolerance ) THEN
       dx(i_Dim)=(1.-fac(i_Dim))/(1.-fac(i_Dim)**nElems(i_Dim)) ! first length to start
     ELSE !equidistant case
       dx(i_Dim)=1./ nElems(i_Dim)
     END IF
   END DO  !i_Dim=1,3
-  IF(ABS(SUM(fac(:))-3.).GT. RealTolerance) THEN
+  IF(ABS(SUM(fac(:))-3.).GT. PP_RealTolerance) THEN
     WRITE(UNIT_stdOut,*) '   -STRETCHING INFORMATION'
     WRITE(formatstr,'(A5,I1,A8)')'(A19,',3,'(I9,5X))'
     WRITE(UNIT_stdOut,formatstr) '      -nElems(:) : ', CartMesh%nElems(:)

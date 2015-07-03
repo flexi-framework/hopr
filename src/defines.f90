@@ -17,8 +17,10 @@
 #define ERRWRITE(a,b) WRITE(UNIT_errOut,b)
 #define LOGWRITE(a,b) IF(Logging) WRITE(UNIT_logOut,b)
 
-! General tolerace for Real comparisons
-#define RealTolerance 1.E-8
+! General tolerance for mesh node comparisons and sfc (1.E.-13 should be ok too)
+#define PP_MeshTolerance 1.E-12
+! General tolerance for Real comparisons (double precision)
+#define PP_RealTolerance 1.E-16
 
 ! Settings for different compilers
 !-----------------------------------------------------------------------------------------------------------------------------------

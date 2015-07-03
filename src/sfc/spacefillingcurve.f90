@@ -1,3 +1,4 @@
+#include "defines.f90"
 MODULE MOD_SpaceFillingCurve
 !===================================================================================================================================
 ! ?
@@ -41,7 +42,8 @@ SUBROUTINE SortElemsBySpaceFillingCurve(nElems,ElemBary,IDList,whichBoundBox)
 ! ?
 !===================================================================================================================================
 ! MODULES
-USE MOD_globals,ONLY:UNIT_stdOut
+USE MOD_Globals,ONLY:UNIT_stdOut
+USE MOD_Basis1D,ONLY:ALMOSTEQUAL
 USE MOD_SortingTools,ONLY:Qsort1DoubleInt1Pint
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -60,7 +62,7 @@ INTEGER,INTENT(INOUT)                       :: IDlist(nElems)  ! ?
 TYPE(tBox) :: SCBox  ! ?
 REAL       :: lower(3)  ! ?
 REAL       :: upper(3)  ! ?
-INTEGER    :: iElem  ! ?
+INTEGER    :: iElem,i  ! ?
 INTEGER(KIND=8) :: IntList(nElems)  ! ?
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A,A,A)')'SORT ELEMENTS ON SPACE FILLING CURVE, TYPE ',TRIM(sfc_type),' ...'
@@ -68,16 +70,22 @@ IF(nElems.GT.1)THEN
   ! Determine extreme verticies for bounding box
   SELECT CASE(whichBoundBox)
   CASE(1)
-    lower(1) = minval(ElemBary(:,1))
-    lower(2) = minval(ElemBary(:,2))
-    lower(3) = minval(ElemBary(:,3))
-    upper(1) = maxval(ElemBary(:,1))
-    upper(2) = maxval(ElemBary(:,2))
-    upper(3) = maxval(ElemBary(:,3))
+    lower(1) = MINVAL(ElemBary(:,1))
+    lower(2) = MINVAL(ElemBary(:,2))
+    lower(3) = MINVAL(ElemBary(:,3))
+    upper(1) = MAXVAL(ElemBary(:,1))
+    upper(2) = MAXVAL(ElemBary(:,2))
+    upper(3) = MAXVAL(ElemBary(:,3))
   CASE(2)
   lower=MINVAL(ElemBary)
   upper=MAXVAL(ElemBary)
   END SELECT
+  DO i=1,3
+    IF(ALMOSTEQUAL(lower(i),upper(i)))THEN
+      lower(i)=lower(i)-PP_RealTolerance
+      upper(i)=upper(i)+PP_RealTolerance
+    END IF
+  END DO
   CALL setBoundingBox(SCBox,lower,upper)
   
   DO iElem=1,nElems

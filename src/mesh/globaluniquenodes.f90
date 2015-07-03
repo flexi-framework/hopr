@@ -205,8 +205,8 @@ DO iNode=1,nTotalNodes
   box_min=MIN(box_min,MINVAL(Nodes(iNode)%np%x(:)))
   box_max=MAX(box_max,MAXVAL(Nodes(iNode)%np%x(:)))
 END DO !iNode
-box_min=box_min-RealTolerance
-box_max=box_max+RealTolerance
+box_min=box_min-PP_MeshTolerance
+box_max=box_max+PP_MeshTolerance
 box_nbits = (bit_size(maxIJK)-1) / 3 
 maxIJK = 2**box_nbits-1               ![0,2**box_nBits-1]
 box_sdx = REAL(maxIJK)/(box_max-box_min)
@@ -286,7 +286,7 @@ WRITE(*,*)'  Number of nodes to check: ',nTotalNodes
 maxStepsINVMAP=INT(LOG(REAL(nTotalNodes))*sLog2)+1
 nDeletedNodes=0
 
-tol=SpaceQuandt*RealTolerance
+tol=SpaceQuandt*PP_MeshTolerance
  ! Size of tolerance gives a box_di for bisection (could be computed for each node seperately !!!)
 !box_di  =MAX(0,box_nBits-FLOOR(LOG((box_max-box_min)/tol)*sLog2)) ! tol=2^x L=2^n => x=n-LOG(L/tol)/LOG(2) 
 box_di  =MAX(0,CEILING(LOG(tol*box_sdx)*sLog2)) 

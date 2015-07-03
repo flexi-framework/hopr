@@ -1,3 +1,4 @@
+#include "defines.f90"
 MODULE MOD_TetraBasis
 !===================================================================================================================================
 ! ?
@@ -46,7 +47,7 @@ INTEGER,ALLOCATABLE     :: nodeMap(:,:)      ! mapping for equidistant nodes iNo
 INTEGER                 :: nNodes  ! ?
 INTEGER                 :: nAns  ! ?
 INTEGER                 :: i,j,iNode  ! ?
-REAL,ALLOCATABLE    :: Vdm(:,:),GradVdm(:,:,:) 
+REAL,ALLOCATABLE        :: Vdm(:,:),GradVdm(:,:,:) 
 !===================================================================================================================================
 CALL getBasisMappingTetra(Deg,nAns,bMap)
 CALL getBasisMappingTetra(nNodes1D-1,nNodes,nodeMap)
@@ -180,17 +181,15 @@ REAL,INTENT(OUT)             :: a(nNodes),b(nNodes),c(nNodes)   ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 INTEGER                     :: iNode  ! ?
-REAL                        :: RealTolerance  ! ?
 !===================================================================================================================================
 WRITE(*,*)'entering rst2abcTetra'
-RealTolerance=1.0E-8
 DO iNode=1,nNodes
-  IF(ABS(s(iNode)+t(iNode)).LT.RealTolerance)THEN
+  IF(ABS(s(iNode)+t(iNode)).LT.PP_RealTolerance)THEN
     a(iNode)=-1.
   ELSE
     a(iNode) = 2.*(1.+r(iNode))/(-s(iNode)-t(iNode))-1.
   END IF
-  IF(ABS(1.-t(iNode)).LT.RealTolerance)THEN
+  IF(ABS(1.-t(iNode)).LT.PP_RealTolerance)THEN
     b(iNode)=-1.
   ELSE
     b(iNode)=2.*(1.+s(iNode))/(1.-t(iNode))-1.

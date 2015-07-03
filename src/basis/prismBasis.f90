@@ -1,3 +1,4 @@
+#include "defines.f90"
 MODULE MOD_PrismBasis
 !===================================================================================================================================
 ! ?
@@ -180,12 +181,10 @@ REAL,INTENT(OUT)             :: a(nNodes),b(nNodes),c(nNodes)   ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 INTEGER                     :: iNode  ! ?
-REAL                        :: RealTolerance  ! ?
 !===================================================================================================================================
 WRITE(*,*)'entering rst2abcPrism'
-RealTolerance=1.0E-8
 DO iNode=1,nNodes
-  IF(ABS(1.-s(iNode)).LT.RealTolerance)THEN
+  IF(ABS(1.-s(iNode)).LT.PP_RealTolerance)THEN
     a(iNode)=-1.
   ELSE
     a(iNode) = 2.*(1.+r(iNode))/(1.-s(iNode))-1.

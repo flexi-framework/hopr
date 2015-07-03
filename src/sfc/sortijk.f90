@@ -88,8 +88,8 @@ CALL setBoundingBox2(Box,lower,upper)
 DO iElem=1,nElems
   IntCoords(iElem,:) = NINT((ElemBary(iElem,:)-box%mini)*box%spacing)
 END DO
-WRITE(*,'(a,E11.3)')'   REAL tolerance    : ',SpaceQuandt*RealTolerance
-tol=NINT(SpaceQuandt*RealTolerance*MAXVAL(box%spacing)) !in the integer space
+WRITE(*,'(a,E11.3)')'   REAL tolerance    : ',SpaceQuandt*PP_RealTolerance
+tol=NINT(SpaceQuandt*PP_RealTolerance*MAXVAL(box%spacing)) !in the integer space
 structDir=.FALSE.
 ! now find out, which directions are structured (only possible if they are oriented to cartesian coordinate system!)
 DO dir=1,3

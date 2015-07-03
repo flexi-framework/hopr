@@ -210,7 +210,7 @@ DO i=1, nTotalNodes
   ToObject=>getFirstToObject(searchMesh,.FALSE.,actNodeCoords)
   pointFound=.FALSE.
   DO WHILE (ASSOCIATED(ToObject))
-    IF (SAMEPOINT(ToObject%Node%x,actNodeCoords,RealTolerance)) THEN
+    IF (SAMEPOINT(ToObject%Node%x,actNodeCoords,PP_MeshTolerance)) THEN
       pointFound=.TRUE.
       IF (useProjections) THEN
         READ(150,*) ToObject%Node%x !project the node to exact surface
@@ -887,7 +887,7 @@ DO iNode=1, nNodes
   !search if node is inside local search mesh
   ToObject=>getFirstToObject(searchMesh,.FALSE.,NodesX(:,iNode))
   DO WHILE (ASSOCIATED(ToObject))
-    IF (SAMEPOINT(ToObject%Node%x,NodesX(:,iNode),RealTolerance)) THEN
+    IF (SAMEPOINT(ToObject%Node%x,NodesX(:,iNode),PP_MeshTolerance)) THEN
       !build normalvector pointer list
       CALL getNewNormal(aNormal, 1)
       aNormal%normal(:)=Normal(:,iNode)

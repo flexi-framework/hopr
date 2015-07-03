@@ -170,7 +170,7 @@ END IF
 preScale=GETLOGICAL('preScaleMesh','.FALSE.') ! apply scaling either after readin or before output
 postScale=GETLOGICAL('postScaleMesh','.FALSE.') ! apply scaling either after readin or before output
 MeshScale=GETREAL('meshScale','1.0')           ! scaling factor applied to node coordinates during read in
-doScale  = (ABS(MeshScale-1.).GT.RealTolerance)
+doScale  = (ABS(MeshScale-1.).GT.PP_RealTolerance)
 SpaceQuandt=GETREAL('SpaceQuandt','0.1')
 
 ! Curved
@@ -671,9 +671,9 @@ DO WHILE(ASSOCIATED(Elem))
     ConnectionSide = .TRUE.
     UpperBCSide    = .TRUE.
     DO iNode=1,Side%nNodes
-      IF(ABS( Side%Node(iNode)%np%x(3))          .GT. (RealTolerance*SpaceQuandt)) LowerBCSide    = .FALSE.
-      IF(ABS((Side%Node(iNode)%np%x(3)-zLength)) .GT. (RealTolerance*SpaceQuandt)) UpperBCSide    = .FALSE.
-      IF(ABS((Side%Node(iNode)%np%x(3)-zPos))    .GT. (RealTolerance*SpaceQuandt)) ConnectionSide = .FALSE.
+      IF(ABS( Side%Node(iNode)%np%x(3))          .GT. (PP_MeshTolerance*SpaceQuandt)) LowerBCSide    = .FALSE.
+      IF(ABS((Side%Node(iNode)%np%x(3)-zLength)) .GT. (PP_MeshTolerance*SpaceQuandt)) UpperBCSide    = .FALSE.
+      IF(ABS((Side%Node(iNode)%np%x(3)-zPos))    .GT. (PP_MeshTolerance*SpaceQuandt)) ConnectionSide = .FALSE.
     END DO
     IF(.NOT.(LowerBCSide.OR.UpperBCSide.OR.ConnectionSide))THEN
       Side=>Side%nextElemSide

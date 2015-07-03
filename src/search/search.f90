@@ -176,7 +176,7 @@ ELSE ! use nElemsNodeSearch to determine dx, used for node search, i.e. getuniqu
   searchMesh%dx=(searchMesh%xmax-searchMesh%xmin)/(2.*nElemsNodeSearch)
   IF(PRESENT(dx)) searchMesh%dx=dx
 END IF
-IF(ConformConnect)searchMesh%dx=MAX(searchMesh%dx,1.1*SpaceQuandt*RealTolerance) !  !
+IF(ConformConnect)searchMesh%dx=MAX(searchMesh%dx,1.1*SpaceQuandt*PP_MeshTolerance) !  !
 
 ! Numerical tolerances: enlarge slightly for numerical security
 deltaSafe        = 0.00001*(searchMesh%xmax-searchMesh%xmin)  
@@ -447,7 +447,7 @@ IF(node%tmp.EQ.marker) RETURN ! node to be checked is already unique node, don't
 NULLIFY(uniqueNode)
 toObj => getFirstToObject(searchMesh,.TRUE.,node%x)    ! Get first search mesh object
 DO WHILE(ASSOCIATED(toObj))
-  IF(SAMEPOINT(toObj%node%x,node%x,RealTolerance))THEN  ! Compare node coordinates
+  IF(SAMEPOINT(toObj%node%x,node%x,PP_MeshTolerance))THEN  ! Compare node coordinates
     uniqueNode=>toObj%node
     EXIT
   END IF
@@ -508,7 +508,7 @@ ToObject=>getFirstToObject(searchMesh,.TRUE.,idx=idx_ur)  ! Get pointer to first
 DO WHILE(ASSOCIATED(ToObject) .AND. .NOT.outside)
   bNode=>ToObject%Node
   IF(ASSOCIATED(bNode))THEN
-    IF (SAMEPOINT(bNode%x,coords,RealTolerance)) THEN  ! Compare node coordinates
+    IF (SAMEPOINT(bNode%x,coords,PP_MeshTolerance)) THEN  ! Compare node coordinates
       getUniqueNode=>bNode
       RETURN
     END IF
