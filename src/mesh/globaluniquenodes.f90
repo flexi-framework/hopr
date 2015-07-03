@@ -54,9 +54,13 @@ REAL                        :: box_min,box_max,box_sdx  ! ?
 INTEGER                     :: box_nBits  ! ?
 INTEGER                     :: maxStepsINVMAP  ! ?
 INTEGER(KIND=8)             :: box_di,s_offset,maxIJK  ! ?
-INTEGER(KIND=8)             :: s_minmax(27,2)  ! ?
+INTEGER(KIND=8)             :: s_minmax(8,2)  ! ?
+INTEGER(KIND=8)             :: smin,smax  ! ?
 INTEGER(KIND=8),ALLOCATABLE :: NodesIJK(:,:),SFCID(:)  ! ?
 INTEGER,ALLOCATABLE         :: IDList(:)  ! ?
+INTEGER                     :: nRanges  ! ?
+INTEGER                     :: percent  ! ?
+INTEGER                     :: lastNode,nextNode  ! ?
 !===================================================================================================================================
 CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("~"))')
@@ -288,10 +292,16 @@ tol=SpaceQuandt*RealTolerance
 box_di  =MAX(0,CEILING(LOG(tol*box_sdx)*sLog2)) 
 box_di=2**box_di
 WRITE(*,*)'   size of tolerance box:',box_di
-s_offset=box_di**3-1  !offset inside one box of size box_di, from the lower sfc index to to highest
+s_offset=box_di**3-1   !offset inside one box of size box_di, from the lower sfc index to to highest
 
-
+percent=0
+nextNode=1
 DO iNode=1,nTotalNodes
+  ! output of progress in %
+  IF((nTotalNodes.GT.100000).AND.(MOD(iNode,(nTotalNodes/100)).EQ.0)) THEN
+    percent=percent+1
+    WRITE(0,'(I4,A23,A1)',ADVANCE='NO')percent, ' % of nodes evaluated...',ACHAR(13)
+  END IF
   Node=>Nodes(iNode)%np
   IF(Node%tmp.GT.0) CYCLE ! node already checked
   Node%tmp=iNode !check this node
@@ -300,13 +310,22 @@ DO iNode=1,nTotalNodes
 !WRITE(*,'(A,4I)')'node (i,j,k,s)',NodesIJK(:,iNode),SFCID(iNode)
 !WRITE(*,*)'==============='
 
-  CALL FindBoxes(NodesIJK(:,iNode),box_di,s_offset,box_nBits,maxIJK,s_minmax)
-
+  CALL FindBoxes(NodesIJK(:,iNode),box_di,box_nBits,maxIJK,s_minmax,smin,smax,nRanges)
+  !next higher neighbor on SFC
+  lastNode=nextNode
+  DO nextNode=lastNode+1,nTotalNodes 
+    IF(Nodes(nextNode)%np%tmp.EQ.0) EXIT ! not yet treated
+  END DO
+  nextNode=MIN(nextNode,nTotalNodes)
+  IF(SFCID(nextNode).GT.smax) CYCLE 
   
-  DO i=1,27
+  DO i=1,nRanges
      IF(s_minmax(i,1).EQ.-1)CYCLE
-     NodeID=INVMAP(s_minmax(i,1),nTotalNodes,SFCID,maxStepsINVMAP)
+     IF(SFCID(iNode).GT.s_minmax(i,2)) CYCLE 
+     IF(SFCID(nextNode).GT.s_minmax(i,2)) CYCLE 
+     NodeID=INVMAP(s_minmax(i,1),nTotalNodes-(iNode-1),SFCID(iNode:nTotalNodes))
      IF(NodeID.EQ.-1) CYCLE !nothing found inside the box
+     NodeID=MAX(nextNode,NodeID+iNode)
      DO jNode=NodeID,nTotalNodes 
        IF(SFCID(jNode).GT.s_minmax(i,2)) EXIT ! check if  > s_max
        IF(Nodes(jNode)%np%tmp.GT.0) CYCLE ! was already treated
@@ -375,13 +394,58 @@ DEALLOCATE(Nodes,NodesIJK,SFCID)
 CALL Timer(.FALSE.)
 END SUBROUTINE GlobalUniqueNodes
 
-SUBROUTINE FindBoxes(IntCoord,box_di,s_offset,box_nBits,maxIJK,s_minmax)
+
+SUBROUTINE FindBoxes(IntCoord,box_di,box_nBits,maxIJK,s_minmax,smin,smax,nRanges)
 !===================================================================================================================================
-! finds the ranges of the spacefilling curve which correspond to the 27 boxes with a box size of box_id. 
-! The list is sorted by the sfc index of the boxes, and contiguous boxes are also merged
+! finds the ranges of the spacefilling curve which correspond to a maximum of 8 boxes with a box size of 2*box_id,
+! box_di (from node merging tolerance) defines the smallest box size. We now look at two levels below the octree  (4x4x4 box size)
+! where node lies inside. We need a tolerance of one box  to find all possible nodes(makes 3x3x3 boxes), 
+! but due to the octree, we always choose a 4x4x4 region, allowing a maximum of only 8 search boxes of size 2x2x2. 
+! Due to the nature of the morton spacefilling curve, some boxes have  contiguous ranges and are merged. There are three cases:
+! 1 box of 4x4x4 is used if the node is inside
+!                    
+! z       x0                  x1                 x2                  x3        
+! ^  ___ ___ ___ ___    ___ ___ ___ ___     ___ ___ ___ ___    ___ ___ ___ ___ 
+! | |   |   |   |   |  |   |   |   |   |   |   |   |   |   |  |   |   |   |   |
+! | |___|___|___|___|  |___|___|___|___|   |___|___|___|___|  |___|___|___|___|
+! | |   |   |   |   |  |   | . | . |   |   |   | . | . |   |  |   |   |   |   |
+! | |___|___|___|___|  |___|___|___|___|   |___|___|___|___|  |___|___|___|___|
+! | |   |   |   |   |  |   | . | . |   |   |   | . | . |   |  |   |   |   |   |
+! | |___|___|___|___|  |___|___|___|___|   |___|___|___|___|  |___|___|___|___|
+! | |   |   |   |   |  |   |   |   |   |   |   |   |   |   |  |   |   |   |   |
+! | |___|___|___|___|  |___|___|___|___|   |___|___|___|___|  |___|___|___|___|
+! *----------------------> y
+! 2 boxes of 2x4x4,  if nodes are inside yz and +/-x 
+!                    
+! z       x0                  x1                 x2                  x3        
+! ^  ___ ___ ___ ___    ___ ___ ___ ___     ___ ___ ___ ___    ___ ___ ___ ___ 
+! | |   |   |   |   |  |   |   |   |   |   |   |   |   |   |  |   |   |   |   |
+! | |___|___|___|___|  |___|___|___|___|   |___|___|___|___|  |___|___|___|___|
+! | |   | . | . |   |  |   |   |   |   |   |   |   |   |   |  |   | . | . |   |
+! | |___|___|___|___|  |___|___|___|___|   |___|___|___|___|  |___|___|___|___|
+! | |   | . | . |   |  |   |   |   |   |   |   |   |   |   |  |   | . | . |   |
+! | |___|___|___|___|  |___|___|___|___|   |___|___|___|___|  |___|___|___|___|
+! | |   |   |   |   |  |   |   |   |   |   |   |   |   |   |  |   |   |   |   |
+! | |___|___|___|___|  |___|___|___|___|   |___|___|___|___|  |___|___|___|___|
+! *----------------------> y
+! 4 boxes of 2x2x4, if nodes are inside z and +/-x +/- y
+!                    
+! z       x0                  x1                 x2                  x3        
+! ^  ___ ___ ___ ___    ___ ___ ___ ___     ___ ___ ___ ___    ___ ___ ___ ___ 
+! | |   |   |   |   |  |   |   |   |   |   |   |   |   |   |  |   |   |   |   |
+! | |___|___|___|___|  |___|___|___|___|   |___|___|___|___|  |___|___|___|___|
+! | | . |   |   | . |  |   |   |   |   |   |   |   |   |   |  | . |   |   | . |
+! | |___|___|___|___|  |___|___|___|___|   |___|___|___|___|  |___|___|___|___|
+! | | . |   |   | . |  |   |   |   |   |   |   |   |   |   |  | . |   |   | . |
+! | |___|___|___|___|  |___|___|___|___|   |___|___|___|___|  |___|___|___|___|
+! | |   |   |   |   |  |   |   |   |   |   |   |   |   |   |  |   |   |   |   |
+! | |___|___|___|___|  |___|___|___|___|   |___|___|___|___|  |___|___|___|___|
+! *----------------------> y
+!
+!or then 8 boxes of 2x2x2.
+! This minimizes the number of overall spacefilling curve evaluations.
 !===================================================================================================================================
 ! MODULES
-USE MOD_SortingTools,ONLY:Qsort1Int2double
 USE MOD_SpaceFillingCurve,ONLY:EVAL_MORTON_ARR
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -389,43 +453,65 @@ IMPLICIT NONE
 ! INPUT VARIABLES
 INTEGER(KIND=8),INTENT(IN)  :: IntCoord(3) ! ijk integer coordinates
 INTEGER(KIND=8),INTENT(IN)  :: box_di      ! box size in integer counts
-INTEGER(KIND=8),INTENT(IN)  :: s_offset    ! =box_di**3-1, range of sfc indizes in one box
 INTEGER,INTENT(IN)          :: box_nBits   ! number of bits of INTEGER(KIND=8)
 INTEGER(KIND=8),INTENT(IN)  :: maxIJK      ! maximum domain size in integer counts (=2**box_nBits-1)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-INTEGER(KIND=8),INTENT(OUT) :: s_minmax(27,2)  ! sfc index ranges of the 27 boxes
+INTEGER(KIND=8),INTENT(OUT) :: s_minmax(8,2)  ! sfc index ranges of the 27 boxes
+INTEGER(KIND=8),INTENT(OUT) :: smin            ! minimum of s_minmax(:,1)
+INTEGER(KIND=8),INTENT(OUT) :: smax            ! maximum of s_minmax(:,2)
+INTEGER,INTENT(OUT)         :: nRanges          ! number of ranges 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 INTEGER          :: i,j,k,l  ! ?
-INTEGER(KIND=8)  :: IJK_min(3),IJK_tmp(3,27)  ! ?
+INTEGER          :: Ranges(3),start(3)  ! ?
+LOGICAL          :: xi0(3),xi1(3)  ! ?
+INTEGER(KIND=8)  :: IJK_min(3),IJK_tmp(3,8)  ! ?
+INTEGER(KIND=8)  :: s_offset,box_di2,box_di4,dxi(3)
 !===================================================================================================================================
-!find the octant in which the node lies (by integer division)
-IJK_min=box_di*(IntCoord(:)/box_di)
-! find sfc index for all  27 octants
-s_minmax=-1 !marker for nothing found
-l=0
-DO k=0,2; DO j=0,2; DO i=0,2
-  l=l+1
-  !min
-  IJK_tmp(1,l)=IJK_min(1)+(i-1)*box_di
-  IJK_tmp(2,l)=IJK_min(2)+(j-1)*box_di
-  IJK_tmp(3,l)=IJK_min(3)+(k-1)*box_di
-END DO; END DO; END DO !i,j,k
-CALL EVAL_MORTON_ARR(s_minmax(:,1),IJK_tmp,27,box_nBits)
-DO l=1,27
-  IF((MINVAL(IJK_tmp(:,l)).LT.0).OR.(MAXVAL(IJK_tmp(:,l)).GT.maxIJK)) s_minmax(l,1)=-1
-END DO
+box_di2=box_di+box_di
+box_di4=box_di2+box_di2
 
-CALL Qsort1Int2double(s_minmax(1:27,1:1))
-s_minmax(:,2)=s_minmax(:,1)+s_offset
-! merge consecutive ranges
-DO i=27,2,-1
-  IF(s_minmax(i-1,1).EQ.-1) EXIT
-  IF(s_minmax(i,1).EQ.s_minmax(i-1,2)+1)THEN
-    s_minmax(i-1,2)=s_minmax(i,2)
-    s_minmax(i,:)=-1
+IJK_min(:)=box_di4*(IntCoord(:)/(box_di4))
+xi0(:)=(MOD(IntCoord(:)/(box_di4),2).NE.0)
+xi1(:)=(MOD(IntCoord(:)/(box_di2),2).NE.0)
+
+Ranges=2
+start=0
+IF(.NOT.(xi0(1).OR.xi1(1))) start(1)=MERGE(1,-1,xi0(1))
+IF(.NOT.(xi0(2).OR.xi1(2))) start(2)=MERGE(1,-1,xi0(2))
+IF(.NOT.(xi0(3).OR.xi1(3))) start(3)=MERGE(1,-1,xi0(3))
+
+IF(xi0(3).OR.xi1(3)) THEN
+  Ranges(3)=1
+  IF(xi0(2).OR.xi1(2)) THEN
+    Ranges(2)=1
+    IF(xi0(1).OR.xi1(1))THEN 
+      Ranges(1)=1
+    END IF
   END IF
+END IF
+
+dxi=box_di4/Ranges
+nRanges=0
+DO i=1,ranges(1); DO j=1,ranges(2); DO k=1,ranges(3)
+  nRanges=nRanges+1
+  !min
+  IJK_tmp(1,nRanges)= IJK_min(1)+(start(1)+(i-1))*dxi(1)
+  IJK_tmp(2,nRanges)= IJK_min(2)+(start(2)+(j-1))*dxi(2)
+  IJK_tmp(3,nRanges)= IJK_min(3)+(start(3)+(k-1))*dxi(3)
+END DO; END DO; END DO !i,j,k
+s_offset = PRODUCT(dxi)-1
+
+
+s_minmax(:,:)=-1
+CALL EVAL_MORTON_ARR(s_minmax(1:nRanges,1),IJK_tmp(:,1:nRanges),nRanges,box_nBits)
+s_minmax(1:nRanges,2)=s_minmax(1:nRanges,1)+s_offset
+smin=MINVAL(s_minmax(1:nRanges,1))
+smax=MAXVAL(s_minmax(1:nRanges,2))
+!boundaries
+DO l=1,nRanges
+  IF((MINVAL(IJK_tmp(:,l)).LT.0).OR.(MAXVAL(IJK_tmp(:,l)).GT.maxIJK)) s_minmax(l,:)=-1
 END DO
 
 END SUBROUTINE FindBoxes
@@ -451,10 +537,10 @@ IF(NodeID_in.EQ.0)THEN
 END IF
 END SUBROUTINE SetCountNodeID
 
-FUNCTION INVMAP(ID,nIDs,ArrID,maxSteps)
+FUNCTION INVMAP(ID,nIDs,ArrID)
 !===================================================================================================================================
 ! find the inverse Mapping of sfc index in a sorted list (a sorted array of unique NodeIDs), using bisection
-! if Index is not in the range, -1 will be returned, gives back the first entry in the sorted list  which is >= ID 
+! if Index is not in the range, -1 will be returned, gives back the first entry in the sorted list  which is <= ID 
 !===================================================================================================================================
 ! MODULES
 ! IMPLICIT VARIABLE HANDLING
@@ -464,13 +550,13 @@ IMPLICIT NONE
 INTEGER(KIND=8), INTENT(IN) :: ID            ! ID to search for
 INTEGER, INTENT(IN)         :: nIDs          ! size of ArrID
 INTEGER(KIND=8), INTENT(IN) :: ArrID(nIDs)   ! 1D array of IDs, SORTED!!
-INTEGER, INTENT(IN)         :: maxSteps      ! =INT(LOG(REAL(nIDs))/LOG(2.))+1, better to compute once and pass it 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-INTEGER                     :: INVMAP         ! position in arrID, where arrID(INVMAP)  >= ID 
+INTEGER                     :: INVMAP         ! position in arrID, where arrID(INVMAP)  <= ID 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER                     :: i,low,up,mid  ! ?
+INTEGER                     :: maxSteps      ! =INT(LOG(REAL(nIDs))/LOG(2.))+1
 !===================================================================================================================================
 IF(ID.LE.ArrID(1))THEN
   INVMAP=1
@@ -485,15 +571,13 @@ END IF
 low=1
 up=nIDs
 !bisection
+maxSteps=INT(LOG(REAL(nIDs))*1.442695040888964)+1
 DO i=1,maxSteps
   mid=(up-low)/2+low
-  IF(ID .EQ. ArrID(mid))THEN
-    INVMAP=mid
-    EXIT
-  ELSEIF(ID .GT. ArrID(mid))THEN ! seek in upper half
-    low=mid
-  ELSE
+  IF(ArrID(mid).GE.ID )THEN !seek in lower half 
     up=mid
+  ELSE
+    low=mid
   END IF
 END DO
 INVMAP=low

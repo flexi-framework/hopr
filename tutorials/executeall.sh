@@ -1,5 +1,5 @@
 #!/bin/bash
-tutorials=`ls |grep [0-9]`
+tutorials=`ls | grep "^[0-9]"`
 echo 'EXECUTE ALL TUTORIALS:'
 for tutorial in $tutorials
 do
@@ -10,7 +10,7 @@ do
   for inifile in $inifiles
   do
     echo '===> EXECUTING TUTORIAL: ' $tutorial ', WITH INIFILE:' $inifile
-    outfile='calculation_'$inifile'.log'
+    outfile='calculation_'$tutorial'.log'
     ../../bin/hopr $inifile > $outfile
     tail -n 4  $outfile
   done
