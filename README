@@ -1,0 +1,29 @@
+           _______     _______    ___________________    ___________________   ___________________                         xX    
+          /      /)   /      /)  /                  /)  /                  /) /                  /)     .xXXXXXXXXx.       X     
+         /      //   /      //  /      _____       //  /      _____       // /      _____       //    .XXXXXXXXXXXXXXXx  .XXXXx  
+        /      //   /      //  /      /)___/      //  /      /)___/      // /      /)___/      //   .XXXXXXXXXXXXXXXXXXXXXXXXXXx 
+       /      //___/      //  /      //   /      //  /      //___/      // /      //___/      //  .XXXXXXXXXXXXXXXXXXXXXXXX´     
+      /                  //  /      //   /      //  /                  // /                  //  .XX``XXXXXXXXXXXXXXXXXX´        
+     /      _____       //  /      //   /      //  /      ____________// /      __      ____//   XX`  `XXXXX`      .X´           
+    /      /)___/      //  /      //   /      //  /      /)___________) /      /)_|    |____)   XX     XXX`       .´             
+   /      //   /      //  /      //___/      //  /      //             /      //  |    |__     ,X`    XXX´                       
+  /      //   /      //  /                  //  /      //             /      //   |      /)   ,X`   .XX´                         
+ /______//   /______//  /__________________//  /______//             /______//    |_____//   ,X`   XX´                           
+ )______)    )______)   )__________________)   )______)              )______)     )_____)   xX    XXx
+
+HOPR (High Order Preprocessor) is an open-source software for the generation of three-dimensional unstructured high-order meshes.
+These meshes are needed for high-order methods like Discontinuous Galerkin schemes, Spectral Element Methods or pFEM, if boundary
+conditions have to be applied at curved domain boundaries.
+
+The software was developed in the Numerics Research Group of Prof. Claus-Dieter Munz at the Institute of Aerodynamics and 
+Gasdynamics at the University Stuttgart. Copyright (C) 2015
+
+
+Documentation including usage instructions and tutorials for HOPR can be found at the following URL:
+   http://www.hopr-project.org/
+ 
+For question regarding HOPR and reporting bugs you can use the following mailing list
+   hopr-project@listserv.uni-stuttgart.de
+
+You can also subscribe to the mailing list at
+   https://listserv.uni-stuttgart.de/mailman/listinfo/hopr-project

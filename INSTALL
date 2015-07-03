@@ -1,4 +1,26 @@
-To install the code, go to Makefile.defs and specify the compiler, either Intel 
+############################################################################
+# HOPR INSTALLATION PROCEDURE
+############################################################################
+
+#############################  PREREQUISITES  ##############################
+          
+HOPR supports Linux-based systems only requires a x86_64 compliant platform.
+It has been tested on the following platforms:
+Ubuntu 12.04 and newer including derivates
+SUSE Linux Enterprise Server 11 SP3 and newer
+
+Compilers:
+HOPR requires a C and a Fortran 2003 compliant compiler, e.g. provided by
+GNU Compiler Collection 4.6+, Intel C/Fortran Compiler 12+ (recommended)
+
+The following libraries are required, if not mentioned otherwise including
+their development headers:
+libc6, zlib, BLAS/LAPACK (or compatible, e.g. ATLAS, MKL)
+
+#############################  COMPILING  ##################################
+
+To compile HOPR, specify the compiler in the file Makefile.defs,
+either Intel
 COMPILER=INTEL
 or GNU:
 COMPILER=GNU
@@ -7,4 +29,13 @@ then compile the code with
 
 > make
 
-this will also compile all libraries in the share folder
+this will also compile all libraries in the share folder.
+
+To compile HOPR with MPI support (e.g. to link other libraries using MPI)
+or with debug flags add the Flag _MPI or _DEBUG to the COMPILER string,
+e.g. COMPILER=GNU_MPI_DEBUG
+Other options are descibed in the Makefile.defs Header.
+
+In case you want to use a precompiled HDF5 version on your system set the
+option BUILD_HDF5=<empty>, then the path to HDF5 can be specified by
+the environment variable $HDF5_DIR .
