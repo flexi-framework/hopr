@@ -52,7 +52,7 @@ WRITE(UNIT_stdOut,'(A)') ' INIT OUTPUT...'
 ProjectName=GETSTR('projectname')
 ! Open file for error output
 WRITE(strFileName,'(A)')TRIM(ProjectName)//'_ERRORS.out'
-OPEN(UNIT=UNIT_errOut,  &
+OPEN(UNIT=UNIT_errFile, &
      FILE=strFileName,  &
      STATUS='REPLACE',  &
      ACTION='WRITE',    &
