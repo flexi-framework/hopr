@@ -399,6 +399,8 @@ USE MOD_Readin_GMSH
 USE MOD_Readin_HDF5
 USE MOD_Readin_HDF5_OLD
 USE MOD_Readin_ICEM
+USE MOD_Output_Vars,ONLY:useSpaceFillingCurve
+USE MOD_Output_HDF5,      ONLY: SpaceFillingCurve
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -589,6 +591,12 @@ CALL FindElemTypes()
 IF(doZcorrection) CALL zCorrection()
 
 CALL CheckNodeConnectivity()
+
+! prepare sorting by space filling curve
+! NOTE: SpaceFillingcurve is not used, if existing hdf5 mesh is read in and the sorting should stay identical
+IF(useSpaceFillingCurve)THEN
+  CALL SpaceFillingCurve(nMeshElems)
+END IF
 
 CALL PostDeform()
 
