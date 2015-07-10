@@ -706,7 +706,7 @@ CASE(1) ! 2D box, x,y in [-1,1]^2, to cylinder with radius PostDeform_R0 (with P
     dx(1:2)=alpha*dx(1:2)
   END IF
   xout(1:2)=PostDeform_R0*SQRT(0.5)*(x(1:2)+dx(1:2))
-  !rotation along z q=0. no spiral, q=1: 1 rotation along z [0,1]
+  ! spiral rotation along z sq=0. no spiral, sq=1: 1 rotation along z [0,1]
   rotmat(1,1)=COS(2.*pi*x(3)*PostDeform_sq)
   rotmat(2,1)=SIN(2.*pi*x(3)*PostDeform_sq)
   rotmat(1,2)=-rotmat(2,1)
@@ -714,9 +714,10 @@ CASE(1) ! 2D box, x,y in [-1,1]^2, to cylinder with radius PostDeform_R0 (with P
   xout(1:2)=MATMUL(rotmat,xout(1:2))
   IF(PostDeform_Rtorus.LT.0.)THEN
     xout(3)=x(3)*PostDeform_Lz !cylinder
-  ELSE !torus, z must be [0,1] and periodic  !!
-    xout(3)=(xout(1)+PostDeform_Rtorus)*SIN(2*Pi*x(3))
-    xout(1)=(xout(1)+PostDeform_Rtorus)*COS(2*Pi*x(3))
+  ELSE !torus, z_in must be [0,1] and periodic  !!, torus around z axis ,x =R*cos(phi), y=-R*sin(phi)!!!
+    xout(3)=xout(2)
+    xout(2)=-(xout(1)+PostDeform_Rtorus)*SIN(2*Pi*x(3))
+    xout(1)= (xout(1)+PostDeform_Rtorus)*COS(2*Pi*x(3))
   END IF
      
 END SELECT
