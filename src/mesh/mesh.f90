@@ -389,7 +389,7 @@ USE MOD_GlobalUniqueNodes,ONLY: GlobalUniqueNodes
 USE MOD_CartMesh,         ONLY: CartesianMesh
 USE MOD_CurvedCartMesh,   ONLY: CurvedCartesianMesh
 USE MOD_Mesh_Tools,       ONLY: CountSplines,Netvisu,BCvisu,chkspl_surf,chkspl_vol
-USE MOD_Mesh_Tools,       ONLY: PostDeform
+USE MOD_Mesh_PostDeform,  ONLY: PostDeform
 USE MOD_Output_HDF5,      ONLY: WriteMeshToHDF5
 USE MOD_Mesh_Jacobians,   ONLY: CheckJacobians
 USE MOD_Readin_ANSA

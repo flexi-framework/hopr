@@ -20,6 +20,7 @@ mesh/mesh_connect.f90
 mesh/mesh_jacobians.f90
 mesh/mesh_tolerances.f90
 mesh/mesh_tools.f90
+mesh/mesh_postdeform.f90
 mesh/mesh_vars.f90
 mesh/splittohex.f90
 mesh/zcorrection.f90
