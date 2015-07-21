@@ -2,7 +2,7 @@
 include Makefile.defs
 
 # "make" builds all
-all: hopr hoprtools
+all: hopr
 	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 	@echo ' SUCCESS: ALL EXECUTABLES GENERATED!'
 	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'

@@ -55,8 +55,8 @@ Re=ABS(Re)
 
 Cf=0.0260*Re**(-1.0/7.0)
 Cf=0.0576*Re**(-1.0/5.0)
-Cf=0.370*(LOG(Re)/LOG(10.))     **-2.584
-Cf=(2.   *LOG(Re)/LOG(10.)-0.65)**-2.3
+Cf=0.370*(LOG(Re)/LOG(10.))     **(-2.584)
+Cf=(2.   *LOG(Re)/LOG(10.)-0.65)**(-2.3)
 !tau_w = Cf*0.5*dens*vel*vel
 !Uf = SQRT(tau_w/dens)
 !yp=mu/(Uf*dens)
