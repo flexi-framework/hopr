@@ -388,7 +388,7 @@ TYPE(tSide),POINTER          :: aSide  ! ?
 REAL                         :: x1(3),x2(3),e1(3)  ! ?
 REAL                         :: Co(3,8) ,dx(3),fac(3)   ! ?
 REAL                         :: F, dF  ! ?
-INTEGER                      :: iZone,i_Dim,iSide  ! ?
+INTEGER                      :: iZone,i_Dim,iSide,iter  ! ?
 INTEGER                      :: i,l,m,n  ! ?
 INTEGER                      :: nElems(3),NodeInd  ! ?
 INTEGER                      :: ne(3)  ! ?
@@ -445,11 +445,15 @@ DO iZone=1,nZones
         fac(i_Dim)=dx(i_Dim)/nElems(i_Dim) !start value for Newton iteration
         IF (abs(fac(i_Dim)-1.) .GT. PP_RealTolerance) THEN ! NEWTON iteration, only if not equidistant case
           F=1.
-          DO WHILE (ABS(F) .GT. PP_RealTolerance)
+          dF=1.
+          iter=0
+          DO WHILE ((ABS(F) .GT. PP_RealTolerance) .AND. (ABS(F/dF) .GT. PP_RealTolerance) .AND. (iter .LT. 1000))
             F = fac(i_Dim)**nElems(i_Dim) + dx(i_Dim)*(1.-fac(i_Dim)) -1. ! non-linear function
             dF= nElems(i_Dim)*fac(i_Dim)**(nElems(i_Dim)-1) -dx(i_Dim)  !dF/dfac
             fac(i_Dim)= fac(i_Dim) - F/dF
+            iter=iter+1
           END DO
+          IF(iter.GT.1000) STOP 'Newton iteration for computing the stretching function has failed.'
           fac(i_Dim)=fac(i_Dim)**SIGN(1.,CartMesh%l0(i_Dim)) ! sign for direction
         END IF
       END IF
