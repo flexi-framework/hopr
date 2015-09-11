@@ -529,7 +529,7 @@ IF(.NOT.curvedFound) curvingMethod=-1
 
 
 IF(useCurveds)THEN
-  IF(meshIsAlreadyCurved)THEN
+  IF(meshIsAlreadyCurved.AND..NOT.rebuildCurveds)THEN
     ! if curved nodes have been read in and mesh should not be modified, just distribute nodes
     IF(nCurvedBoundaryLayers.GE.0)THEN
       CALL buildCurvedElementsFromBoundarySides(nCurvedBoundaryLayers)

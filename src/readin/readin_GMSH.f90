@@ -350,7 +350,7 @@ INTEGER                    :: i  ! ?
 IF(GMSH_TYPES(6,gmshElemType).NE.3) RETURN ! no 3d element
 IF (bOrd .EQ.0) THEN
   bOrd = GMSH_TYPES(4,gmshElemType)+1
-  IF (bOrd .NE. N+1) & 
+  IF ((bOrd .NE. N+1).AND.(.NOT.rebuildCurveds)) & 
     CALL abort(__STAMP__,&
     'Mesh boundary order not equal to boundary order from ini file! Mesh order: ',N+1)
   CALL getGMSHVolumeMapping()

@@ -21,7 +21,9 @@ all: builddeps
 	$(LIBDIRS) \
 	$(EXTERNAL_LIBS)
 	cp ../bin/hopr ../bin/preproctool
-	cp $(HDF5_BASE)/bin/h5diff ../bin/.
+	@if [ -f $(HDF5_BASE)/bin/h5diff ] ; then \
+	  cp $(HDF5_BASE)/bin/h5diff ../bin/. ; \
+	fi
 	@echo '----------------------------------------------------------------------------------------'
 	@echo ' HOPR LINKED!'
 	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
