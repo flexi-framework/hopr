@@ -43,20 +43,20 @@ tmp=&
   4 ,  4   , 4   ,  1 ,  1, 2,& ! MSH_QUA_4   3  
   5 ,  104 , 4   ,  1 ,  1, 3,& ! MSH_TET_4   4  
   8 ,  108 , 8   ,  1 ,  1, 3,& ! MSH_HEX_8   5  
-  7 ,  107 , 6   ,  1 ,  1, 3,& ! MSH_PRI_6   6  
-  6 ,  106 , 5   ,  1 ,  1, 3,& ! MSH_PYR_5   7  
+  7 ,  106 , 6   ,  1 ,  1, 3,& ! MSH_PRI_6   6  
+  6 ,  105 , 5   ,  1 ,  1, 3,& ! MSH_PYR_5   7  
   2 ,  202 , 3   ,  2 ,  1, 2,& ! MSH_LIN_3   8  
   3 ,  6   , 6   ,  2 ,  1, 2,& ! MSH_TRI_6   9  
   4 ,  7   , 9   ,  2 ,  1, 2,& ! MSH_QUA_9   10 
   5 ,  204 , 10  ,  2 ,  1, 3,& ! MSH_TET_10  11 
   8 ,  208 , 27  ,  2 ,  1, 3,& ! MSH_HEX_27  12 
-  7 ,  207 , 18  ,  2 ,  1, 3,& ! MSH_PRI_18  13 
-  6 ,  206 , 14  ,  2 ,  1, 3,& ! MSH_PYR_14  14 
+  7 ,  206 , 18  ,  2 ,  1, 3,& ! MSH_PRI_18  13 
+  6 ,  205 , 14  ,  2 ,  1, 3,& ! MSH_PYR_14  14 
   1 ,  1   , 1   ,  1 ,  1, 1,& ! MSH_PNT     15 
   4 ,  7   , 8   ,  2 ,  0, 2,& ! MSH_QUA_8   16 
   8 ,  208 , 20  ,  2 ,  0, 3,& ! MSH_HEX_20  17 
-  7 ,  207 , 15  ,  2 ,  0, 3,& ! MSH_PRI_15  18 
-  6 ,  206 , 13  ,  2 ,  0, 3,& ! MSH_PYR_13  19 
+  7 ,  206 , 15  ,  2 ,  0, 3,& ! MSH_PRI_15  18 
+  6 ,  205 , 13  ,  2 ,  0, 3,& ! MSH_PYR_13  19 
   3 ,  5   , 9   ,  3 ,  0, 2,& ! MSH_TRI_9   20 
   3 ,  5   , 10  ,  3 ,  1, 2,& ! MSH_TRI_10  21 
   3 ,  5   , 12  ,  4 ,  0, 2,& ! MSH_TRI_12  22 
@@ -127,8 +127,8 @@ tmp=&
   5 , -1   ,-1   , -1 , -1,-3,& ! MSH_TET_1   87 
   8 , -1   ,-1   , -1 , -1,-3,& ! MSH_HEX_1   88 
   7 , -1   ,-1   , -1 , -1,-3,& ! MSH_PRI_1   89 
-  7 ,  207 , 40  ,  3 ,  1, 3,& ! MSH_PRI_40  90 
-  7 ,  207 , 75  ,  4 ,  1, 3,& ! MSH_PRI_75  91 
+  7 ,  206 , 40  ,  3 ,  1, 3,& ! MSH_PRI_40  90 
+  7 ,  206 , 75  ,  4 ,  1, 3,& ! MSH_PRI_75  91 
   8 ,  208 , 64  ,  3 ,  1, 3,& ! MSH_HEX_64  92 
   8 ,  208 , 125 ,  4 ,  1, 3,& ! MSH_HEX_125 93 
   8 ,  208 , 216 ,  5 ,  1, 3,& ! MSH_HEX_216 94 
@@ -143,32 +143,32 @@ tmp=&
   8 ,  208 , 296 ,  7 ,  0, 3,& ! MSH_HEX_296 103
   8 ,  208 , 386 ,  8 ,  0, 3,& ! MSH_HEX_386 104
   8 ,  208 , 488 ,  9 ,  0, 3,& ! MSH_HEX_488 105
-  7 ,  207 , 126 ,  5 ,  1, 3,& ! MSH_PRI_126 106
-  7 ,  207 , 196 ,  6 ,  1, 3,& ! MSH_PRI_196 107
-  7 ,  207 , 288 ,  7 ,  1, 3,& ! MSH_PRI_288 108
-  7 ,  207 , 405 ,  8 ,  1, 3,& ! MSH_PRI_405 109
-  7 ,  207 , 550 ,  9 ,  1, 3,& ! MSH_PRI_550 110
-  7 ,  207 , 38  ,  3 ,  0, 3,& ! MSH_PRI_38  111
-  7 ,  207 , 66  ,  4 ,  0, 3,& ! MSH_PRI_66  112
-  7 ,  207 , 102 ,  5 ,  0, 3,& ! MSH_PRI_102 113
-  7 ,  207 , 146 ,  6 ,  0, 3,& ! MSH_PRI_146 114
-  7 ,  207 , 198 ,  7 ,  0, 3,& ! MSH_PRI_198 115
-  7 ,  207 , 258 ,  8 ,  0, 3,& ! MSH_PRI_258 116
-  7 ,  207 , 326 ,  9 ,  0, 3,& ! MSH_PRI_326 117
-  6 ,  206 , 30  ,  3 ,  1, 3,& ! MSH_PYR_30  118
-  6 ,  206 , 55  ,  4 ,  1, 3,& ! MSH_PYR_55  119
-  6 ,  206 , 91  ,  5 ,  1, 3,& ! MSH_PYR_91  120
-  6 ,  206 , 140 ,  6 ,  1, 3,& ! MSH_PYR_140 121
-  6 ,  206 , 204 ,  7 ,  1, 3,& ! MSH_PYR_204 122
-  6 ,  206 , 285 ,  8 ,  1, 3,& ! MSH_PYR_285 123
-  6 ,  206 , 385 ,  9 ,  1, 3,& ! MSH_PYR_385 124
-  6 ,  206 , 29  ,  3 ,  0, 3,& ! MSH_PYR_29  125
-  6 ,  206 , 50  ,  4 ,  0, 3,& ! MSH_PYR_50  126
-  6 ,  206 , 77  ,  5 ,  0, 3,& ! MSH_PYR_77  127
-  6 ,  206 , 110 ,  6 ,  0, 3,& ! MSH_PYR_110 128
-  6 ,  206 , 149 ,  7 ,  0, 3,& ! MSH_PYR_149 129
-  6 ,  206 , 194 ,  8 ,  0, 3,& ! MSH_PYR_194 130
-  6 ,  206 , 245 ,  9 ,  0, 3/) ! MSH_PYR_245 131
+  7 ,  206 , 126 ,  5 ,  1, 3,& ! MSH_PRI_126 106
+  7 ,  206 , 196 ,  6 ,  1, 3,& ! MSH_PRI_196 107
+  7 ,  206 , 288 ,  7 ,  1, 3,& ! MSH_PRI_288 108
+  7 ,  206 , 405 ,  8 ,  1, 3,& ! MSH_PRI_405 109
+  7 ,  206 , 550 ,  9 ,  1, 3,& ! MSH_PRI_550 110
+  7 ,  206 , 38  ,  3 ,  0, 3,& ! MSH_PRI_38  111
+  7 ,  206 , 66  ,  4 ,  0, 3,& ! MSH_PRI_66  112
+  7 ,  206 , 102 ,  5 ,  0, 3,& ! MSH_PRI_102 113
+  7 ,  206 , 146 ,  6 ,  0, 3,& ! MSH_PRI_146 114
+  7 ,  206 , 198 ,  7 ,  0, 3,& ! MSH_PRI_198 115
+  7 ,  206 , 258 ,  8 ,  0, 3,& ! MSH_PRI_258 116
+  7 ,  206 , 326 ,  9 ,  0, 3,& ! MSH_PRI_326 117
+  6 ,  205 , 30  ,  3 ,  1, 3,& ! MSH_PYR_30  118
+  6 ,  205 , 55  ,  4 ,  1, 3,& ! MSH_PYR_55  119
+  6 ,  205 , 91  ,  5 ,  1, 3,& ! MSH_PYR_91  120
+  6 ,  205 , 140 ,  6 ,  1, 3,& ! MSH_PYR_140 121
+  6 ,  205 , 204 ,  7 ,  1, 3,& ! MSH_PYR_204 122
+  6 ,  205 , 285 ,  8 ,  1, 3,& ! MSH_PYR_285 123
+  6 ,  205 , 385 ,  9 ,  1, 3,& ! MSH_PYR_385 124
+  6 ,  205 , 29  ,  3 ,  0, 3,& ! MSH_PYR_29  125
+  6 ,  205 , 50  ,  4 ,  0, 3,& ! MSH_PYR_50  126
+  6 ,  205 , 77  ,  5 ,  0, 3,& ! MSH_PYR_77  127
+  6 ,  205 , 110 ,  6 ,  0, 3,& ! MSH_PYR_110 128
+  6 ,  205 , 149 ,  7 ,  0, 3,& ! MSH_PYR_149 129
+  6 ,  205 , 194 ,  8 ,  0, 3,& ! MSH_PYR_194 130
+  6 ,  205 , 245 ,  9 ,  0, 3/) ! MSH_PYR_245 131
 GMSH_TYPES=RESHAPE(tmp,(/UBOUND(GMSH_TYPES,1),UBOUND(GMSH_TYPES,2)/))
 
 END SUBROUTINE buildTypes
@@ -189,20 +189,23 @@ IMPLICIT NONE
 !===================================================================================================================================
 ALLOCATE(tetMapGMSH(0:bOrd-1,0:bOrd-1,0:bOrd-1),pyrMapGMSH(0:bOrd-1,0:bOrd-1,0:bOrd-1))
 ALLOCATE(priMapGMSH(0:bOrd-1,0:bOrd-1,0:bOrd-1),hexMapGMSH(0:bOrd-1,0:bOrd-1,0:bOrd-1))
+tetMapCGNSToGMSH = (/1,4,2,3/)
+pyrMapCGNSToGMSH = (/1,2,3,4,5/)
+priMapCGNSToGMSH = (/1,2,3,4,5,6/)
 hexMapCGNSToGMSH = (/4,3,7,8,1,2,6,5/)
 
 SELECT CASE(bOrd)
 CASE(2)
-  !tetMapGMSH(0,0,0)= 1
-  !tetMapGMSH(1,0,0)= 2
-  !tetMapGMSH(0,1,0)= 3
-  !tetMapGMSH(0,0,1)= 4
+  tetMapGMSH(0,0,0)= 1
+  tetMapGMSH(1,0,0)= 4
+  tetMapGMSH(0,1,0)= 2
+  tetMapGMSH(0,0,1)= 3
   !
-  !pyrMapGMSH(0,0,0)= 1
-  !pyrMapGMSH(1,0,0)= 2
-  !pyrMapGMSH(1,1,0)= 3
-  !pyrMapGMSH(0,1,0)= 4
-  !pyrMapGMSH(0,0,1)= 5
+  pyrMapGMSH(0,0,0)= 1
+  pyrMapGMSH(1,0,0)= 2
+  pyrMapGMSH(0,1,0)= 4
+  pyrMapGMSH(1,1,0)= 3
+  pyrMapGMSH(0,0,1)= 5
 
   !priMapGMSH(0,0,0)= 1
   !priMapGMSH(1,0,0)= 2
@@ -210,7 +213,7 @@ CASE(2)
   !priMapGMSH(0,0,1)= 4
   !priMapGMSH(1,0,1)= 5
   !priMapGMSH(0,1,1)= 6
- ! hexaeder auf cgns angepasst, andere stehen noch aus 
+  !
   hexMapGMSH(0,0,0)= 4
   hexMapGMSH(1,0,0)= 3
   hexMapGMSH(0,1,0)= 8
@@ -221,16 +224,16 @@ CASE(2)
   hexMapGMSH(1,1,1)= 6
 
 CASE(3)
-  !tetMapGMSH(0,0,0)=  1
-  !tetMapGMSH(2,0,0)=  2
-  !tetMapGMSH(0,2,0)=  3
-  !tetMapGMSH(0,0,2)=  4
-  !tetMapGMSH(1,0,0)=  5
-  !tetMapGMSH(1,1,0)=  6
-  !tetMapGMSH(0,1,0)=  7
-  !tetMapGMSH(0,0,1)=  8
-  !tetMapGMSH(0,1,1)=  9
-  !tetMapGMSH(1,0,1)= 10
+  tetMapGMSH(0,0,0)=  1
+  tetMapGMSH(1,0,0)=  8
+  tetMapGMSH(2,0,0)=  4
+  tetMapGMSH(0,1,0)=  5
+  tetMapGMSH(1,1,0)= 10
+  tetMapGMSH(0,2,0)=  2
+  tetMapGMSH(0,0,1)=  7
+  tetMapGMSH(1,0,1)=  9
+  tetMapGMSH(0,1,1)=  6
+  tetMapGMSH(0,0,2)=  3
 
   !pyrMapGMSH(0,0,0)=  1
   !pyrMapGMSH(2,0,0)=  2
@@ -294,26 +297,26 @@ CASE(3)
   hexMapGMSH(1,2,2)= 17
   hexMapGMSH(2,2,2)=  6
 CASE(4)
-  !tetMapGMSH(0,0,0)=  1 
-  !tetMapGMSH(3,0,0)=  2 
-  !tetMapGMSH(0,3,0)=  3 
-  !tetMapGMSH(0,0,3)=  4 
-  !tetMapGMSH(1,0,0)=  5 
-  !tetMapGMSH(2,0,0)=  6 
-  !tetMapGMSH(2,1,0)=  7 
-  !tetMapGMSH(1,2,0)=  8 
-  !tetMapGMSH(0,2,0)=  9 
-  !tetMapGMSH(0,1,0)= 10
-  !tetMapGMSH(0,0,2)= 11
-  !tetMapGMSH(0,0,1)= 12
-  !tetMapGMSH(0,1,2)= 13
-  !tetMapGMSH(0,2,1)= 14
-  !tetMapGMSH(1,0,2)= 15
-  !tetMapGMSH(2,0,1)= 16
-  !tetMapGMSH(1,1,0)= 17
-  !tetMapGMSH(1,0,1)= 18
-  !tetMapGMSH(0,1,1)= 19
-  !tetMapGMSH(1,1,1)= 20
+  tetMapGMSH(0,0,0)=  1 
+  tetMapGMSH(1,0,0)= 12 
+  tetMapGMSH(2,0,0)= 11 
+  tetMapGMSH(3,0,0)=  4 
+  tetMapGMSH(0,1,0)=  5 
+  tetMapGMSH(1,1,0)= 18 
+  tetMapGMSH(2,1,0)= 15 
+  tetMapGMSH(0,2,0)=  6 
+  tetMapGMSH(1,2,0)= 16 
+  tetMapGMSH(0,3,0)=  2
+  tetMapGMSH(0,0,1)= 10
+  tetMapGMSH(1,0,1)= 19
+  tetMapGMSH(2,0,1)= 13
+  tetMapGMSH(0,1,1)= 17
+  tetMapGMSH(1,1,1)= 20
+  tetMapGMSH(0,2,1)=  7
+  tetMapGMSH(0,0,2)=  9
+  tetMapGMSH(1,0,2)= 14
+  tetMapGMSH(0,1,2)=  8
+  tetMapGMSH(0,0,3)=  3
 
   hexMapGMSH(0,0,0)=  4
   hexMapGMSH(1,0,0)= 20
@@ -382,7 +385,7 @@ CASE(4)
 
 CASE DEFAULT
   CALL abort(__STAMP__,&
-             'Elements of specified or higher order are not implemented yet. Order: ',bOrd,999.)
+             'Elements of specified or higher order are not implemented yet. Order: ',bOrd)
 END SELECT
 END SUBROUTINE getGMSHVolumeMapping
 
