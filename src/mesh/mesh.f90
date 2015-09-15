@@ -218,7 +218,7 @@ IF(useCurveds) THEN
   END IF
   doExactSurfProjection=GETLOGICAL('doExactSurfProjection','.FALSE.')
   IF(doExactSurfProjection)THEN
-    nExactSurfFuncs=GETINT('nExactSurfFuncs')
+    nExactSurfFuncs=CNTSTR('exactSurfFunc','0')
     ALLOCATE(ExactSurfFunc(2*nExactSurfFuncs))
     ExactSurfFunc(:)=GETINTARRAY('exactSurfFunc',2*nExactSurfFuncs) !(Curvedindex,exactsurffunc,...)
   END IF
