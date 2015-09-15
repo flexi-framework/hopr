@@ -35,7 +35,7 @@ SUBROUTINE WriteMeshToHDF5(FileString)
 USE MOD_Mesh_Vars,ONLY:tElem,tSide
 USE MOD_Mesh_Vars,ONLY:FirstElem
 USE MOD_Mesh_Vars,ONLY:N
-USE MOD_Output_Vars,ONLY:dosortIJK,useSpaceFillingCurve
+USE MOD_Output_Vars,ONLY:dosortIJK
 USE MOD_Mesh_Vars,ONLY:nUserDefinedBoundaries,BoundaryName,BoundaryType
 USE MOD_Mesh_Basis,ONLY:ISORIENTED
 ! IMPLICIT VARIABLE HANDLING
