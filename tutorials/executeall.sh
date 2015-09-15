@@ -10,7 +10,7 @@ do
   for inifile in $inifiles
   do
     echo '===> EXECUTING TUTORIAL: ' $tutorial ', WITH INIFILE:' $inifile
-    outfile='calculation_'$tutorial'.log'
+    outfile='calculation_'$tutorial'_'$inifile'.log'
     ../../bin/hopr $inifile > $outfile
     tail -n 4  $outfile
   done
