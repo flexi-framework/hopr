@@ -1047,6 +1047,7 @@ SUBROUTINE buildCurvedElementsFromBoundarySides(nCurvedBoundaryLayers)
 !===================================================================================================================================
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:tElem,tSide,FirstElem,N,deleteNode
+USE MOD_Basis_Vars,ONLY:MapSideToVol
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1072,38 +1073,65 @@ DO WHILE(ASSOCIATED(Elem))
   DO iNode=1,Elem%nCurvedNodes
     Elem%CurvedNode(iNode)%np%tmp=-999
   END DO
-  DO iNode=1,Elem%nNodes
-    Elem%Node(iNode)%np%tmp=999 ! never delete corner nodes
-  END DO
+  Elem=>Elem%nextElem
+END DO !Elem
+
+
+!mark nodes on curved surfac, iLayer=0
+Elem=>firstElem
+DO WHILE(ASSOCIATED(Elem))
   Side => Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
     IF(ASSOCIATED(Side%BC).AND.Side%curveIndex.GT.0)THEN
-      Elem%tmp=iLayer
+      DO iNode=1,MERGE((N+1)**2,(N+1)*(N+2)/2,(Side%nNodes.EQ.4))
+        Elem%curvedNode(MapSideToVol(iNode,Side%locSide,Elem%nNodes))%np%tmp=0
+      END DO !iNode
       Side%tmp=iLayer
+      Elem%tmp=iLayer
+      !!!Elem%zone=-iLayer !!! visualization hack
     ELSE
       Side%tmp=-999
     END IF
     Side => Side%nextElemSide
   END DO
   Elem=>Elem%nextElem
-END DO
-! now mark other elements layer by layer
-DO iLayer=2,nCurvedBoundaryLayers
+END DO !Elem
+! now mark elements layer by layer
+DO iLayer=1,nCurvedBoundaryLayers
   Elem=>firstElem
   DO WHILE(ASSOCIATED(Elem))
     IF(Elem%tmp.EQ.-999)THEN
-      Side => Elem%firstSide
-      DO WHILE(ASSOCIATED(Side))
-        IF(ASSOCIATED(Side%Connection))THEN
-          IF(Side%Connection%elem%tmp.EQ.iLayer-1) &
-            Elem%tmp=iLayer
+      DO iNode=1,Elem%nCurvedNodes
+        IF(Elem%CurvedNode(iNode)%np%tmp.EQ.iLayer-1) THEN
+          Elem%tmp=iLayer
+          !!!Elem%zone=-iLayer !!! visualization hack
+          EXIT !do iNode loop
         END IF
-        Side => Side%nextElemSide
-      END DO
+      END DO !iNode
+    END IF
+    IF(Elem%tmp.EQ.iLayer)THEN
+      !mark unmarked nodes
+      DO iNode=1,Elem%nCurvedNodes
+        IF(Elem%CurvedNode(iNode)%np%tmp.EQ.-999)THEN
+          Elem%CurvedNode(iNode)%np%tmp=iLayer
+        END IF
+      END DO !iNode
     END IF
     Elem=>Elem%nextElem
+  END DO !Elem
+END DO !iLayer
+
+!unmark nodes again
+Elem=>firstElem
+DO WHILE(ASSOCIATED(Elem))
+  DO iNode=1,Elem%nCurvedNodes
+    Elem%CurvedNode(iNode)%np%tmp=-999
   END DO
-END DO
+  DO iNode=1,Elem%nNodes
+    Elem%Node(iNode)%np%tmp=999 ! never delete corner nodes
+  END DO
+  Elem=>Elem%nextElem
+END DO !Elem
 
 Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))
@@ -1165,7 +1193,8 @@ SUBROUTINE curvedVolToSurf(Elem,onlyBoundarySides)
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:tElem,tSide,tNodePtr
 USE MOD_Mesh_Vars,ONLY:N
-USE MOD_Basis_Vars,ONLY:TetraMapInv,PyraMapInv,PrismMapInv,HexaMapInv
+USE MOD_Basis_Vars,ONLY:MapSideToVol,TriaMapInv,QuadMapInv
+!USE MOD_Basis_Vars,ONLY:TetraMapInv,PyraMapInv,PrismMapInv,HexaMapInv
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1194,98 +1223,19 @@ DO WHILE(ASSOCIATED(Side))
     END IF
   END IF
   ! Volume to reference side
-  SELECT CASE(Elem%nNodes)
-  CASE(4) !Tetraeder
-    DO q=0,N
-      DO p=0,N-q
-        SELECT CASE(Side%LocSide)
-        CASE(1) ! XY
-          refSide(p,q)%np => Elem%curvedNode(TetraMapInv(q,p,0))%np
-        CASE(2) ! XZ
-          refSide(p,q)%np => Elem%curvedNode(TetraMapInv(p,0,q))%np
-        CASE(3) ! schraeg (pfui)
-          refSide(p,q)%np => Elem%curvedNode(TetraMapInv(N-q-p,p,q))%np
-        CASE(4) ! YZ
-          refSide(p,q)%np => Elem%curvedNode(TetraMapInv(0,q,p))%np
-        END SELECT
-      END DO !p
-    END DO !q
-  
-  CASE(5) !Pyramid
-    IF (Side%nNodes.EQ.4)THEN
-      DO q=0,N
-        DO p=0,N
-          refSide(p,q)%np => Elem%curvedNode(PyraMapInv(q,p,0))%np
-        END DO !p
-      END DO !q
-    ELSE
-      DO q=0,N
-        DO p=0,N-q
-          SELECT CASE(Side%LocSide)
-          CASE(2) ! XZ
-            refSide(p,q)%np => Elem%curvedNode(PyraMapInv(p,0,q))%np
-          CASE(3) ! schraeg (pfui)
-            refSide(p,q)%np => Elem%curvedNode(PyraMapInv(N-q,p,q))%np
-          CASE(4) ! YZ
-            refSide(p,q)%np => Elem%curvedNode(PyraMapInv(N-q-p,N-q,q))%np
-          CASE(5) ! YZ
-            refSide(p,q)%np => Elem%curvedNode(PyraMapInv(0,q,p))%np
-          END SELECT
-        END DO !p
-      END DO !q
-    END IF
-  
-  CASE(6) !Prism
-    IF (Side%nNodes.EQ.4)THEN
-      DO q=0,N
-        DO p=0,N
-          SELECT CASE(Side%LocSide)
-          CASE(1) !X0Z
-            refSide(p,q)%np => Elem%curvedNode(PrismMapInv(p,0,q))%np
-          CASE(2) !
-            refSide(p,q)%np => Elem%curvedNode(PrismMapInv(N-p,p,q))%np
-          CASE(3) !0YZ
-            refSide(p,q)%np => Elem%curvedNode(PrismMapInv(0,q,p))%np
-          END SELECT
-        END DO !p
-      END DO !q
-    ELSE
-      DO q=0,N
-        DO p=0,N-q
-          SELECT CASE(Side%LocSide)
-          CASE(4) ! XYN
-            refSide(p,q)%np => Elem%curvedNode(PyraMapInv(p,q,N))%np
-          CASE(5) ! XY0
-            refSide(p,q)%np => Elem%curvedNode(PrismMapInv(q,p,0))%np
-          END SELECT
-        END DO !p
-      END DO !q
-    END IF
-  
-  CASE(8) !Hexahedron
+  IF(Side%nNodes.EQ.4)THEN
     DO q=0,N
       DO p=0,N
-        SELECT CASE(Side%LocSide)
-        CASE(5) ! XI_MINUS
-          refSide(p,q)%np => Elem%curvedNode(HexaMapInv(0,q,p))%np
-        CASE(3) ! XI_PLUS
-          refSide(p,q)%np => Elem%curvedNode(HexaMapInv(N,p,q))%np
-        CASE(2) ! ETA_MINUS
-          refSide(p,q)%np => Elem%curvedNode(HexaMapInv(p,0,q))%np
-        CASE(4) ! ETA_PLUS
-          refSide(p,q)%np => Elem%curvedNode(HexaMapInv(N-p,N,q))%np
-        CASE(1) ! ZETA_MINUS
-          refSide(p,q)%np => Elem%curvedNode(HexaMapInv(q,p,0))%np
-        CASE(6) ! ZETA_PLUS
-          refSide(p,q)%np => Elem%curvedNode(HexaMapInv(p,q,N))%np
-        END SELECT
+        refSide(p,q)%np => Elem%curvedNode(MapSideToVol(QuadMapInv(p,q),Side%locSide,Elem%nNodes))%np
       END DO !p
     END DO !q
-
-  CASE DEFAULT
-    CALL abort(__STAMP__,&
-               'Number of primary nodes has to be 3,5,6,8 (Tetra,Pyra,Prism,Hexa).')
-  END SELECT
+  ELSE
+    DO q=0,N
+      DO p=0,N-q
+        refSide(p,q)%np => Elem%curvedNode(MapSideToVol(TriaMapInv(p,q),Side%locSide,Elem%nNodes))%np
+      END DO !p
+    END DO !q
+  END IF !Side%nNodes == 4
   CALL referenceSideToFlipped(refSide,Side)
   Side=>Side%nextElemSide
 END DO !iSide
