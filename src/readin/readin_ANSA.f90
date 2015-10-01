@@ -387,8 +387,8 @@ DO iElem=1,nElems
       ELSE
         iBCSide=iBCSide+searchdir
       END IF
-      IF(conn4(1).NE.BCSideBuffer(iBCSide,1)) EXIT  !bounds of bi
       IF((iBCSide.GT.nBCSides).OR.(iBCSide.LT.1)) EXIT !bounds of array
+      IF(conn4(1).NE.BCSideBuffer(iBCSide,1)) EXIT  !bounds of bi
     END DO  
     IF(.NOT.found) THEN
       ! this is not a BC Side!!!

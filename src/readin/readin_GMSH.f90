@@ -82,15 +82,16 @@ SUBROUTINE readGMSH()
 USE MOD_Mesh_Vars,ONLY:tElem,tElemPtr,tSide,tSidePtr,tNode,tNodePtr
 USE MOD_Mesh_Vars,ONLY:FirstElem
 USE MOD_Mesh_Vars,ONLY:nMeshFiles,MeshFileName
-USE MOD_Mesh_Vars,ONLY:nUserDefinedBoundaries
+USE MOD_Mesh_Vars,ONLY:nUserDefinedBoundaries,BoundaryName
 USE MOD_Mesh_Vars,ONLY:getNewElem,getNewNode,getNewBC
-USE MOD_Readin_GMSH_Vars,ONLY:buildTypes,GMSH_TYPES
+USE MOD_Readin_GMSH_Vars
+USE MOD_ReadinTools,ONLY:TRYREAD
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 ! nMeshFiles                : Number of mesh files (INI-File)
-! MeshFileName(iFile)           : Filename of mesh file iFile (INI-File)
+! MeshFileName(iFile)       : Filename of mesh file iFile (INI-File)
 ! nZones                    : Number of mesh zones (INI-File)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -101,7 +102,7 @@ TYPE(tElemPtr),POINTER :: Elems(:)  ! ?
 TYPE(tElem),POINTER    :: aElem  ! ?
 TYPE(tSide),POINTER    :: aSide  ! ?
 TYPE(tBCTemp),POINTER  :: aBCTemp  ! ?
-TYPE(tBCTempPtr),POINTER  :: BCList(:)  ! ?
+TYPE(tBCTempPtr),POINTER :: BCList(:)  ! ?
 INTEGER                :: os,iFile  ! ?
 INTEGER                :: i,iElem,nElems,iNode,nNodes  ! ?
 INTEGER                :: elemCount  ! ?
@@ -109,7 +110,9 @@ INTEGER                :: elemType,nTags  ! ?
 INTEGER                :: tags(1337),nodeInds(1337)  ! ?
 INTEGER                :: junk1  ! ?
 INTEGER                :: minInd,tempNodeInds(4) ! three are enough
-LOGICAL                :: isBCSide,BCFound(nUserDefinedBoundaries)  ! ?
+INTEGER                :: nBCs,iBC,whichDim,BCInd
+LOGICAL                :: isBCSide,BCFound(nUserDefinedBoundaries),found,s  ! ?
+CHARACTER(LEN=255)     :: BCName
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(132("~"))')
 CALL Timer(.TRUE.)
@@ -127,10 +130,35 @@ DO iFile=1,nMeshFiles
        IOSTAT = os                    )
   WRITE(UNIT_stdOut,*)  'Reading mesh from ascii file: ',TRIM(MeshFileName(iFile))
   ! Read Version and other infos
-  READ(104,*) !$MeshFormat
-  READ(104,*) !Version
-  !READ(104,'(F4.1)', advance='no') version
-  READ(104,*) ; READ(104,*) ! $EndMeshFormat, $Nodes
+  s=TRYREAD(104,'$MeshFormat')
+  READ(104,*) ! format
+  s=TRYREAD(104,'$EndMeshFormat')
+  s=TRYREAD(104,'$PhysicalNames')
+  READ(104,*) nBCs
+  ALLOCATE(MapBC(nBCs))
+  MapBC=-1
+  BCFound=.FALSE.
+  DO iBC=1,nBCs
+    READ(104,*) whichDim, BCInd, BCName
+    IF(whichDim.EQ.2)THEN
+      found=.FALSE.
+      DO i=1,nUserDefinedBoundaries
+        IF(INDEX(TRIM(BCName),TRIM(BoundaryName(i))).NE.0) THEN
+          found=.TRUE. 
+          BCFound(i)=.TRUE.
+          MapBC(BCInd)=i
+          WRITE(*,*)'BC found: ',TRIM(BCName)
+          WRITE(*,*)'              -->  mapped to:',TRIM(BoundaryName(i))
+          EXIT
+        END IF
+      END DO
+      IF(.NOT.found) CALL abort(__STAMP__, &
+                    'UserDefinedBoundary condition missing: '//TRIM(BCName),nUserDefinedBoundaries)
+    END IF
+  END DO
+
+  s=TRYREAD(104,'$EndPhysicalNames')
+  s=TRYREAD(104,'$Nodes')
   READ(104,*) nNodes
 
   ! Read node coordinates
@@ -140,16 +168,16 @@ DO iFile=1,nMeshFiles
     READ(104,*)Nodes(iNode)%np%ind,Nodes(iNode)%np%x !assume ordered nodes (1,2,3..)
     IF (iNode.NE.Nodes(iNode)%np%ind)&
       CALL abort(__STAMP__,&
-                  'List of nodes in GMSH file has to be sorted (1,2,3,...)',999,999.)
+                  'List of nodes in GMSH file has to be sorted (1,2,3,...)')
   END DO
 
   ALLOCATE(BCList(nNodes))
   DO i=1,nNodes
     NULLIFY(BCList(i)%bp)
   END DO
-  BCFound=.FALSE.
 
-  READ(104,*) ; READ(104,*) !$EndNodes, $Elements
+  s=TRYREAD(104,'$EndNodes')
+  s=TRYREAD(104,'$Elements')
   READ(104,*) nElems !=vertices + lines + faces + elements (we want only elements)
   ALLOCATE(Elems(nElems))
   ! Read element connectivity
@@ -161,9 +189,9 @@ DO iFile=1,nMeshFiles
     !  'The specified mesh contains element types, which are currently not supported',999,999.)
     SELECT CASE(GMSH_TYPES(6,elemType)) !2d=bc or 3d=element
     CASE(2)
-      CALL addToBCs(BCList,BCFound,elemType,nodeInds,nTags,tags)
+      CALL addToBCs(BCList,elemType,nodeInds,nTags,tags)
     CASE(3)
-      CALL buildElem(Elems(elemCount+1),elemCount,elemType,nNodes,Nodes,nodeInds)
+      CALL buildElem(Elems(elemCount+1),elemCount,elemType,Nodes,nodeInds)
     END SELECT
   END DO ! nElems
   
@@ -192,7 +220,6 @@ DO iFile=1,nMeshFiles
         aBCTemp=>aBCTemp%nextBC
       END DO
       IF(isBCSide)THEN
-        write(*,*) 'bcsidei found',aBCTemp%BC%BCType, aBCTemp%BC%BCAlphaInd
         aSide%curveIndex=aBCTemp%curveIndex
         aSide%BC=>aBCTemp%BC
       END IF
@@ -228,14 +255,14 @@ END DO
 WRITE(UNIT_stdOut,'(132("~"))')
 END SUBROUTINE readGMSH
 
-SUBROUTINE addToBCs(BCList,BCFound,gmshElemType,nodeInds,nTags,tags)
+SUBROUTINE addToBCs(BCList,gmshElemType,nodeInds,nTags,tags)
 !===================================================================================================================================
 ! ?
 !===================================================================================================================================
 ! MODULES
-USE MOD_Mesh_Vars,ONLY:nUserDefinedBoundaries,BoundaryName,BoundaryType
+USE MOD_Mesh_Vars,ONLY:BoundaryType
 USE MOD_Mesh_Vars,ONLY:getNewElem,tBC
-USE MOD_Readin_GMSH_Vars,ONLY:GMSH_TYPES
+USE MOD_Readin_GMSH_Vars
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -247,29 +274,22 @@ INTEGER,INTENT(IN)         :: tags(nTags)  ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 TYPE(tBCTempPtr),POINTER,INTENT(INOUT) :: BCList(:)  ! ?
-LOGICAL,INTENT(INOUT)                  :: BCFound(nUserDefinedBoundaries)  ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 INTEGER                    :: i,iBC,minInd  ! ?
 TYPE(tBCTemp),POINTER      :: aBCTemp  ! ?
-CHARACTER(LEN=255)         :: tag  ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 
 IF(GMSH_TYPES(6,gmshElemType).NE.2) RETURN ! filter out volumes
-IF(GMSH_TYPES(1,gmshElemType).LE.3) RETURN ! filter out lines 
+IF(GMSH_TYPES(1,gmshElemType).LE.2) RETURN ! filter out lines 
 ! GMSH Tags: 1=physical group (aka BoundaryCondition), 2=geometric entitry(edge,face,vol) element belongs to, 3=mesh partition
 ! element belongs to, 4+=partition ids (negative partition = ghost cells)
 
-WRITE(tag,*)tags(1)
 iBC=-1
-DO i=1,nUserDefinedBoundaries
-  IF(INDEX(TRIM(BoundaryName(i)),TRIM(ADJUSTL(tag))).NE.0) THEN
-    BCFound(i)=.TRUE.
-    iBC=i
-  END IF
-END DO
+IF(tags(1).LE.UBOUND(MapBC,1).AND.tags(1).GE.LBOUND(MapBC,1)) &
+  iBC=MapBC(tags(1))
 IF(iBC.EQ.-1) CALL abort(__STAMP__,&
-                         'Side with undefined BoundaryCondition found',999,999.)
+                         'Side with undefined BoundaryCondition found')
 
 ALLOCATE(aBCTemp)
 DO i=1,GMSH_TYPES(1,gmshElemType) !primary nodes
@@ -297,7 +317,7 @@ ELSE
 END IF
 END SUBROUTINE
 
-SUBROUTINE buildElem(elem,elemCount,gmshElemType,nNodes,Nodes,nodeInds)
+SUBROUTINE buildElem(elem,elemCount,gmshElemType,Nodes,nodeInds)
 !===================================================================================================================================
 ! ?
 !===================================================================================================================================
@@ -309,17 +329,14 @@ USE MOD_Mesh_Vars,ONLY:getNewElem,getNewBC
 USE MOD_Mesh_Vars,ONLY:useCurveds,rebuildCurveds
 USE MOD_Mesh_Basis,ONLY:createSides
 USE MOD_Readin_GMSH_Vars,ONLY:bOrd,getGMSHVolumeMapping,GMSH_TYPES
-USE MOD_Readin_GMSH_Vars,ONLY:tetMapGMSH,pyrMapGMSH,priMapGMSH
-!USE MOD_Readin_GMSH_Vars,ONLY:tetMapCGNSToGMSH,pyrMapCGNSToGMSH,priMapCGNSToGMSH
-USE MOD_Readin_GMSH_Vars,ONLY:hexMapGMSH
-USE MOD_Readin_GMSH_Vars,ONLY:hexMapCGNSToGMSH
+USE MOD_Readin_GMSH_Vars,ONLY:tetMapGMSH,pyrMapGMSH,priMapGMSH,hexMapGMSH
+USE MOD_Readin_GMSH_Vars,ONLY:tetMapCGNSToGMSH,pyrMapCGNSToGMSH,priMapCGNSToGMSH,hexMapCGNSToGMSH
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 INTEGER,INTENT(IN)         :: gmshElemType  ! ?
 INTEGER,INTENT(IN)         :: nodeInds(GMSH_TYPES(3,gmshElemType))  ! ?
-INTEGER,INTENT(IN)         :: nNodes  ! ?
 TYPE(tNodePtr),POINTER,INTENT(IN)  :: Nodes(:)  ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -333,7 +350,7 @@ INTEGER                    :: i  ! ?
 IF(GMSH_TYPES(6,gmshElemType).NE.3) RETURN ! no 3d element
 IF (bOrd .EQ.0) THEN
   bOrd = GMSH_TYPES(4,gmshElemType)+1
-  IF (bOrd .NE. N+1) & 
+  IF ((bOrd .NE. N+1).AND.useCurveds.AND..NOT.rebuildCurveds) & 
     CALL abort(__STAMP__,&
     'Mesh boundary order not equal to boundary order from ini file! Mesh order: ',N+1)
   CALL getGMSHVolumeMapping()
@@ -353,21 +370,22 @@ ALLOCATE(Elem%ep%Node(elem%ep%nNodes))
 DO i=1,elem%ep%nNodes
   SELECT CASE(elem%ep%nNodes)
   CASE(4)
-!   elem%ep%node(i)%np => Nodes(nodeInds(tetMapGMSH(tetraMap(i,1),tetraMap(i,2),tetraMap(i,3))))%np
+    elem%ep%node(i)%np => Nodes(nodeInds(TetMapCGNSToGMSH(i)))%np
   CASE(5)
-!   elem%ep%node(i)%np => Nodes(nodeInds(pyrMapGMSH(pyraMap(i,1),pyraMap(i,2),pyraMap(i,3))))%np
+    elem%ep%node(i)%np => Nodes(nodeInds(PyrMapCGNSToGMSH(i)))%np
   CASE(6)
-!   elem%ep%node(i)%np => Nodes(nodeInds(priMapGMSH(prismMap(i,1),prismMap(i,2),prismMap(i,3))))%np
+    elem%ep%node(i)%np => Nodes(nodeInds(PriMapCGNSToGMSH(i)))%np
   CASE(8)
     elem%ep%node(i)%np => Nodes(nodeInds(HexMapCGNSToGMSH(i)))%np
+  CASE DEFAULT
+    STOP 'Unknown element type!'
   END SELECT
-!  elem%ep%node(i)%np => Nodes(nodeInds(i))%np ! CGNS ordering
   elem%ep%node(i)%np%refCount = elem%ep%node(i)%np%refCount+1
 END DO
 CALL createSides(elem%ep,.TRUE.)
 
 ! assign curved elements if present, if curveds should be used and not rebuilt using our methods
-IF(useCurveds .AND. (bOrd.GT.1) .AND.(.NOT.rebuildCurveds))THEN
+IF(useCurveds .AND. (bOrd.GT.2) .AND.(.NOT.rebuildCurveds))THEN
   ALLOCATE(elem%ep%curvedNode(GMSH_TYPES(3,gmshElemType)))
   elem%ep%nCurvedNodes=GMSH_TYPES(3,gmshElemType)
   DO i=1,GMSH_TYPES(3,gmshElemType)
@@ -375,15 +393,21 @@ IF(useCurveds .AND. (bOrd.GT.1) .AND.(.NOT.rebuildCurveds))THEN
     CASE(4)
       elem%ep%curvedNode(i)%np => Nodes(nodeInds(tetMapGMSH(tetraMap(i,1),tetraMap(i,2),tetraMap(i,3))))%np
     CASE(5)
+      STOP 'High order pyramids not implemented yet for GMSH!'
       elem%ep%curvedNode(i)%np => Nodes(nodeInds(pyrMapGMSH(pyraMap(i,1),pyraMap(i,2),pyraMap(i,3))))%np
     CASE(6)
+      STOP 'High order prisms not implemented yet for GMSH!'
       elem%ep%curvedNode(i)%np => Nodes(nodeInds(priMapGMSH(prismMap(i,1),prismMap(i,2),prismMap(i,3))))%np
     CASE(8)
       elem%ep%curvedNode(i)%np => Nodes(nodeInds(hexMapGMSH(hexaMap(i,1),hexaMap(i,2),hexaMap(i,3))))%np
     END SELECT
+    !print*, tetraMap(i,1),tetraMap(i,2),tetraMap(i,3)
+    !print*, elem%ep%curvedNode(i)%np%x
+    !print*, tetMapGMSH(tetraMap(i,1),tetraMap(i,2),tetraMap(i,3))
     elem%ep%curvedNode(i)%np%refCount=elem%ep%curvedNode(i)%np%refCount+1
   END DO
 END IF
 END SUBROUTINE buildElem
+
 
 END MODULE MOD_Readin_GMSH

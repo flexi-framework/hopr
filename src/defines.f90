@@ -14,7 +14,7 @@
 #define __STAMP__ __FILE__,__LINE__,__DATE__,__TIME__
 
 #define SDEALLOCATE(A) IF(ASSOCIATED(A)) DEALLOCATE(A)
-#define ERRWRITE(a,b) WRITE(UNIT_errOut,b)
+#define ERRWRITE(a,b) WRITE(UNIT_errFile,b)
 #define LOGWRITE(a,b) IF(Logging) WRITE(UNIT_logOut,b)
 
 ! General tolerance for mesh node comparisons and sfc (1.E.-13 should be ok too)

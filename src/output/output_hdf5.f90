@@ -19,7 +19,11 @@ INTERFACE WriteMeshToHDF5
   MODULE PROCEDURE WriteMeshToHDF5
 END INTERFACE
 
-PUBLIC::WriteMeshToHDF5
+INTERFACE SpaceFillingCurve
+  MODULE PROCEDURE SpaceFillingCurve
+END INTERFACE
+
+PUBLIC::WriteMeshToHDF5,SpaceFillingCurve
 !===================================================================================================================================
 
 CONTAINS
@@ -31,7 +35,7 @@ SUBROUTINE WriteMeshToHDF5(FileString)
 USE MOD_Mesh_Vars,ONLY:tElem,tSide
 USE MOD_Mesh_Vars,ONLY:FirstElem
 USE MOD_Mesh_Vars,ONLY:N
-USE MOD_Output_Vars,ONLY:dosortIJK,useSpaceFillingCurve
+USE MOD_Output_Vars,ONLY:dosortIJK
 USE MOD_Mesh_Vars,ONLY:nUserDefinedBoundaries,BoundaryName,BoundaryType
 USE MOD_Mesh_Basis,ONLY:ISORIENTED
 ! IMPLICIT VARIABLE HANDLING
@@ -122,12 +126,13 @@ DO WHILE(ASSOCIATED(Elem))
   Elem=>Elem%nextElem
 END DO
 
-! prepare sorting by space filling curve
-! NOTE: SpaceFillingcurve is not used, if existing hdf5 mesh is read in and the sorting should stay identical
-IF(useSpaceFillingCurve)THEN
-  CALL SpaceFillingCurve()
-ELSE
-END IF
+!NOW CALLED IN FILLMESH!!
+!! prepare sorting by space filling curve
+!! NOTE: SpaceFillingcurve is not used, if existing hdf5 mesh is read in and the sorting should stay identical
+!IF(useSpaceFillingCurve)THEN
+!  CALL SpaceFillingCurve()
+!END IF
+
 IF(ALLOCATED(ElemBarycenters)) DEALLOCATE(ElemBarycenters)
 ALLOCATE(ElemBarycenters(1:nElems,3))
 
@@ -433,7 +438,7 @@ IF(iNode.NE.nNodes) CALL abort(__STAMP__,&
 
 END SUBROUTINE getMeshinfo
 
-SUBROUTINE spaceFillingCurve()
+SUBROUTINE spaceFillingCurve(nElems_in)
 !===================================================================================================================================
 ! Subroutine prepares elementlist and barycentric coodrinates for element sorting by space filling curve and maps back to pointer
 ! srtructure
@@ -450,22 +455,23 @@ USE MOD_sortIJK,ONLY:SortElemsByCoords
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+INTEGER,INTENT(IN)             :: nElems_in
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER                        :: IDlist(1:nElems)  ! ?
-TYPE(tElemPtr)                 :: Elems(1:nElems)  ! ?
-REAL                           :: ElemBary(1:nElems,3)  ! ?
+INTEGER                        :: IDlist(1:nElems_in)  ! ?
+TYPE(tElemPtr)                 :: Elems(1:nElems_in)  ! ?
+REAL                           :: ElemBary(1:nElems_in,3)  ! ?
 INTEGER                        :: ElemID  ! ?
 INTEGER                        :: iNode 
 !===================================================================================================================================
 
 Elems(1)%ep=>firstElem
-DO ElemID=2,nElems 
+DO ElemID=2,nElems_in 
   Elems(ElemID)%ep=>Elems(ElemID-1)%ep%nextElem
 END DO
-DO ElemID=1,nElems
+DO ElemID=1,nElems_in
   IDList(ElemID)=ElemID 
   ElemBary(ElemID,:)=0.
   DO iNode=1,Elems(ElemID)%ep%nNodes
@@ -476,31 +482,31 @@ END DO
 
 IF((MeshMode.EQ.11).AND. (.NOT.AdaptedMesh))THEN 
   ! for Meshmode=11: if no splitting was done, this is a structured single block, elem_IJK already defined
-  CALL SortElemsBySpaceFillingCurve(nElems,REAL(Elem_IJK),IDList,1) !use IJK for space filling curve
+  CALL SortElemsBySpaceFillingCurve(nElems_in,REAL(Elem_IJK),IDList,1) !use IJK for space filling curve
 ELSE
-  CALL SortElemsBySpaceFillingCurve(nElems,ElemBary,IDList,2)
+  CALL SortElemsBySpaceFillingCurve(nElems_in,ElemBary,IDList,2)
 END IF
 
 NULLIFY(Elems(IDlist(1))%ep%prevElem)
 firstElem=>Elems(IDlist(1))%ep
-DO ElemID=2,nElems 
+DO ElemID=2,nElems_in 
   Elems(IDlist(ElemID-1))%ep%nextElem=>Elems(IDList(ElemID))%ep
   Elems(IDlist(ElemID))%ep%prevElem  =>Elems(IDList(ElemID-1))%ep
 END DO
 IF(DebugVisu)THEN
   WRITE(*,*)'write space filling curve to sfc.dat'
   OPEN(UNIT=200,FILE='sfc.dat',STATUS='REPLACE')
-  DO ElemID=1,nElems 
+  DO ElemID=1,nElems_in 
     WRITE(200,'(3E21.6)')ElemBary(IDlist(ElemID),:)
   END DO
   CLOSE(200)
 END IF
 IF(ALLOCATED(ElemBarycenters)) DEALLOCATE(ElemBarycenters)
-ALLOCATE(ElemBarycenters(1:nElems,3))
-DO ElemID=1,nElems 
+ALLOCATE(ElemBarycenters(1:nElems_in,3))
+DO ElemID=1,nElems_in 
   ElemBarycenters(ElemID,:)=ElemBary(IDlist(ElemID),:)
 END DO
-NULLIFY(Elems(IDlist(nElems))%ep%nextElem)
+NULLIFY(Elems(IDlist(nElems_in))%ep%nextElem)
 IF((MeshMode.EQ.11).AND.(.NOT.AdaptedMesh))THEN ! for Meshmode=11: structured single block, elem_IJK already defined
   !sort by spacefillingcurve
   Elem_IJK(:,1)=Elem_IJK(IDList(:),1)
@@ -510,8 +516,8 @@ ELSE
   IF(dosortijk) THEN
     ! do also directly the ijk coordinates of the elements
     IF(ALLOCATED(Elem_IJK)) DEALLOCATE(Elem_IJK)
-    ALLOCATE(Elem_IJK(1:nElems,3))
-    CALL SortElemsByCoords(nElems,ElemBarycenters(:,:),nElems_IJK,Elem_IJK)
+    ALLOCATE(Elem_IJK(1:nElems_in,3))
+    CALL SortElemsByCoords(nElems_in,ElemBarycenters(:,:),nElems_IJK,Elem_IJK)
   END IF
 END IF
 END SUBROUTINE spaceFillingCurve

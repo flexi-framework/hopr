@@ -366,7 +366,7 @@ Description:  & Side array, all information of one element is a set of all eleme
 13 &  3 & 11 & 4 & 42 & 0 &  \\ 
 14 &  3 & 12 & 0 &  0 & 3 &  \\ 
 15 &  3 & 13 & 0 &  0 & 4 &  (lastIndSIDE,3) \\ \hline% ... &  &  & &  & &   \\  \hline
-16 & 14 &-10 & 1 & 52 & 0 &  (offsetIndSIDE+1,4) \\ 
+16 & 14 &-10 & 2 & 61 & 0 &  (offsetIndSIDE+1,4) \\ 
 17 &  3 & 15 & 0 &  0 & 2 &  \\ 
 18 &  3 & 16 & 0 &  0 & 3 &  \\ 
 19 &  3 &-11 & 3 & 22 & 0 &  \\ 
@@ -382,7 +382,7 @@ Description:  & Side array, all information of one element is a set of all eleme
 \emph{10*nbLocSide+Flip}:  &  first digit : local side of the connected neighbor element$\in[1,\dots,6]$, last digit: Orientation between the sides (flip $\in [0,\dots,4]$), see\rf{sec:flip}. \\
 %
 \emph{BCID}:            & Refers to the row index of the Boundary Condition List in \BCNames~ / \BCType~ array ($\in[1,\dots\text{\texttt{nBCs}}]$). $=0$ for inner sides. \\
-                        & Note that $\neq 0$ for periodic boundary conditions, while nbElemID and nbLocSide+Flip are given.     \\\hline
+                        & Note that $\neq 0$ for periodic and inner boundary conditions, while nbElemID and nbLocSide+Flip are given, see sec.~\ref{sec:BC}.     \\\hline
 \end{tabularx}
 \caption{\protect\SideInfo~ array for example mesh \rf{fig:exmesh}.}
 \end{table}
@@ -447,6 +447,7 @@ The node list contains the high order nodes of the element, so the number of nod
 \newpage
 
 \subsection{Boundary Conditions}
+\label{sec:BC}
 
 %\begin{table}[h!]
 \begin{tabularx}{1.0\textwidth}{lX}
@@ -469,14 +470,34 @@ The boundary conditions are completely defined by the user. Each BCID from the \
 \begin{table}[h!]
 \centering
 \begin{tabular}{|l|l|c|r|} \hline
-Ind & Boundary Conditions Name: & & \BCType \\ \hline
-1   &  lowerWall    & & (4,0,0,0) \\
-2   &  Inflow       & & (2,0,0,0) \\
-3   &  OutflowRight & & (10,0,0,0) \\
-4   &  OutflowLeft  & & (8,0,0,0) \\ \hline
+Ind & Boundary Conditions Name: & & \BCType    \\ \hline
+1   &  lowerWall                & & (4,0,0,0)  \\
+2   &  Inflow                   & & (2,0,0,0)  \\
+3   &  OutflowRight             & & (10,0,0,0) \\
+4   &  OutflowLeft              & & (8,0,0,0)  \\ \hline
 \end{tabular}
 \caption{\BCNames~ and \BCType~ array for the example mesh, representing a list of boundary condition names.}
 \end{table}
+
+
+\smallskip
+The \BCType~ array consists of the following entries, of which some are specific to HOPR:
+
+{
+\centering
+\BCType~ = $\big( $\emph{ BoundaryType, CurveIndex, StateIndex, PeriodicIndex} $\big)$ \\
+}
+\smallskip 
+
+\begin{tabularx}{1.0\textwidth}{|lX|}\hline
+\emph{BoundaryType}:   & Actual type of boundary condition (e.g. inflow, outflow, periodic). \newline {\bf Reserved values:} BoundaryType=1 is reserved for periodic boundaries and BoundaryType=100 is reserved for "inner" boundaries or "analyze sides". For these two cases the sides in the SideInfo array will have a neighbor side/element/flip specified, all other sides with BCs are not connected!  \\
+%
+\emph{CurveIndex}:     & Geometry tag used to distinguish between multiple BCs of the same type, e.g. to specify the original CAD surface belonging to the mesh side. Also used to control some mesh curving features, sides with CurveIndex$>$0 are curved, while sides with CurveIndex=0 are mostly (bi-) linear. \\
+%
+\emph{StateIndex}:     & Specifies the index of a reference state to be used inside the solver. This value is completely used-defined and will not be used/checked/modified by HOPR. \\
+\emph{PeriodicIndex}:  & Only relevant for periodic sides, ignored for others. For periodic connections two boundary conditions are required, having the same absolute PeriodicIndex, one with positive, the other with negative sign. \\\hline
+\end{tabularx}
+
 
 
 \chapter{Parallel Read-in}

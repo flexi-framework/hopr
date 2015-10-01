@@ -11,6 +11,7 @@ USE ISO_VARYING_STRING
 IMPLICIT NONE
 PRIVATE
 
+PUBLIC::TRYREAD
 PUBLIC::GETSTR
 PUBLIC::CNTSTR
 PUBLIC::GETINT
@@ -22,6 +23,10 @@ PUBLIC::GETREALARRAY
 PUBLIC::IgnoredStrings
 
 !===================================================================================================================================
+
+INTERFACE TRYREAD
+  MODULE PROCEDURE TRYREAD
+END INTERFACE
 
 INTERFACE GETSTR
   MODULE PROCEDURE GETSTR
@@ -84,6 +89,41 @@ LOGICAL,PUBLIC::ReadInDone=.FALSE.
 TYPE(tString),POINTER::FirstString
 
 CONTAINS
+
+FUNCTION TRYREAD(UnitLoc,Key,abortOpt)
+!===================================================================================================================================
+! Read string from specified unit
+!===================================================================================================================================
+! MODULES
+USE MOD_Globals,ONLY:abort
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+CHARACTER(LEN=*),INTENT(IN)          :: Key      ! Search for this keyword in ini file
+INTEGER,INTENT(IN)                   :: unitLoc
+LOGICAL,INTENT(IN),OPTIONAL          :: abortOpt
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+LOGICAL                              :: TRYREAD
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+INTEGER                              :: stat
+CHARACTER(LEN=255)                   :: tmp
+LOGICAL                              :: abortLoc=.TRUE.
+!===================================================================================================================================
+IF(PRESENT(abortOpt)) abortLoc=abortOpt
+TRYREAD=.TRUE.
+READ(unitLoc,*,IOSTAT=stat) tmp
+IF(stat.NE.0)              TRYREAD=.FALSE.
+IF(TRIM(Key).NE.TRIM(tmp)) TRYREAD=.FALSE.
+
+IF(.NOT.TRYREAD.AND.abortLoc)&
+  CALL abort(__STAMP__,&
+             'Keyword '//TRIM(Key)//' not found in file.')
+END FUNCTION TRYREAD
+
+
 FUNCTION GETSTR(Key,Proposal)
 !===================================================================================================================================
 ! Read string named "key" from setup file and store in "GETINT". If keyword "Key" is not found in ini file,

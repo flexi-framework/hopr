@@ -28,6 +28,18 @@ INTERFACE GradJacobiP
   MODULE PROCEDURE GradJacobiP
 END INTERFACE
 
+INTERFACE LegendreGaussNodesAndWeights
+   MODULE PROCEDURE LegendreGaussNodesAndWeights
+END INTERFACE
+
+INTERFACE LegGaussLobNodesAndWeights
+   MODULE PROCEDURE LegGaussLobNodesAndWeights
+END INTERFACE
+
+INTERFACE ChebyshevGaussNodesAndWeights
+   MODULE PROCEDURE ChebyshevGaussNodesAndWeights
+END INTERFACE
+
 INTERFACE ChebyGaussLobNodesAndWeights
    MODULE PROCEDURE ChebyGaussLobNodesAndWeights
 END INTERFACE
@@ -52,6 +64,9 @@ PUBLIC:: Vandermonde1D
 PUBLIC:: GradVandermonde1D
 PUBLIC:: JacobiP
 PUBLIC:: GradJacobiP
+PUBLIC:: LegendreGaussNodesAndWeights
+PUBLIC:: LegGaussLobNodesAndWeights
+PUBLIC:: ChebyshevGaussNodesAndWeights
 PUBLIC:: ChebyGaussLobNodesAndWeights
 PUBLIC:: PolynomialDerivativeMatrix
 PUBLIC:: BarycentricWeights

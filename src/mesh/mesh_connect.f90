@@ -80,7 +80,7 @@ DO WHILE(ASSOCIATED(Elem))
       IF (Side%BC%BCType .EQ. 0) THEN
         CALL deleteBC(Side%BC)
         nBCSides=nBCSides-1
-      ELSEIF (Side%BC%BCType .GE. 100) THEN
+      ELSEIF (Side%BC%BCType .EQ. 100) THEN
         nBCSides=nBCSides-1
       ELSEIF (Side%BC%BCType .EQ. 1) THEN
         nPeriodicSides=nPeriodicSides+1
@@ -161,7 +161,7 @@ DO WHILE(ASSOCIATED(Elem))
           END DO
         END IF
       END IF
-      IF(Side%BC%BCType .GE. 100) THEN
+      IF(Side%BC%BCType .EQ. 100) THEN
         nInner(1)=nInner(1)+1
         IF(.NOT. ASSOCIATED(Side%Connection)) THEN
           nInner(2)=nInner(2)+1
@@ -232,7 +232,7 @@ DO WHILE(ASSOCIATED(Elem))
     IF(.NOT.ASSOCIATED(Side%BC))THEN
       isInner=.TRUE.
     ELSE
-      IF(Side%BC%BCType.GE.100) isInner=.TRUE.
+      IF(Side%BC%BCType.EQ.100) isInner=.TRUE.
     END IF
     IF(side%tmp2.LT.0) isInner=.TRUE.
 
@@ -278,7 +278,7 @@ DO WHILE(ASSOCIATED(Elem))
     IF(.NOT.ASSOCIATED(Side%BC))THEN
       isInner=.TRUE.
     ELSE
-      IF(Side%BC%BCType.GE.100) isInner=.TRUE.
+      IF(Side%BC%BCType.EQ.100) isInner=.TRUE.
     END IF
     IF(side%tmp2.LT.0) isInner=.TRUE.
 

@@ -76,6 +76,7 @@ USE MOD_Basis_Vars,ONLY:TetraMap,TetraMapInv !,Vdm_visu_Tetra,D_visu_Tetra
 USE MOD_Basis_Vars,ONLY:PyraMap,PyraMapInv   !,Vdm_visu_Pyra,D_visu_Pyra
 USE MOD_Basis_Vars,ONLY:PrismMap,PrismMapInv !,Vdm_visu_Prism,D_visu_Prism
 USE MOD_Basis_Vars,ONLY:HexaMap,HexaMapInv,Vdm_visu_Hexa,D_visu_Hexa,VisuHexaMap,VisuHexaMapInv
+USE MOD_Basis_Vars,ONLY:MapSideToVol
 USE MOD_Basis_Vars,ONLY:Vdm_Analyze_Hexa,D_Analyze_Hexa
 USE MOD_Basis_Vars,ONLY:EdgeToTria,EdgeToQuad
 USE MOD_Mesh_Vars,ONLY:N
@@ -93,7 +94,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
-INTEGER             :: i,j,nNodes   ! ?
+INTEGER             :: i,j,p,q,nNodes   ! ?
 !===================================================================================================================================
 
 ! Build mappings for each element type
@@ -154,6 +155,57 @@ i=0
 DO j=0,N
   EdgeToQuad(4,j+1)=QuadMapInv(i,N-j) 
 END DO
+
+!side mappings
+ALLOCATE(MapSideToVol((N+1)**2,8,4:8)) !sidenodes,locSide,Elem%nNodes
+MapSideToVol=-1 !not associated = -1!!
+DO q=0,N
+  DO p=0,N-q
+      MapSideToVol(TriaMapInv(p,q),1,4)=TetraMapInv(q,p,0)
+      MapSideToVol(TriaMapInv(p,q),2,4)=TetraMapInv(p,0,q)
+      MapSideToVol(TriaMapInv(p,q),3,4)=TetraMapInv(N-q-p,p,q)
+      MapSideToVol(TriaMapInv(p,q),4,4)=TetraMapInv(0,q,p)
+  END DO !p
+END DO !q
+!pyra  
+DO q=0,N
+  DO p=0,N
+    MapSideToVol(QuadMapInv(p,q),1,5)=PyraMapInv(q,p,0)
+  END DO !p
+END DO !q
+DO q=0,N
+  DO p=0,N-q
+    MapSideToVol(TriaMapInv(p,q),2,5)=PyraMapInv(p,0,q)
+    MapSideToVol(TriaMapInv(p,q),3,5)=PyraMapInv(N-q,p,q)
+    MapSideToVol(TriaMapInv(p,q),4,5)=PyraMapInv(N-q-p,N-q,q)
+    MapSideToVol(TriaMapInv(p,q),5,5)=PyraMapInv(0,q,p)
+  END DO !p
+END DO !q
+!prism
+DO q=0,N
+  DO p=0,N
+      MapSideToVol(QuadMapInv(p,q),1,6)=PrismMapInv(p,0,q)
+      MapSideToVol(QuadMapInv(p,q),2,6)=PrismMapInv(N-p,p,q)
+      MapSideToVol(QuadMapInv(p,q),3,6)=PrismMapInv(0,q,p)
+  END DO !p
+END DO !q
+DO q=0,N
+  DO p=0,N-q
+      MapSideToVol(triaMapInv(p,q),4,6)=PyraMapInv(p,q,N)
+      MapSideToVol(triaMapInv(p,q),5,6)=PrismMapInv(q,p,0)
+  END DO !p
+END DO !q
+!hexa
+DO q=0,N
+  DO p=0,N
+    MapSideToVol(QuadMapInv(p,q),1,8)=HexaMapInv(q,p,0)
+    MapSideToVol(QuadMapInv(p,q),2,8)=HexaMapInv(p,0,q)
+    MapSideToVol(QuadMapInv(p,q),3,8)=HexaMapInv(N,p,q)
+    MapSideToVol(QuadMapInv(p,q),4,8)=HexaMapInv(N-p,N,q)
+    MapSideToVol(QuadMapInv(p,q),5,8)=HexaMapInv(0,q,p)
+    MapSideToVol(QuadMapInv(p,q),6,8)=HexaMapInv(p,q,N)
+  END DO !p
+END DO !q
 END SUBROUTINE fillBasisMapping
 
 END MODULE MOD_Basis

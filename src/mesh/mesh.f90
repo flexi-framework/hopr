@@ -218,7 +218,7 @@ IF(useCurveds) THEN
   END IF
   doExactSurfProjection=GETLOGICAL('doExactSurfProjection','.FALSE.')
   IF(doExactSurfProjection)THEN
-    nExactSurfFuncs=GETINT('nExactSurfFuncs')
+    nExactSurfFuncs=CNTSTR('exactSurfFunc','0')
     ALLOCATE(ExactSurfFunc(2*nExactSurfFuncs))
     ExactSurfFunc(:)=GETINTARRAY('exactSurfFunc',2*nExactSurfFuncs) !(Curvedindex,exactsurffunc,...)
   END IF
@@ -389,7 +389,7 @@ USE MOD_GlobalUniqueNodes,ONLY: GlobalUniqueNodes
 USE MOD_CartMesh,         ONLY: CartesianMesh
 USE MOD_CurvedCartMesh,   ONLY: CurvedCartesianMesh
 USE MOD_Mesh_Tools,       ONLY: CountSplines,Netvisu,BCvisu,chkspl_surf,chkspl_vol
-USE MOD_Mesh_Tools,       ONLY: PostDeform
+USE MOD_Mesh_PostDeform,  ONLY: PostDeform
 USE MOD_Output_HDF5,      ONLY: WriteMeshToHDF5
 USE MOD_Mesh_Jacobians,   ONLY: CheckJacobians
 USE MOD_Readin_ANSA
@@ -399,6 +399,8 @@ USE MOD_Readin_GMSH
 USE MOD_Readin_HDF5
 USE MOD_Readin_HDF5_OLD
 USE MOD_Readin_ICEM
+USE MOD_Output_Vars,ONLY:useSpaceFillingCurve
+USE MOD_Output_HDF5,      ONLY: SpaceFillingCurve
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -527,7 +529,7 @@ IF(.NOT.curvedFound) curvingMethod=-1
 
 
 IF(useCurveds)THEN
-  IF(meshIsAlreadyCurved)THEN
+  IF(meshIsAlreadyCurved.AND..NOT.rebuildCurveds)THEN
     ! if curved nodes have been read in and mesh should not be modified, just distribute nodes
     IF(nCurvedBoundaryLayers.GE.0)THEN
       CALL buildCurvedElementsFromBoundarySides(nCurvedBoundaryLayers)
@@ -589,6 +591,12 @@ CALL FindElemTypes()
 IF(doZcorrection) CALL zCorrection()
 
 CALL CheckNodeConnectivity()
+
+! prepare sorting by space filling curve
+! NOTE: SpaceFillingcurve is not used, if existing hdf5 mesh is read in and the sorting should stay identical
+IF(useSpaceFillingCurve)THEN
+  CALL SpaceFillingCurve(nMeshElems)
+END IF
 
 CALL PostDeform()
 

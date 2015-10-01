@@ -4,6 +4,9 @@ MODULE MOD_Globals
 ! ?
 !===================================================================================================================================
 ! MODULES
+#ifndef NOISOENV
+USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY : INPUT_UNIT, OUTPUT_UNIT, ERROR_UNIT
+#endif
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 PUBLIC
@@ -15,11 +18,21 @@ PUBLIC
 REAL                        :: PI                         ! container for Pi=3.141592...
 REAL                        :: rPI                        ! rPI = SQRT(Pi)
 ! Unit numbers for file io
+#ifndef NOISOENV
+INTEGER, PARAMETER          :: UNIT_stdIn  = input_unit   ! Terminal input
+INTEGER, PARAMETER          :: UNIT_stdOut = output_unit  ! Terminal output
+INTEGER, PARAMETER          :: UNIT_errOut = error_unit   ! For error output
+#else
+INTEGER, PARAMETER          :: UNIT_stdIn  = 5            ! Terminal input
 INTEGER, PARAMETER          :: UNIT_stdOut = 6            ! Terminal output
+INTEGER, PARAMETER          :: UNIT_errOut = 0            ! For error output
+#endif
+INTEGER, PARAMETER          :: UNIT_ErrFile= 999          ! Unit for writing err files (do not use error unit!!)
 INTEGER, PARAMETER          :: UNIT_logOut = 100          ! For logging
-INTEGER, PARAMETER          :: UNIT_errOut = 999          ! For error output
 CHARACTER(LEN=255)          :: ProjectName                ! necessary data for in/output and name used to generate filenames from
 LOGICAL                     :: Logging                    ! Set .TRUE. to activate logging function for each processor
+
+
 
 INTERFACE Abort
    MODULE PROCEDURE Abort

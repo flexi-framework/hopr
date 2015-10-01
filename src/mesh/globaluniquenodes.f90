@@ -473,20 +473,20 @@ box_di2=box_di+box_di
 box_di4=box_di2+box_di2
 
 IJK_min(:)=box_di4*(IntCoord(:)/(box_di4))
-xi0(:)=(MOD(IntCoord(:)/(box_di4),2).NE.0)
-xi1(:)=(MOD(IntCoord(:)/(box_di2),2).NE.0)
+xi0(:)=(MOD(IntCoord(:)/box_di2,2).NE.0)
+xi1(:)=(MOD(IntCoord(:)/box_di,2).NE.0)
 
 Ranges=2
 start=0
-IF(.NOT.(xi0(1).OR.xi1(1))) start(1)=MERGE(1,-1,xi0(1))
-IF(.NOT.(xi0(2).OR.xi1(2))) start(2)=MERGE(1,-1,xi0(2))
-IF(.NOT.(xi0(3).OR.xi1(3))) start(3)=MERGE(1,-1,xi0(3))
+IF(.NOT.(xi0(1).NEQV.xi1(1))) start(1)=MERGE(1,-1,xi0(1))
+IF(.NOT.(xi0(2).NEQV.xi1(2))) start(2)=MERGE(1,-1,xi0(2))
+IF(.NOT.(xi0(3).NEQV.xi1(3))) start(3)=MERGE(1,-1,xi0(3))
 
-IF(xi0(3).OR.xi1(3)) THEN
+IF(xi0(3).NEQV.xi1(3)) THEN
   Ranges(3)=1
-  IF(xi0(2).OR.xi1(2)) THEN
+  IF(xi0(2).NEQV.xi1(2)) THEN
     Ranges(2)=1
-    IF(xi0(1).OR.xi1(1))THEN 
+    IF(xi0(1).NEQV.xi1(1))THEN 
       Ranges(1)=1
     END IF
   END IF
