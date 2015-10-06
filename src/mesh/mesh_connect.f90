@@ -512,11 +512,18 @@ DO iSide=1,nNonConformingSides
         ! now we know that we have 3 common edges, we can now identify small/big sides by checking if
         ! two elements of the connected sides share a common side (-> small sides)
         CALL CommonElementSide(aSide%Elem,bSide%Elem,aLocSide,bLocSide)
-        IF(aLocSide.GT.0) smallSide1=>aSide; smallSide2=>bSide; bigSide=>cSide
+        IF(aLocSide.GT.0) THEN
+          smallSide1=>aSide; smallSide2=>bSide; bigSide=>cSide
+        END IF
         CALL CommonElementSide(aSide%Elem,cSide%Elem,aLocSide,bLocSide)
-        IF(aLocSide.GT.0) smallSide1=>aSide; smallSide2=>cSide; bigSide=>bSide
+        IF(aLocSide.GT.0) THEN
+          smallSide1=>aSide; smallSide2=>cSide; bigSide=>bSide
+        END IF
         CALL CommonElementSide(bSide%Elem,cSide%Elem,aLocSide,bLocSide)
-        IF(aLocSide.GT.0) smallSide1=>bSide; smallSide2=>cSide; bigSide=>aSide
+        IF(aLocSide.GT.0) THEN
+          smallSide1=>bSide; smallSide2=>cSide; bigSide=>aSide
+        END IF
+        print*,aSide%tmp,bSide%tmp,cSide%tmp
 
         bigSide%nMortars=2
         ALLOCATE(bigSide%MortarSide(2))
@@ -614,12 +621,11 @@ INTEGER,INTENT(OUT)                  :: aLocSide,bLocSide
 ! LOCAL VARIABLES 
 TYPE(tSide),POINTER                  :: aSide,bSide
 !===================================================================================================================================
-aLocSide=-1
-
+aLocSide=0
 aSide=>aElem%firstSide
 DO WHILE(ASSOCIATED(aSide))
   aLocSide=aLocSide+1 
-  bLocSide=-1
+  bLocSide=0
   bSide=>bElem%firstSide
   DO WHILE(ASSOCIATED(bSide))
     ! TODO: Maybe dont rely on connection but use corners node inds instead
