@@ -28,7 +28,7 @@ SUBROUTINE GlobalUniqueNodes()
 !===================================================================================================================================
 ! MODULES
 USE MOD_Mesh_Vars, ONLY:tElem,tSide,tEdge,tNode,tNodePtr,FirstElem
-USE MOD_Mesh_Vars, ONLY:N
+USE MOD_Mesh_Vars, ONLY:N,deleteNode
 USE MOD_Mesh_Vars,ONLY:SpaceQuandt
 USE MOD_Mesh_Tolerances,ONLY:COMPAREPOINT
 USE MOD_SpaceFillingCurve,ONLY:EVAL_MORTON,EVAL_MORTON_ARR
@@ -387,7 +387,7 @@ DO WHILE(ASSOCIATED(Elem))
 END DO !associated(Elem)
 
 DO iNode=1,nTotalNodes
-  IF(Nodes(iNode)%np%tmp.NE.iNode) DEALLOCATE(Nodes(iNode)%np)
+  IF(Nodes(iNode)%np%tmp.NE.iNode) CALL deleteNode(Nodes(iNode)%np)
   NULLIFY(Nodes(iNode)%np)
 END DO
 DEALLOCATE(Nodes,NodesIJK,SFCID)

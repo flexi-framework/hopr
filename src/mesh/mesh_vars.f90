@@ -179,6 +179,7 @@ REAL                           :: maxDX(3)               ! Used for search mesh
 REAL                           :: jacobianTolerance      ! smallest value of jacobian permitted (e.g. 1.e-16)
 INTEGER                        :: nMeshElems    =0       ! number of elements in the mesh
 INTEGER                        :: nInnerSides   =0       ! number of unique innner sides in the mesh 
+INTEGER                        :: nConformingSides=0     ! number of unique innner sides in the mesh 
 INTEGER                        :: nBoundarySides=0       ! number of boundary sides in the mesh
 INTEGER                        :: NodeCount=0,SideCount=0,ElemCount=0  ! Counter for nodes,sides and elements.
 INTEGER                        :: nNodesElemSideMapping(8,6) ! mapping matrix for Elem side mappings following the CGNS standard
@@ -191,6 +192,7 @@ INTEGER                        :: TypeIndex_surf(4)      ! typeIndex_surf(nNodes
 ! MORTAR VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 INTEGER                        :: MortarMesh             ! 0: conforming, 1: non-conforming octree based
+INTEGER                        :: nNonconformingSides    ! number of small and big mortar sides
 ! MoratarMesh==1
 INTEGER                        :: nMeshTrees=0           ! number of elements in the mesh
 TYPE(tElem) ,POINTER           :: firstTree              ! pointer to first tree

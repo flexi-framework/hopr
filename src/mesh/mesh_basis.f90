@@ -5,6 +5,7 @@ MODULE MOD_Mesh_Basis
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
+USE MOD_Mesh_Vars,ONLY:tEdge
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 PRIVATE
@@ -63,6 +64,12 @@ PUBLIC::FlushMesh
 PUBLIC::assignBC
 PUBLIC::isOriented
 PUBLIC::FindElemTypes
+
+
+TYPE tNodeToEdge
+  TYPE(tEdge),POINTER         ::  EDP                    ! edge pointer
+  TYPE(tNodeToEdge),POINTER   ::  nextNodeToEdge
+END TYPE tNodeToEdge
 !===================================================================================================================================
   !---------------------------------------------------------------------------!
 CONTAINS
@@ -589,14 +596,40 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 TYPE(tElem),POINTER          :: aElem  ! ?
 TYPE(tSide),POINTER          :: aSide   ! ?
-TYPE(tEdge),POINTER          :: aEdge  ! ?
+TYPE(tEdge),POINTER          :: aEdge,bEdge,cEdge  ! ?
 TYPE(tNode),POINTER          :: aNode,bNode  ! ?
-INTEGER                      :: iSide,iEdge,iPlus,nSides,EdgeInd  ! ?
+TYPE(tNodeToEdge),POINTER    :: NodeToEdge(:),aNodeToEdge
+INTEGER                      :: iSide,iEdge,iNode,iPlus,nSides,EdgeInd,nNodes  ! ?
+INTEGER                      :: indA2,indB2,indC1,indC2,nodeInd
 LOGICAL                      :: edgeFound  ! ?
 !===================================================================================================================================
 CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'BUILD EDGES ...'
+
+! count unique corner nodes
+aElem=>firstElem
+DO WHILE(ASSOCIATED(aElem))
+  DO iNode=1,aElem%nNodes
+    aElem%Node(iNode)%np%tmp=0
+  END DO
+  aElem=>aElem%nextElem
+END DO !! ELEMS!!
+nNodes=0
+aElem=>firstElem
+DO WHILE(ASSOCIATED(aElem))
+  DO iNode=1,aElem%nNodes
+    IF(aElem%Node(iNode)%np%tmp.EQ.0) nNodes=nNodes+1
+    aElem%Node(iNode)%np%tmp=nNodes
+  END DO
+  aElem=>aElem%nextElem
+END DO !! ELEMS!!
+
+ALLOCATE(NodeToEdge(nNodes))
+DO iNode=1,nNodes
+  NULLIFY(NodeToEdge(iNode)%edp)
+  NULLIFY(NodeToEdge(iNode)%nextNodeToEdge)
+END DO
 
 EdgeInd=0
 aElem=>firstElem
@@ -632,10 +665,10 @@ DO WHILE(ASSOCIATED(aElem))
         
         STOP
       END IF
+
       edgeFound=.FALSE.
-      aEdge=>aNode%firstEdge 
-     
-      DO WHILE (ASSOCIATED(aEdge))    
+      aEdge=>aNode%firstEdge
+      DO WHILE (ASSOCIATED(aEdge))
         IF (aEdge%Node(2)%np%ind .EQ. bNode%ind) THEN
           edgeFound=.TRUE.
           EXIT
@@ -648,15 +681,71 @@ DO WHILE(ASSOCIATED(aElem))
         IF (ASSOCIATED(aNode%firstEdge)) THEN
           aEdge%nextEdge=>aNode%firstEdge 
         END IF
+        DO iNode=1,2
+          NodeInd=aEdge%Node(iNode)%np%tmp
+          IF(.NOT.ASSOCIATED(NodeToEdge(NodeInd)%edp))THEN
+            aNodeToEdge=>NodeToEdge(NodeInd)
+          ELSE
+            ALLOCATE(aNodeToEdge)
+            aNodeToEdge%nextNodeToEdge=>NodeToEdge(NodeInd)%nextNodeToEdge
+            NodeToEdge(NodeInd)%nextNodeToEdge=>aNodeToEdge
+          END IF
+          aNodeToEdge%edp=>aEdge
+          NULLIFY(aNodeToEdge)
+        END DO
         aNode%firstEdge=>aEdge
       END IF 
       !WRITE(*,*)'DEBUG a',aNode%ind,'b',bNode%ind,edgeFound,aEdge%ind
-      aSide%Edge(iEdge)%edp=>aEdge  
+      aSide%Edge(iEdge)%edp=>aEdge
     END DO !!EDGES!!***************
     aSide=>aSide%nextElemSide
   END DO !!SIDES!!**************
   aElem=>aElem%nextElem
 END DO !! ELEMS!!
+
+aElem=>firstElem
+DO WHILE(ASSOCIATED(aElem))
+  SELECT CASE(aElem%nNodes)
+  CASE(8)
+    nSides=6
+  CASE(6)
+    nSides=5
+  CASE(5)
+    nSides=5
+  CASE(4)
+    nSides=4
+  END SELECT
+  aSide=>aElem%firstSide
+  DO iSide=1,nSides             !!SIDES!!***********
+    DO iEdge=1,aSide%nNodes     !!EDGES!! nNodes=nEdges**************
+      iPlus=iEdge+1
+      IF(iEdge.EQ.aSide%nNodes) iPlus=1
+      aEdge=>aSide%Edge(iEdge)%edp
+      indA2=aEdge%Node(2)%np%ind
+      bEdge=>aEdge%Node(1)%np%firstEdge
+      IF(ASSOCIATED(aEdge,bEdge)) bEdge=>bEdge%nextEdge
+      DO WHILE(ASSOCIATED(bEdge))
+        indB2=bEdge%Node(2)%np%ind
+        cEdge=>bEdge%Node(2)%np%firstEdge
+        DO WHILE(ASSOCIATED(cEdge))
+          indC1=cEdge%Node(1)%np%ind
+          indC2=cEdge%Node(2)%np%ind
+!          IF(indB2.EQ.indC1.AND.indA2.EQ.
+          
+          cEdge=>cEdge%nextEdge
+        END DO
+        bEdge=>bEdge%nextEdge
+      END DO
+    END DO
+
+    aSide=>aSide%nextElemSide
+  END DO !!SIDES!!**************
+  aElem=>aElem%nextElem
+END DO !! ELEMS!!
+
+
+DEALLOCATE(NodeToEdge)
+
 CALL timer(.FALSE.)
 END SUBROUTINE buildEdges
 

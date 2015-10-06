@@ -34,9 +34,10 @@ SUBROUTINE Connect()
 ! MODULES
 USE MOD_Mesh_Vars,        ONLY:tElem,tSide,FirstElem
 USE MOD_Mesh_Vars,        ONLY:nVV,VV
+USE MOD_Mesh_Vars,        ONLY:nNonConformingSides,nConformingSides,nInnerSides
 USE MOD_Mesh_Vars,        ONLY:deleteNode,deleteBC
 USE MOD_Mesh_Vars,        ONLY:getNewNode,getNewSide
-USE MOD_Mesh_Basis,       ONLY:adjustOrientedNodes,createSides
+USE MOD_Mesh_Basis,       ONLY:adjustOrientedNodes,createSides,buildEdges
 USE MOD_GlobalUniqueNodes,ONLY:GlobalUniqueNodes
 USE MOD_Mesh_Tools,       ONLY:BCVisu
 ! IMPLICIT VARIABLE HANDLING
@@ -133,8 +134,13 @@ END DO
 WRITE(UNIT_stdOut,'(A)')'Eliminate multiple Nodes...'
 CALL GlobalUniqueNodes()
 
+!CALL buildEdges(oriented=.FALSE.)
+
 WRITE(UNIT_stdOut,'(A)')'Connect Conforming inner and periodic sides...'
 CALL ConnectMesh()
+CALL NonconformConnectMesh()
+
+WRITE(UNIT_StdOut,*)'   --> ',nConformingSides+nNonconformingSides,' sides of ', nInnerSides,'  sides connected.'
 
 
 ! 4. Check connectivity
@@ -173,10 +179,12 @@ DO WHILE(ASSOCIATED(Elem))
     ELSE
       nInner(1)=nInner(1)+1
       IF(.NOT. ASSOCIATED(Side%Connection)) THEN
-        nInner(2)=nInner(2)+1
-        DO iNode=1,Side%nNodes
-          ERRWRITE(*,*)Side%Node(iNode)%np%x
-        END DO
+        IF(.NOT.ASSOCIATED(Side%MortarSide))THEN
+          nInner(2)=nInner(2)+1
+          DO iNode=1,Side%nNodes
+            ERRWRITE(*,*)Side%Node(iNode)%np%x
+          END DO
+        END IF
       END IF
     END IF
     Side=>Side%nextElemSide
@@ -200,7 +208,7 @@ SUBROUTINE ConnectMesh()
 ! Connect all sides which can be found by node association. Uses Quicksort 
 !===================================================================================================================================
 ! MODULES
-USE MOD_Mesh_Vars, ONLY:tElem,tSide,tSidePtr,FirstElem
+USE MOD_Mesh_Vars, ONLY:tElem,tSide,tSidePtr,FirstElem,nInnerSides,nConformingSides
 USE MOD_Mesh_Vars, ONLY:deleteNode
 USE MOD_SortingTools,ONLY:Qsort1Int,Qsort4Int,MSortNInt
 ! IMPLICIT VARIABLE HANDLING
@@ -218,7 +226,6 @@ INTEGER,ALLOCATABLE       :: SideConnect(:,:)  ! ?
 INTEGER                   :: iNode,iSide,fNode  ! ?
 INTEGER                   :: counter   ! ?
 INTEGER                   :: NodeID  ! ?
-INTEGER                   :: nInnerSides  ! ?
 LOGICAL                   :: dominant  ! ?
 LOGICAL                   :: isInner  ! ?
 !===================================================================================================================================
@@ -397,8 +404,243 @@ DO iSide=1,nInnerSides-1
   END IF
 END DO !iSide
 
-WRITE(UNIT_StdOut,*)'   --> ',counter,' sides of ', nInnerSides,'  sides connected.'
+WRITE(UNIT_StdOut,*)'   --> ',counter,' conforming sides of ', nInnerSides,'  sides connected.'
+nConformingSides=counter
 END SUBROUTINE ConnectMesh
+
+
+
+SUBROUTINE NonconformConnectMesh()
+!===================================================================================================================================
+! Connect all sides which can be found by node association. Uses Quicksort 
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars, ONLY:tElem,tSide,tSidePtr,FirstElem
+USE MOD_Mesh_Vars, ONLY:nNonconformingSides,nInnerSides
+USE MOD_Mesh_Vars, ONLY:deleteNode
+USE MOD_SortingTools,ONLY:Qsort1Int,Qsort4Int,MSortNInt
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+TYPE(tElem),POINTER       :: Elem                                                       ! Local element pointers
+TYPE(tSide),POINTER       :: Side
+TYPE(tSide),POINTER       :: aSide,bSide,cSide,smallSide1,smallSide2,bigSide
+TYPE(tSidePtr),POINTER    :: InnerSides(:)   ! ?
+INTEGER                   :: iNode,iSide,jSide,kSide  ! ?
+INTEGER                   :: aLocSide,bLocSide,counter  ! ?
+INTEGER                   :: next2(4)
+LOGICAL,ALLOCATABLE       :: SideDone(:) ! ?
+LOGICAL                   :: commonNode
+LOGICAL                   :: aFoundEdge(4,2),bFoundEdge(4,2),cFoundEdge(4,2)
+LOGICAL                   :: aFoundNode(4,2),bFoundNode(4,2),cFoundNode(4,2)
+!===================================================================================================================================
+!count inner Sides and set side IDs (side%tmp)
+
+! here we assume that all conforming sides are already connected and all remaining sides are nonconforming
+! first count and collect all unconnected sides
+next2=(/3,4,1,2/)
+
+nNonConformingSides=0
+Elem=>FirstElem
+DO WHILE(ASSOCIATED(Elem))
+  Side=>Elem%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    IF(.NOT.ASSOCIATED(Side%Connection).AND..NOT.ASSOCIATED(Side%BC))THEN
+      nNonConformingSides=nNonConformingSides+1
+      Side%tmp=nNonConformingSides
+    END IF
+    Side=>Side%nextElemSide
+  END DO
+  Elem=>Elem%nextElem
+END DO
+
+ALLOCATE(InnerSides(nNonConformingSides))
+ALLOCATE(SideDone(nNonConformingSides))
+
+Elem=>FirstElem
+DO WHILE(ASSOCIATED(Elem))
+  Side=>Elem%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    IF(.NOT.ASSOCIATED(Side%Connection).AND..NOT.ASSOCIATED(Side%BC)) &
+      InnerSides(Side%tmp)%sp=>Side
+    Side=>Side%nextElemSide
+  END DO
+  Elem=>Elem%nextElem
+END DO
+
+! now connect 2->1: we need exactly 3 sides (two small one big)
+! connected by 3 edges where no 2 edges may have common nodes
+! |-----------------------| Edge 1
+! | |-------------------| |
+! | |                   | |
+! | |                   | |
+! | |-------------------| | Edge 2
+! | |-------------------| |
+! | |                   | |
+! | |                   | |
+! | |-------------------| | Edge 3
+! |-----------------------|
+
+SideDone=.FALSE.
+counter=0
+DO iSide=1,nNonConformingSides
+  IF(SideDone(iSide)) CYCLE
+  aSide=>InnerSides(iSide)%sp
+  DO jSide=iSide+1,nNonConformingSides
+    IF(SideDone(jSide)) CYCLE
+    bSide=>InnerSides(jSide)%sp
+    CALL CommonNodeAndEdge(aSide,bSide,aFoundNode(:,1),bFoundNode(:,1),aFoundEdge(:,1),bFoundEdge(:,1))
+    ! condition for 2->1, exactly one edge of two sides is identical
+    IF(COUNT(aFoundEdge(:,1)).NE.1) CYCLE
+
+    DO kSide=jSide+1,nNonConformingSides
+      cSide=>InnerSides(kSide)%sp
+      CALL CommonNodeAndEdge(aSide,cSide,aFoundNode(:,2),cFoundNode(:,1),aFoundEdge(:,2),cFoundEdge(:,1))
+      IF(COUNT(aFoundEdge(:,2)).NE.1) CYCLE
+      commonNode=.TRUE.
+      DO iNode=1,aSide%nNodes
+        IF(aFoundEdge(iNode,1).AND.aFoundEdge(next2(iNode),2)) commonNode=.FALSE.
+      END DO
+      IF(.NOT.commonNode)THEN
+        CALL CommonNodeAndEdge(bSide,cSide,bFoundNode(:,2),cFoundNode(:,2),bFoundEdge(:,2),cFoundEdge(:,2))
+        IF(COUNT(bFoundEdge(:,2)).NE.1) CYCLE
+        ! now we know that we have 3 common edges, we can now identify small/big sides by checking if
+        ! two elements of the connected sides share a common side (-> small sides)
+        CALL CommonElementSide(aSide%Elem,bSide%Elem,aLocSide,bLocSide)
+        IF(aLocSide.GT.0) smallSide1=>aSide; smallSide2=>bSide; bigSide=>cSide
+        CALL CommonElementSide(aSide%Elem,cSide%Elem,aLocSide,bLocSide)
+        IF(aLocSide.GT.0) smallSide1=>aSide; smallSide2=>cSide; bigSide=>bSide
+        CALL CommonElementSide(bSide%Elem,cSide%Elem,aLocSide,bLocSide)
+        IF(aLocSide.GT.0) smallSide1=>bSide; smallSide2=>cSide; bigSide=>aSide
+
+        bigSide%nMortars=2
+        ALLOCATE(bigSide%MortarSide(2))
+        bigSide%MortarSide(1)%sp=>smallSide1
+        bigSide%MortarSide(2)%sp=>smallSide2
+        smallSide1%Connection=>bigSide
+        smallSide2%Connection=>bigSide
+        SideDone(aSide%tmp)=.TRUE.
+        SideDone(bSide%tmp)=.TRUE.
+        SideDone(cSide%tmp)=.TRUE.
+        counter=counter+3
+      END IF
+    END DO
+  END DO
+END DO
+
+IF(counter.NE.nNonConformingSides) THEN
+  WRITE(*,*) 'Warning: Number of expected nonconforming sides:', nNonConformingSides
+  WRITE(*,*) '         Number of found nonconforming sides:', counter
+END IF
+
+WRITE(UNIT_StdOut,*)'   --> ',counter,' nonconforming sides of ', nInnerSides,'  sides connected.'
+
+
+DEALLOCATE(SideDone)
+DEALLOCATE(InnerSides)
+
+END SUBROUTINE NonconformConnectMesh
+
+
+SUBROUTINE CommonNodeAndEdge(aSide,bSide,aFoundNode,bFoundNode,aFoundEdge,bFoundEdge)
+!===================================================================================================================================
+! Check if two sides share a common edge just by node inds
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars, ONLY:tSide
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+TYPE(tSide),POINTER,INTENT(IN)       :: aSide,bSide
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+LOGICAL,INTENT(OUT)                  :: aFoundEdge(4),bFoundEdge(4)
+LOGICAL,INTENT(OUT)                  :: aFoundNode(4),bFoundNode(4)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+INTEGER                              :: iNode,jNode  ! ?
+INTEGER                              :: nextNode(3:4,4)
+!===================================================================================================================================
+aFoundNode=.FALSE.
+bFoundNode=.FALSE.
+DO iNode=1,aSide%nNodes
+  DO jNode=1,bSide%nNodes
+    IF(aSide%Node(iNode)%np%ind.EQ.bSide%Node(jNode)%np%ind)THEN
+      aFoundNode(iNode)=.TRUE.
+      bFoundNode(jNode)=.TRUE.
+      EXIT
+    END IF
+  END DO
+END DO
+
+nextNode(3,:)=(/2,3,1,0/)
+nextNode(4,:)=(/2,3,4,1/)
+aFoundEdge=.FALSE.
+bFoundEdge=.FALSE.
+DO iNode=1,aSide%nNodes
+  IF(aFoundNode(iNode).AND.aFoundNode(nextNode(aSide%nNodes,iNode))) &
+    aFoundEdge(iNode)=.TRUE.
+END DO
+DO iNode=1,bSide%nNodes
+  IF(bFoundNode(iNode).AND.bFoundNode(nextNode(bSide%nNodes,iNode))) &
+    bFoundEdge(iNode)=.TRUE.
+END DO
+
+END SUBROUTINE CommonNodeAndEdge
+
+
+
+SUBROUTINE CommonElementSide(aElem,bElem,aLocSide,bLocSide)
+!===================================================================================================================================
+! Check if two elements share one common side, ignore periodic sides
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars, ONLY:tSide,tElem
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+TYPE(tElem),POINTER,INTENT(IN)       :: aElem,bElem
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+INTEGER,INTENT(OUT)                  :: aLocSide,bLocSide
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+TYPE(tSide),POINTER                  :: aSide,bSide
+!===================================================================================================================================
+aLocSide=-1
+
+aSide=>aElem%firstSide
+DO WHILE(ASSOCIATED(aSide))
+  aLocSide=aLocSide+1 
+  bLocSide=-1
+  bSide=>bElem%firstSide
+  DO WHILE(ASSOCIATED(bSide))
+    ! TODO: Maybe dont rely on connection but use corners node inds instead
+    bLocSide=bLocSide+1 
+    IF(ASSOCIATED(aSide%connection,bSide)) THEN
+      IF (ASSOCIATED(aSide%BC)) THEN
+        IF(aSide%BC%BCType .NE. 1) RETURN ! no periodics
+      ELSE
+        RETURN
+      END IF
+    END IF
+    bSide=>bSide%nextElemSide
+  END DO
+  aSide=>aSide%nextElemSide
+END DO
+aLocSide=-1
+bLocSide=-1
+
+END SUBROUTINE CommonElementSide
+
+
 
 SUBROUTINE Connect2DMesh(firstElem_in)
 !===================================================================================================================================
