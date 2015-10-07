@@ -121,6 +121,7 @@ DO WHILE(ASSOCIATED(Elem))
             CALL getNewNode(pSide%Node(iNode)%np)
             pSide%Node(iNode)%np%x=Side%Node(iNode)%np%x + VV(:,ABS(Side%tmp2)) 
           END DO
+          pSide%elem=>side%elem
           side%connection=>pSide 
         END IF
       END IF
@@ -160,20 +161,24 @@ DO WHILE(ASSOCIATED(Elem))
       IF(Side%BC%BCType .EQ. 1) THEN
         nPeriodic(1)=nPeriodic(1)+1
         IF (.NOT. ASSOCIATED(Side%Connection))THEN
-          nPeriodic(2)=nPeriodic(2)+1
-          Side%CurveIndex=SIGN(Side%BC%BCAlphaInd,-1) ! set visu marker
-          DO iNode=1,Side%nNodes
-            ERRWRITE(*,*)Side%Node(iNode)%np%x
-          END DO
+          IF(.NOT.ASSOCIATED(Side%MortarSide))THEN
+            nPeriodic(2)=nPeriodic(2)+1
+            Side%CurveIndex=SIGN(Side%BC%BCAlphaInd,-1) ! set visu marker
+            DO iNode=1,Side%nNodes
+              ERRWRITE(*,*)Side%Node(iNode)%np%x
+            END DO
+          END IF
         END IF
       END IF
       IF(Side%BC%BCType .EQ. 100) THEN
         nInner(1)=nInner(1)+1
         IF(.NOT. ASSOCIATED(Side%Connection)) THEN
-          nInner(2)=nInner(2)+1
-          DO iNode=1,Side%nNodes
-            ERRWRITE(*,*)Side%Node(iNode)%np%x
-          END DO
+          IF(.NOT.ASSOCIATED(Side%MortarSide))THEN
+            nInner(2)=nInner(2)+1
+            DO iNode=1,Side%nNodes
+              ERRWRITE(*,*)Side%Node(iNode)%np%x
+            END DO
+          END IF
         END IF
       END IF
     ELSE
@@ -428,7 +433,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 TYPE(tElem),POINTER       :: Elem                                                       ! Local element pointers
-TYPE(tSide),POINTER       :: Side
+TYPE(tSide),POINTER       :: Side,dummySide
 TYPE(tSide),POINTER       :: aSide,bSide,cSide,smallSide1,smallSide2,bigSide,tmpSide
 TYPE(tSidePtr),POINTER    :: InnerSides(:)   ! ?
 TYPE(tSidePtr)            :: quartett(4)   ! ?
@@ -456,15 +461,27 @@ Elem=>FirstElem
 DO WHILE(ASSOCIATED(Elem))
   Side=>Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
-    IF(.NOT.ASSOCIATED(Side%Connection).AND..NOT.ASSOCIATED(Side%BC))THEN
-      nNonConformingSides=nNonConformingSides+1
-      Side%tmp=nNonConformingSides
+    IF(.NOT.ASSOCIATED(Side%BC))THEN
+      IF(.NOT.ASSOCIATED(Side%Connection))THEN
+        nNonConformingSides=nNonConformingSides+1
+        Side%tmp=nNonConformingSides
+      END IF
+    ELSE
+      IF(.NOT.ASSOCIATED(Side%Connection).AND.Side%BC%BCType.EQ.100)THEN
+        nNonConformingSides=nNonConformingSides+1
+        Side%tmp=nNonConformingSides
+      END IF
+      IF(ASSOCIATED(Side%Connection).AND.Side%tmp2.GT.0)THEN
+        nNonConformingSides=nNonConformingSides+1
+        Side%Connection%tmp=nNonConformingSides
+      END IF
     END IF
     Side=>Side%nextElemSide
   END DO
   Elem=>Elem%nextElem
 END DO
 
+print*,nNonConformingSides
 ALLOCATE(InnerSides(nNonConformingSides))
 ALLOCATE(SideDone(nNonConformingSides))
 
@@ -472,8 +489,18 @@ Elem=>FirstElem
 DO WHILE(ASSOCIATED(Elem))
   Side=>Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
-    IF(.NOT.ASSOCIATED(Side%Connection).AND..NOT.ASSOCIATED(Side%BC)) &
-      InnerSides(Side%tmp)%sp=>Side
+    IF(.NOT.ASSOCIATED(Side%BC))THEN
+      IF(.NOT.ASSOCIATED(Side%Connection))THEN
+        InnerSides(Side%tmp)%sp=>Side
+      END IF
+    ELSE
+      IF(.NOT.ASSOCIATED(Side%Connection).AND.Side%BC%BCType.EQ.100)THEN
+        InnerSides(Side%tmp)%sp=>Side
+      END IF
+      IF(ASSOCIATED(Side%Connection).AND.Side%tmp2.GT.0)THEN
+        InnerSides(Side%Connection%tmp)%sp=>Side%Connection
+      END IF
+    END IF
     Side=>Side%nextElemSide
   END DO
   Elem=>Elem%nextElem
@@ -559,6 +586,8 @@ DO iSide=1,nNonConformingSides
         bigSide%MortarSide(2)%sp=>smallSide2
         smallSide1%connection=>bigSide
         smallSide2%connection=>bigSide
+        smallSide1%MortarType=-bigSide%MortarType
+        smallSide2%MortarType=-bigSide%MortarType
         
         SideDone(aSide%tmp)=.TRUE.
         SideDone(bSide%tmp)=.TRUE.
@@ -644,6 +673,7 @@ DO iSide=1,nNonConformingSides
         END DO
         bSide%MortarSide(CGNSToCart(iNode))%sp=>quartett(jNode)%sp
         quartett(jNode)%sp%connection=>bSide
+        quartett(jNode)%sp%MortarType=-1
         SideDone(quartett(jNode)%sp%tmp)=.TRUE.
       END DO
       counter=counter+5
@@ -683,6 +713,69 @@ DO iSide=1,nNonConformingSides
     END DO
   END DO
 END DO
+
+! remove temporary periodic dummy sides
+Elem=>FirstElem
+DO WHILE(ASSOCIATED(Elem))
+  aSide=>Elem%firstSide
+  DO WHILE(ASSOCIATED(aSide))
+
+    print*, 'bin da',aSide%tmp2,aSide%MortarType
+    ! only check mortar sides which are periodic masters
+    IF(aSide%MortarType.EQ.0.OR.aSide%tmp2.LE.0)THEN
+      aSide=>aSide%nextElemSide
+      CYCLE ! normal side
+    END IF
+    STOP        'bin da'
+
+    dummySide=>aSide%connection
+    IF(dummySide%nMortars.GT.0)THEN ! mortar master
+      ALLOCATE(aSide%MortarSide(dummySide%nMortars))
+      aSide%MortarType=dummySide%MortarType
+      aSide%nMortars  =dummySide%nMortars
+      DO iSide=1,aSide%nMortars
+        aSide%MortarSide(iSide)%sp=>dummySide%MortarSide(iSide)%sp
+        aSide%MortarSide(iSide)%sp%connection=>aSide
+      END DO
+      DO iNode=1,aSide%nNodes
+        aSide%OrientedNode(iNode)%np=>aSide%Node(iNode)%np
+      END DO
+
+      DEALLOCATE(dummySide%node)
+      DEALLOCATE(dummySide%orientedNode)
+      DEALLOCATE(dummySide%MortarSide)
+      DEALLOCATE(dummySide)
+      aSide%tmp2=0
+    ELSE                            ! mortar slave
+      bigSide=>dummySide%connection
+      DO iSide=1,bigSide%nMortars
+        IF(ASSOCIATED(bigSide%MortarSide(iSide)%sp,dummySide))THEN
+          bigSide%MortarSide(iSide)%sp=>aSide
+          EXIT
+        END IF
+      END DO
+      aSide%connection=>bigSide
+      aSide%MortarType=-bigSide%MortarType
+      DO iNode=1,aSide%nNodes
+        DO jNode=1,aSide%nNodes
+          IF(ASSOCIATED(dummySide%OrientedNode(iNode)%np,dummySide%Node(jNode)%np))THEN
+            aSide%OrientedNode(iNode)%np=>aSide%Node(jNode)%np
+            EXIT
+          END IF
+        END DO
+      END DO
+
+      DEALLOCATE(dummySide%node)
+      DEALLOCATE(dummySide%orientedNode)
+      DEALLOCATE(dummySide)
+      aSide%tmp2=0
+    END IF
+
+    aSide=>aSide%nextElemSide
+  END DO
+  Elem=>Elem%nextElem
+END DO
+
 
 IF(counter.NE.nNonConformingSides) THEN
   WRITE(*,*) 'Warning: Number of expected nonconforming sides:', nNonConformingSides
