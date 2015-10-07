@@ -37,7 +37,7 @@ USE MOD_Mesh_Vars,        ONLY:nVV,VV
 USE MOD_Mesh_Vars,        ONLY:nNonConformingSides,nConformingSides,nInnerSides
 USE MOD_Mesh_Vars,        ONLY:deleteNode,deleteBC
 USE MOD_Mesh_Vars,        ONLY:getNewNode,getNewSide
-USE MOD_Mesh_Basis,       ONLY:adjustOrientedNodes,createSides,buildEdges
+USE MOD_Mesh_Basis,       ONLY:createSides,buildEdges
 USE MOD_GlobalUniqueNodes,ONLY:GlobalUniqueNodes
 USE MOD_Mesh_Tools,       ONLY:BCVisu
 ! IMPLICIT VARIABLE HANDLING
@@ -429,13 +429,14 @@ IMPLICIT NONE
 ! LOCAL VARIABLES 
 TYPE(tElem),POINTER       :: Elem                                                       ! Local element pointers
 TYPE(tSide),POINTER       :: Side
-TYPE(tSide),POINTER       :: aSide,bSide,cSide,smallSide1,smallSide2,bigSide
+TYPE(tSide),POINTER       :: aSide,bSide,cSide,smallSide1,smallSide2,bigSide,tmpSide
 TYPE(tSidePtr),POINTER    :: InnerSides(:)   ! ?
 TYPE(tSidePtr)            :: quartett(4)   ! ?
-INTEGER                   :: iNode,iSide,jSide,kSide,ind,nQuartett  ! ?
+INTEGER                   :: iNode,jNode,iSide,jSide,kSide,ind,nQuartett  ! ?
 INTEGER                   :: aLocSide,bLocSide,counter  ! ?
-INTEGER                   :: next2(4)
+INTEGER                   :: next1(4),prev1(4),next2(4)
 INTEGER                   :: bigCorner(4),bigCorner2(4)
+INTEGER                   :: masterNode,slaveNode
 LOGICAL,ALLOCATABLE       :: SideDone(:) ! ?
 LOGICAL                   :: commonNode
 LOGICAL                   :: aFoundEdge(4,2),bFoundEdge(4,2),cFoundEdge(4,2)
@@ -445,6 +446,8 @@ LOGICAL                   :: aFoundNode(4,2),bFoundNode(4,2),cFoundNode(4,2)
 
 ! here we assume that all conforming sides are already connected and all remaining sides are nonconforming
 ! first count and collect all unconnected sides
+next1=(/2,3,4,1/)
+prev1=(/4,1,2,3/)
 next2=(/3,4,1,2/)
 
 nNonConformingSides=0
@@ -526,12 +529,36 @@ DO iSide=1,nNonConformingSides
           smallSide1=>bSide; smallSide2=>cSide; bigSide=>aSide
         END IF
 
+        ! set connections and set mortar type (determine xi/eta direction)
+        CALL CommonNodeAndEdge(bigSide,smallSide1,aFoundNode(:,1),bFoundNode(:,1),aFoundEdge(:,1),bFoundEdge(:,1))
+        CALL CommonNodeAndEdge(bigSide,smallSide2,aFoundNode(:,2),bFoundNode(:,2),aFoundEdge(:,2),bFoundEdge(:,2))
+        IF(aFoundEdge(1,1).OR.aFoundEdge(3,1))THEN
+          ! mortar type 2
+          bigSide%MortarType=2
+          IF(aFoundEdge(3,1))THEN
+            tmpSide=>smallSide1
+            smallSide1=>smallSide2
+            smallSide2=>tmpSide
+          END IF
+        ELSEIF(aFoundEdge(2,1).OR.aFoundEdge(4,1))THEN
+          ! mortar type 3
+          bigSide%MortarType=3
+          IF(aFoundEdge(2,1))THEN
+            tmpSide=>smallSide1
+            smallSide1=>smallSide2
+            smallSide2=>tmpSide
+          END IF
+        ELSE
+          STOP 'ERROR: Mortar type could not be identified!'
+        END IF
+
         bigSide%nMortars=2
         ALLOCATE(bigSide%MortarSide(2))
         bigSide%MortarSide(1)%sp=>smallSide1
         bigSide%MortarSide(2)%sp=>smallSide2
-        smallSide1%Connection=>bigSide
-        smallSide2%Connection=>bigSide
+        smallSide1%connection=>bigSide
+        smallSide2%connection=>bigSide
+        
         SideDone(aSide%tmp)=.TRUE.
         SideDone(bSide%tmp)=.TRUE.
         SideDone(cSide%tmp)=.TRUE.
@@ -602,6 +629,7 @@ DO iSide=1,nNonConformingSides
     CALL Qsort1Int(bigCorner2) !Node IDs sorted, unique combination for one side (for trias and quads)
     IF(ALL(bigCorner.EQ.bigCorner2))THEN
       ! found connection bSide is big side
+      bSide%MortarType=1
       bSide%nMortars=4
       SideDone(jSide)=.TRUE.
       ALLOCATE(bSide%MortarSide(4))
@@ -616,6 +644,35 @@ DO iSide=1,nNonConformingSides
         IF(aSide%Node(iNode)%np%ind.EQ.ind) aSide%Node(iNode)%np%tmp=0
       END DO
     END IF
+  END DO
+END DO
+
+DO iSide=1,nNonConformingSides
+  aSide=>InnerSides(iSide)%sp
+  IF(aSide%nMortars.LE.0) CYCLE  ! only check big mortar sides
+  DO iNode=1,aSide%nNodes
+    aSide%OrientedNode(iNode)%np=>aSide%Node(iNode)%np
+  END DO
+  DO jSide=1,aSide%nMortars
+    bSide=>aSide%MortarSide(jSide)%sp 
+    commonNode=.FALSE.
+    DO iNode=1,aSide%nNodes
+      DO jNode=1,bSide%nNodes
+        IF(ASSOCIATED(aSide%Node(iNode)%np,bSide%Node(jNode)%np))THEN
+          masterNode=iNode
+          slaveNode=jNode
+          commonNode=.TRUE.
+          EXIT
+        END IF
+      END DO
+      IF(commonNode) EXIT
+    END DO
+    IF(.NOT.commonNode) STOP 'soeinscheiss'
+    DO iNode=1,aSide%nNodes
+      bSide%orientedNode(masterNode)%np=>bSide%Node(slaveNode)%np
+      masterNode=prev1(masterNode)
+      slaveNode=next1(slaveNode)
+    END DO
   END DO
 END DO
 

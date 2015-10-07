@@ -30,9 +30,9 @@ INTERFACE CreateSides
  MODULE PROCEDURE CreateSides
 END INTERFACE
 
-INTERFACE AdjustOrientedNodes
-  MODULE PROCEDURE AdjustOrientedNodes
-END INTERFACE
+!INTERFACE AdjustOrientedNodes
+  !MODULE PROCEDURE AdjustOrientedNodes
+!END INTERFACE
 
 INTERFACE GetBoundaryIndex
   MODULE PROCEDURE GetBoundaryIndex
@@ -57,7 +57,7 @@ END INTERFACE
 PUBLIC::ElemGeometry
 PUBLIC::getNewHexa
 PUBLIC::CreateSides
-PUBLIC::AdjustOrientedNodes
+!PUBLIC::AdjustOrientedNodes
 PUBLIC::GetBoundaryIndex
 PUBLIC::BuildEdges
 PUBLIC::FlushMesh
@@ -451,96 +451,96 @@ END DO
 END SUBROUTINE CreateSides
 
 
-SUBROUTINE AdjustOrientedNodes(Side,countRef)
-!===================================================================================================================================
-! Nodes of a Side and the nodes of its neighbor side have to be oriented in the
-!   same manner. Therefor we have the structure nodes (which is sorted according
-!   to CGNS standards in local element system) and the Oriented nodes which are
-!   equally oriented for Side and Side%connection
-!===================================================================================================================================
-! MODULES
-USE MOD_Mesh_Vars,ONLY:tSide
-USE MOD_Mesh_Vars,ONLY:VV
-USE MOD_Mesh_Tolerances,ONLY:SAMEPOINT
-! IMPLICIT VARIABLE HANDLING
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-! VV...periodic displacement vector for Cartmesh generator
-! CALC%spaceQuandt...used to secure geometric operations
-! RealTolerance is defined in defines.f90 and used to secure geometric operations
-TYPE(tSide),POINTER,INTENT(IN) :: Side     ! pointer to the actual considered Side
-LOGICAL,INTENT(IN)             :: countRef ! determines if the Node%countref counter has to be updated
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-TYPE(tSide),POINTER :: nSide   ! ?
-INTEGER             :: iNode,fNode,deriv(2)  ! ?
-REAL                :: VV_loc(3)  ! ?
-LOGICAL             :: isPeriodic,dominant   ! ?
-!===================================================================================================================================
-deriv=0
-IF (countRef) THEN
-  DO iNode=1,Side%nNodes
-    Side%Node(iNode)%np%refCount=Side%Node(iNode)%np%refCount+1
-  END DO
-END IF
-nSide=>Side%Connection
-IF(.NOT. ASSOCIATED(nSide)) THEN
-  DO iNode=1,Side%nNodes
-    Side%orientedNode(iNode)%np=>Side%Node(iNode)%np
-  END DO
-ELSE
-  isPeriodic=.FALSE.
-  IF(ASSOCIATED(Side%BC)) THEN
-    IF(.NOT. ASSOCIATED(nSide%BC)) &
-      CALL abort(__STAMP__, &
-      'periodic Side error')
-    IF(Side%BC%BCType.EQ.1) THEN
-      IF(nSide%BC%BCType.NE.1) &
-        CALL abort(__STAMP__, &
-        'periodic Side error')
-      isPeriodic=.TRUE.
-      VV_loc=VV(:,abs(Side%BC%BCalphaInd))*sign(1,Side%BC%BCalphaInd)
-    END IF
-  END IF
-  IF (countRef) THEN
-    DO iNode=1,nSide%nNodes
-      nSide%Node(iNode)%np%refCount=nSide%Node(iNode)%np%refCount+1
-    END DO
-  END IF
-  fNode=0
-  DO iNode=1,Side%nNodes
-    IF(isPeriodic) THEN
-      IF(SAMEPOINT(Side%Node(1)%np%x+VV_loc,nSide%Node(iNode)%np%x)) THEN
-        fNode=iNode
-      END IF
-    ELSE
-      IF(ASSOCIATED(Side%Node(1)%np,nSide%Node(iNode)%np)) THEN
-        fNode=iNode
-      END IF
-    END IF
-  END DO
-  dominant=.FALSE.
-  IF(Side%Elem%ind .LT. nSide%Elem%ind) dominant=.TRUE.
-  IF(dominant) THEN
-    DO iNode=1,nSide%nNodes
-      Side%orientedNode(iNode)%np=>Side%Node(iNode)%np
-      nSide%orientedNode(iNode)%np=>nSide%Node(fNode)%np
-      fNode=fNode-1
-      IF(fNode .LT.1) fNode=fNode+nSide%nNodes
-    END DO
-  ELSE
-    DO iNode=1,nSide%nNodes
-      Side%orientedNode(iNode)%np=>Side%Node(fNode)%np
-      nSide%orientedNode(iNode)%np=>nSide%Node(iNode)%np
-      fNode=fNode-1
-      IF(fNode .LT.1) fNode=fNode+nSide%nNodes
-    END DO
-  END IF
-END IF
-END SUBROUTINE AdjustOrientedNodes
+!SUBROUTINE AdjustOrientedNodes(Side,countRef)
+!!==================================================================================================================================
+!! Nodes of a Side and the nodes of its neighbor side have to be oriented in the
+!!   same manner. Therefor we have the structure nodes (which is sorted according
+!!   to CGNS standards in local element system) and the Oriented nodes which are
+!!   equally oriented for Side and Side%connection
+!!==================================================================================================================================
+!! MODULES
+!USE MOD_Mesh_Vars,ONLY:tSide
+!USE MOD_Mesh_Vars,ONLY:VV
+!USE MOD_Mesh_Tolerances,ONLY:SAMEPOINT
+!! IMPLICIT VARIABLE HANDLING
+!IMPLICIT NONE
+!!----------------------------------------------------------------------------------------------------------------------------------
+!! INPUT VARIABLES
+!! VV...periodic displacement vector for Cartmesh generator
+!! CALC%spaceQuandt...used to secure geometric operations
+!! RealTolerance is defined in defines.f90 and used to secure geometric operations
+!TYPE(tSide),POINTER,INTENT(IN) :: Side     ! pointer to the actual considered Side
+!LOGICAL,INTENT(IN)             :: countRef ! determines if the Node%countref counter has to be updated
+!!----------------------------------------------------------------------------------------------------------------------------------
+!! OUTPUT VARIABLES
+!!----------------------------------------------------------------------------------------------------------------------------------
+!! LOCAL VARIABLES 
+!TYPE(tSide),POINTER :: nSide   ! ?
+!INTEGER             :: iNode,fNode,deriv(2)  ! ?
+!REAL                :: VV_loc(3)  ! ?
+!LOGICAL             :: isPeriodic,dominant   ! ?
+!!==================================================================================================================================
+!deriv=0
+!IF (countRef) THEN
+  !DO iNode=1,Side%nNodes
+    !Side%Node(iNode)%np%refCount=Side%Node(iNode)%np%refCount+1
+  !END DO
+!END IF
+!nSide=>Side%Connection
+!IF(.NOT. ASSOCIATED(nSide)) THEN
+  !DO iNode=1,Side%nNodes
+    !Side%orientedNode(iNode)%np=>Side%Node(iNode)%np
+  !END DO
+!ELSE
+  !isPeriodic=.FALSE.
+  !IF(ASSOCIATED(Side%BC)) THEN
+    !IF(.NOT. ASSOCIATED(nSide%BC)) &
+      !CALL abort(__STAMP__, &
+      !'periodic Side error')
+    !IF(Side%BC%BCType.EQ.1) THEN
+      !IF(nSide%BC%BCType.NE.1) &
+        !CALL abort(__STAMP__, &
+        !'periodic Side error')
+      !isPeriodic=.TRUE.
+      !VV_loc=VV(:,abs(Side%BC%BCalphaInd))*sign(1,Side%BC%BCalphaInd)
+    !END IF
+  !END IF
+  !IF (countRef) THEN
+    !DO iNode=1,nSide%nNodes
+      !nSide%Node(iNode)%np%refCount=nSide%Node(iNode)%np%refCount+1
+    !END DO
+  !END IF
+  !fNode=0
+  !DO iNode=1,Side%nNodes
+    !IF(isPeriodic) THEN
+      !IF(SAMEPOINT(Side%Node(1)%np%x+VV_loc,nSide%Node(iNode)%np%x)) THEN
+        !fNode=iNode
+      !END IF
+    !ELSE
+      !IF(ASSOCIATED(Side%Node(1)%np,nSide%Node(iNode)%np)) THEN
+        !fNode=iNode
+      !END IF
+    !END IF
+  !END DO
+  !dominant=.FALSE.
+  !IF(Side%Elem%ind .LT. nSide%Elem%ind) dominant=.TRUE.
+  !IF(dominant) THEN
+    !DO iNode=1,nSide%nNodes
+      !Side%orientedNode(iNode)%np=>Side%Node(iNode)%np
+      !nSide%orientedNode(iNode)%np=>nSide%Node(fNode)%np
+      !fNode=fNode-1
+      !IF(fNode .LT.1) fNode=fNode+nSide%nNodes
+    !END DO
+  !ELSE
+    !DO iNode=1,nSide%nNodes
+      !Side%orientedNode(iNode)%np=>Side%Node(fNode)%np
+      !nSide%orientedNode(iNode)%np=>nSide%Node(iNode)%np
+      !fNode=fNode-1
+      !IF(fNode .LT.1) fNode=fNode+nSide%nNodes
+    !END DO
+  !END IF
+!END IF
+!END SUBROUTINE AdjustOrientedNodes
 
 
 
