@@ -86,7 +86,7 @@ TYPE tEdge ! provides data structure for local edge
   TYPE(tNodePtr),POINTER              ::       CurvedNode(:)          ! pointer to interpolation nodes of curved sides
   TYPE(tEdge),POINTER                 ::       nextEdge               ! only used to assign edges 
   TYPE(tEdgePtr),POINTER              ::       MortarEdge(:)          ! array of edge pointers to slave mortar edges
-  TYPE(tEdgePtr),POINTER              ::       parentEdge             ! parentEdge in case of non-conforming meshes
+  TYPE(tEdge),POINTER                 ::       parentEdge             ! parentEdge in case of non-conforming meshes
 END TYPE tEdge
 
 TYPE tNode ! provides data structure for local node

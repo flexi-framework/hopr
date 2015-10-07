@@ -65,11 +65,6 @@ PUBLIC::assignBC
 PUBLIC::isOriented
 PUBLIC::FindElemTypes
 
-
-TYPE tNodeToEdge
-  TYPE(tEdge),POINTER         ::  EDP                    ! edge pointer
-  TYPE(tNodeToEdge),POINTER   ::  nextNodeToEdge
-END TYPE tNodeToEdge
 !===================================================================================================================================
   !---------------------------------------------------------------------------!
 CONTAINS
@@ -583,7 +578,7 @@ SUBROUTINE buildEdges()
 ! If the edge is not  oriented, it goes from orientedNode(i+1)-> orientedNode(i)
 !===================================================================================================================================
 ! MODULES
-USE MOD_Mesh_Vars,ONLY:tElem,tSide,tEdge,tNode
+USE MOD_Mesh_Vars,ONLY:tElem,tSide,tEdge,tNode,tEdgePtr
 USE MOD_Mesh_Vars,ONLY:firstElem
 USE MOD_Mesh_Vars,ONLY:GetNewEdge
 ! IMPLICIT VARIABLE HANDLING
@@ -595,12 +590,13 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 TYPE(tElem),POINTER          :: aElem  ! ?
-TYPE(tSide),POINTER          :: aSide   ! ?
-TYPE(tEdge),POINTER          :: aEdge,bEdge,cEdge  ! ?
+TYPE(tSide),POINTER          :: aSide,bSide   ! ?
+TYPE(tEdge),POINTER          :: aEdge,bEdge  ! ?
+TYPE(tEdgePtr)               :: smallEdges(4)  ! ?
 TYPE(tNode),POINTER          :: aNode,bNode  ! ?
-TYPE(tNodeToEdge),POINTER    :: NodeToEdge(:),aNodeToEdge
-INTEGER                      :: iSide,iEdge,iNode,iPlus,nSides,EdgeInd,nNodes  ! ?
-INTEGER                      :: indA2,indB2,indC1,indC2,nodeInd
+INTEGER                      :: iSide,jSide,iEdge,jEdge,kEdge,iNode,iPlus,nSides,EdgeInd,nNodes  ! ?
+INTEGER                      :: indA(2),indB(2,4),indTmp(2)
+INTEGER                      :: edgeCount,i  ! ?
 LOGICAL                      :: edgeFound  ! ?
 !===================================================================================================================================
 CALL Timer(.TRUE.)
@@ -624,12 +620,6 @@ DO WHILE(ASSOCIATED(aElem))
   END DO
   aElem=>aElem%nextElem
 END DO !! ELEMS!!
-
-ALLOCATE(NodeToEdge(nNodes))
-DO iNode=1,nNodes
-  NULLIFY(NodeToEdge(iNode)%edp)
-  NULLIFY(NodeToEdge(iNode)%nextNodeToEdge)
-END DO
 
 EdgeInd=0
 aElem=>firstElem
@@ -681,18 +671,6 @@ DO WHILE(ASSOCIATED(aElem))
         IF (ASSOCIATED(aNode%firstEdge)) THEN
           aEdge%nextEdge=>aNode%firstEdge 
         END IF
-        DO iNode=1,2
-          NodeInd=aEdge%Node(iNode)%np%tmp
-          IF(.NOT.ASSOCIATED(NodeToEdge(NodeInd)%edp))THEN
-            aNodeToEdge=>NodeToEdge(NodeInd)
-          ELSE
-            ALLOCATE(aNodeToEdge)
-            aNodeToEdge%nextNodeToEdge=>NodeToEdge(NodeInd)%nextNodeToEdge
-            NodeToEdge(NodeInd)%nextNodeToEdge=>aNodeToEdge
-          END IF
-          aNodeToEdge%edp=>aEdge
-          NULLIFY(aNodeToEdge)
-        END DO
         aNode%firstEdge=>aEdge
       END IF 
       !WRITE(*,*)'DEBUG a',aNode%ind,'b',bNode%ind,edgeFound,aEdge%ind
@@ -703,6 +681,7 @@ DO WHILE(ASSOCIATED(aElem))
   aElem=>aElem%nextElem
 END DO !! ELEMS!!
 
+! in case of nonconforming meshes, build nonconforming edge connectivity
 aElem=>firstElem
 DO WHILE(ASSOCIATED(aElem))
   SELECT CASE(aElem%nNodes)
@@ -716,35 +695,54 @@ DO WHILE(ASSOCIATED(aElem))
     nSides=4
   END SELECT
   aSide=>aElem%firstSide
-  DO iSide=1,nSides             !!SIDES!!***********
-    DO iEdge=1,aSide%nNodes     !!EDGES!! nNodes=nEdges**************
-      iPlus=iEdge+1
-      IF(iEdge.EQ.aSide%nNodes) iPlus=1
+  DO iSide=1,nSides
+    IF(aSide%nMortars.LE.0)THEN  ! only check big mortar sides
+      aSide=>aSide%nextElemSide
+      CYCLE
+    END IF
+    DO iEdge=1,aSide%nNodes
       aEdge=>aSide%Edge(iEdge)%edp
-      indA2=aEdge%Node(2)%np%ind
-      bEdge=>aEdge%Node(1)%np%firstEdge
-      IF(ASSOCIATED(aEdge,bEdge)) bEdge=>bEdge%nextEdge
-      DO WHILE(ASSOCIATED(bEdge))
-        indB2=bEdge%Node(2)%np%ind
-        cEdge=>bEdge%Node(2)%np%firstEdge
-        DO WHILE(ASSOCIATED(cEdge))
-          indC1=cEdge%Node(1)%np%ind
-          indC2=cEdge%Node(2)%np%ind
-!          IF(indB2.EQ.indC1.AND.indA2.EQ.
-          
-          cEdge=>cEdge%nextEdge
+      IF(ASSOCIATED(aEdge%MortarEdge)) CYCLE
+      indA(1)=aEdge%Node(1)%np%ind
+      indA(2)=aEdge%Node(2)%np%ind
+      edgeCount=0
+      DO jSide=1,aSide%nMortars
+        bSide=>aSide%MortarSide(jSide)%sp
+        DO jEdge=1,bSide%nNodes
+          bEdge=>bSide%Edge(jEdge)%edp
+          indTmp(1)=bEdge%Node(1)%np%ind
+          indTmp(2)=bEdge%Node(2)%np%ind
+          IF(ANY(indA(1).EQ.indTmp).OR.ANY(indA(2).EQ.indTmp))THEN
+            edgeCount=edgeCount+1
+            indB(:,edgeCount)=indTmp
+            smallEdges(edgeCount)%edp=>bEdge
+          END IF
         END DO
-        bEdge=>bEdge%nextEdge
+      END DO
+      IF(edgeCount.EQ.3) CYCLE
+      IF(edgeCount.NE.4) STOP 'Mismatch of neighbour edge count of non-conforming edges.'
+
+      DO jEdge=1,3
+        DO kEdge=jEdge+1,4
+          IF(ANY(indB(1,jEdge).EQ.indB(:,kEdge)).OR.ANY(indB(2,jEdge).EQ.indB(:,kEdge)))THEN
+            ALLOCATE(aEdge%MortarEdge(2))
+            IF(ANY(indA(1).EQ.indB(:,jEdge)))THEN
+              aEdge%MortarEdge(1)%edp=>smallEdges(jEdge)%edp
+              aEdge%MortarEdge(2)%edp=>smallEdges(kEdge)%edp
+            ELSE
+              aEdge%MortarEdge(2)%edp=>smallEdges(jEdge)%edp
+              aEdge%MortarEdge(1)%edp=>smallEdges(kEdge)%edp
+            END IF
+            smallEdges(jEdge)%edp%parentEdge=>aEdge
+            smallEdges(kEdge)%edp%parentEdge=>aEdge
+          END IF
+        END DO
       END DO
     END DO
-
     aSide=>aSide%nextElemSide
   END DO !!SIDES!!**************
   aElem=>aElem%nextElem
 END DO !! ELEMS!!
-
-
-DEALLOCATE(NodeToEdge)
 
 CALL timer(.FALSE.)
 END SUBROUTINE buildEdges

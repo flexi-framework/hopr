@@ -434,8 +434,8 @@ TYPE(tSidePtr),POINTER    :: InnerSides(:)   ! ?
 TYPE(tSidePtr)            :: quartett(4)   ! ?
 INTEGER                   :: iNode,jNode,iSide,jSide,kSide,ind,nQuartett  ! ?
 INTEGER                   :: aLocSide,bLocSide,counter  ! ?
-INTEGER                   :: next1(4),prev1(4),next2(4)
-INTEGER                   :: bigCorner(4),bigCorner2(4)
+INTEGER                   :: next1(4),prev1(4),next2(4),CGNSToCart(4)
+INTEGER                   :: bigCorner(4),bigCorner2(4),bigCornerNoSort(4)
 INTEGER                   :: masterNode,slaveNode
 LOGICAL,ALLOCATABLE       :: SideDone(:) ! ?
 LOGICAL                   :: commonNode
@@ -449,6 +449,7 @@ LOGICAL                   :: aFoundNode(4,2),bFoundNode(4,2),cFoundNode(4,2)
 next1=(/2,3,4,1/)
 prev1=(/4,1,2,3/)
 next2=(/3,4,1,2/)
+CGNSToCart=(/1,2,4,3/)
 
 nNonConformingSides=0
 Elem=>FirstElem
@@ -617,6 +618,7 @@ DO iSide=1,nNonConformingSides
     END DO
   END DO
   IF(nQuartett.NE.4) STOP 'Das kann nicht sein!!'
+  bigCornerNoSort=bigCorner
   CALL Qsort1Int(bigCorner) !Node IDs sorted, unique combination for one side (for trias and quads)
 
   ! find big side belonging to quartett
@@ -634,9 +636,15 @@ DO iSide=1,nNonConformingSides
       SideDone(jSide)=.TRUE.
       ALLOCATE(bSide%MortarSide(4))
       DO iNode=1,bSide%nNodes
-        bSide%MortarSide(iNode)%sp=>quartett(iNode)%sp
-        quartett(iNode)%sp%connection=>bSide
-        SideDone(quartett(iNode)%sp%tmp)=.TRUE.
+        ! for type 1, small mortars are sorted on a cartesian grid (first xi, then eta)
+        ! this means that e.g. the small side at node 3 of big side is stored in position 4 of mortar array
+        jNode=-999
+        DO jNode=1,bSide%nNodes
+          IF(bigCornerNoSort(jNode).EQ.bSide%Node(iNode)%np%ind) EXIT
+        END DO
+        bSide%MortarSide(CGNSToCart(iNode))%sp=>quartett(jNode)%sp
+        quartett(jNode)%sp%connection=>bSide
+        SideDone(quartett(jNode)%sp%tmp)=.TRUE.
       END DO
       counter=counter+5
     ELSE
