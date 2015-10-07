@@ -431,9 +431,11 @@ TYPE(tElem),POINTER       :: Elem                                               
 TYPE(tSide),POINTER       :: Side
 TYPE(tSide),POINTER       :: aSide,bSide,cSide,smallSide1,smallSide2,bigSide
 TYPE(tSidePtr),POINTER    :: InnerSides(:)   ! ?
-INTEGER                   :: iNode,iSide,jSide,kSide  ! ?
+TYPE(tSidePtr)            :: quartett(4)   ! ?
+INTEGER                   :: iNode,iSide,jSide,kSide,ind,nQuartett  ! ?
 INTEGER                   :: aLocSide,bLocSide,counter  ! ?
 INTEGER                   :: next2(4)
+INTEGER                   :: bigCorner(4),bigCorner2(4)
 LOGICAL,ALLOCATABLE       :: SideDone(:) ! ?
 LOGICAL                   :: commonNode
 LOGICAL                   :: aFoundEdge(4,2),bFoundEdge(4,2),cFoundEdge(4,2)
@@ -523,7 +525,6 @@ DO iSide=1,nNonConformingSides
         IF(aLocSide.GT.0) THEN
           smallSide1=>bSide; smallSide2=>cSide; bigSide=>aSide
         END IF
-        print*,aSide%tmp,bSide%tmp,cSide%tmp
 
         bigSide%nMortars=2
         ALLOCATE(bigSide%MortarSide(2))
@@ -540,13 +541,90 @@ DO iSide=1,nNonConformingSides
   END DO
 END DO
 
+! Find 4->1 interfaces
+! At 4->1 interfaces the center node has exactly 4 neighbour sides, while all other nodes have
+! more neighbour sides
+! Find node with exactly 4 neighbour sides
+DO iSide=1,nNonConformingSides
+  IF(SideDone(iSide)) CYCLE
+  aSide=>InnerSides(iSide)%sp
+  DO iNode=1,aSide%nNodes
+    aSide%Node(iNode)%np%tmp=0
+  END DO
+END DO
+! now tmp contains number of sides
+DO iSide=1,nNonConformingSides
+  IF(SideDone(iSide)) CYCLE
+  aSide=>InnerSides(iSide)%sp
+  DO iNode=1,aSide%nNodes
+    aSide%Node(iNode)%np%tmp=aSide%Node(iNode)%np%tmp+1
+  END DO
+END DO
+
+DO iSide=1,nNonConformingSides
+  aSide=>InnerSides(iSide)%sp
+  IF(SideDone(iSide)) CYCLE
+
+  ind=-999
+  DO iNode=1,aSide%nNodes
+    IF(aSide%Node(iNode)%np%tmp.EQ.4)THEN
+      ! check if diagonal node is corner node of big, then node is midnode of big mortar interface
+      ind=aSide%Node(iNode)%np%ind
+      bigCorner(1)=aSide%Node(next2(iNode))%np%ind
+    END IF
+  END DO
+  IF(ind.LE.0) CYCLE
+  nQuartett=1
+  quartett(1)%sp=>aSide
+
+  ! find quartett and big corner nodes
+  DO jSide=iSide+1,nNonConformingSides
+    bSide=>InnerSides(jSide)%sp
+    IF(SideDone(jSide)) CYCLE
+    DO iNode=1,bSide%nNodes
+      IF(bSide%Node(iNode)%np%ind.EQ.ind)THEN
+        nQuartett=nQuartett+1
+        quartett(nQuartett)%sp=>bSide
+        bigCorner(nQuartett)=bSide%Node(next2(iNode))%np%ind
+      END IF
+    END DO
+  END DO
+  IF(nQuartett.NE.4) STOP 'Das kann nicht sein!!'
+  CALL Qsort1Int(bigCorner) !Node IDs sorted, unique combination for one side (for trias and quads)
+
+  ! find big side belonging to quartett
+  DO jSide=1,nNonConformingSides
+    bSide=>InnerSides(jSide)%sp
+    IF(SideDone(jSide)) CYCLE
+    DO iNode=1,bSide%nNodes
+      bigCorner2(iNode)=bSide%Node(iNode)%np%ind
+    END DO
+    CALL Qsort1Int(bigCorner2) !Node IDs sorted, unique combination for one side (for trias and quads)
+    IF(ALL(bigCorner.EQ.bigCorner2))THEN
+      ! found connection bSide is big side
+      bSide%nMortars=4
+      SideDone(jSide)=.TRUE.
+      ALLOCATE(bSide%MortarSide(4))
+      DO iNode=1,bSide%nNodes
+        bSide%MortarSide(iNode)%sp=>quartett(iNode)%sp
+        quartett(iNode)%sp%connection=>bSide
+        SideDone(quartett(iNode)%sp%tmp)=.TRUE.
+      END DO
+      counter=counter+5
+    ELSE
+      DO iNode=1,aSide%nNodes
+        IF(aSide%Node(iNode)%np%ind.EQ.ind) aSide%Node(iNode)%np%tmp=0
+      END DO
+    END IF
+  END DO
+END DO
+
 IF(counter.NE.nNonConformingSides) THEN
   WRITE(*,*) 'Warning: Number of expected nonconforming sides:', nNonConformingSides
   WRITE(*,*) '         Number of found nonconforming sides:', counter
 END IF
 
 WRITE(UNIT_StdOut,*)'   --> ',counter,' nonconforming sides of ', nInnerSides,'  sides connected.'
-
 
 DEALLOCATE(SideDone)
 DEALLOCATE(InnerSides)
