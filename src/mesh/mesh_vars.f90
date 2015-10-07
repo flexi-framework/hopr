@@ -194,9 +194,15 @@ INTEGER                        :: TypeIndex_surf(4)      ! typeIndex_surf(nNodes
 INTEGER                        :: MortarMesh             ! 0: conforming, 1: non-conforming octree based
 INTEGER                        :: nNonconformingSides    ! number of small and big mortar sides
 ! MoratarMesh==1
-INTEGER                        :: nMeshTrees=0           ! number of elements in the mesh
-TYPE(tElem) ,POINTER           :: firstTree              ! pointer to first tree
-INTEGER                        :: NTree                  ! polynomial degree of tree mapping
+INTEGER             :: NGeoTree              ! polynomial degree of trees geometric transformation
+INTEGER             :: nGlobalTrees          ! global number of trees
+REAL,ALLOCATABLE    :: xiMinMax(:,:,:)       ! Position of the 2 bounding nodes of a quadrant in its tree
+INTEGER,ALLOCATABLE :: ElemToTree(:)         ! index of the tree corresponding to an element
+REAL,ALLOCATABLE    :: TreeCoords(:,:,:,:,:) ! XYZ positions (equidistant,NGeoTree) of tree interpolation points from meshfile
+INTEGER             :: nTrees                ! local number of trees
+INTEGER             :: offsetTree            ! tree offset
+
+
 
 
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -421,6 +427,7 @@ Side%LocSide = 0
 Side%ind          = 0
 Side%tmp          = 0
 Side%tmp2         = 0
+Side%flip         = 0
 Side%EdgeOrientation = .FALSE.
 SideCount=SideCount+1
 Side%nCurvedNodes=0

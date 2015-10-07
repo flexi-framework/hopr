@@ -41,6 +41,31 @@ $(PREPROC_LIB): $(OBJ)
 %.o: %.f90
 	$(FC) $(FCFLAGS) $(INCDIRS) -c $< -o $@
 
+#------------------------------------------------------------------------------
+# TAGS
+#------------------------------------------------------------------------------
+TAG = $(SRC:.f90=.tags)
+
+tags: $(TAG)
+	@rm -f ctags_unsorted.txt
+	@find . -name "*.tags" -exec cat {} >> ctags_unsorted.txt \;
+	@python -c "lines = open('ctags_unsorted.txt', 'r').readlines(); lines = sorted(lines); f = open('ctags_sorted.txt', 'w'); [f.write(l) for l in lines]; f.close()"
+	@echo "!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;\" to lines/" > ctags.txt
+	@echo "!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/" >> ctags.txt
+	@echo "!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/" >> ctags.txt
+	@echo "!_TAG_PROGRAM_NAME	Exuberant Ctags	//" >> ctags.txt
+	@echo "!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/" >> ctags.txt
+	@echo "!_TAG_PROGRAM_VERSION	5.9~svn20110310	//" >> ctags.txt
+	@cat ctags_sorted.txt >> ctags.txt
+	@rm -f ctags_unsorted.txt ctags_sorted.txt
+	@find . -name "*.tags" -exec rm {} \;
+
+
+%.tags: %.f90
+	@ctags -f $@ --language-force=fortran --fortran-kinds=+i+L $< 
+	@sed -i '/^!_/d' $@
+
+
 
 #------------------------------------------------------------------------------
 # DEPENDENCIES

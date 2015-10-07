@@ -431,7 +431,10 @@ SELECT CASE (MeshMode)
     CALL ReadMeshFromHDF5_OLD(MeshFileName(1)) ! meshfile
     meshIsAlreadyCurved=.TRUE.
   CASE(0)
-    CALL ReadMeshFromHDF5(MeshFileName(1)) ! meshfile
+    CALL ReadMeshFromHDF5(MeshFileName(1),.TRUE.) ! meshfile
+    meshIsAlreadyCurved=.TRUE.
+  CASE(100)
+    CALL ReadMeshFromHDF5(MeshFileName(1),.FALSE.) ! meshfile
     meshIsAlreadyCurved=.TRUE.
   CASE(1)
     CALL CartesianMesh()  ! Build cartesian mesh
