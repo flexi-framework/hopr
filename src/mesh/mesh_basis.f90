@@ -700,6 +700,13 @@ DO WHILE(ASSOCIATED(aElem))
       aSide=>aSide%nextElemSide
       CYCLE
     END IF
+    IF(ASSOCIATED(aSide%BC))THEN ! dont build periodic curveds
+      IF(aSide%BC%BCType.EQ.1)THEN
+        print*,'Warning: Periodic mortar edges are treated like conforming edges!'
+        aSide=>aSide%nextElemSide
+        CYCLE
+      END IF
+    END IF
     DO iEdge=1,aSide%nNodes
       aEdge=>aSide%Edge(iEdge)%edp
       IF(ASSOCIATED(aEdge%MortarEdge)) CYCLE
@@ -720,7 +727,9 @@ DO WHILE(ASSOCIATED(aElem))
         END DO
       END DO
       IF(edgeCount.EQ.3) CYCLE
-      IF(edgeCount.NE.4) STOP 'Mismatch of neighbour edge count of non-conforming edges.'
+      IF(edgeCount.NE.4) THEN
+        STOP 'Mismatch of neighbour edge count of non-conforming edges.'
+      END IF
 
       DO jEdge=1,3
         DO kEdge=jEdge+1,4

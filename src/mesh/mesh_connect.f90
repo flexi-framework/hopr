@@ -443,7 +443,7 @@ INTEGER                   :: next1(4),prev1(4),next2(4),CGNSToCart(4)
 INTEGER                   :: bigCorner(4),bigCorner2(4),bigCornerNoSort(4)
 INTEGER                   :: masterNode,slaveNode
 LOGICAL,ALLOCATABLE       :: SideDone(:) ! ?
-LOGICAL                   :: commonNode
+LOGICAL                   :: commonNode,check
 LOGICAL                   :: aFoundEdge(4,2),bFoundEdge(4,2),cFoundEdge(4,2)
 LOGICAL                   :: aFoundNode(4,2),bFoundNode(4,2),cFoundNode(4,2)
 !===================================================================================================================================
@@ -467,11 +467,11 @@ DO WHILE(ASSOCIATED(Elem))
         Side%tmp=nNonConformingSides
       END IF
     ELSE
-      IF(.NOT.ASSOCIATED(Side%Connection).AND.Side%BC%BCType.EQ.100)THEN
+      IF(.NOT.ASSOCIATED(Side%Connection).AND.((Side%BC%BCType.EQ.100).OR.(Side%BC%BCType.EQ.1)))THEN
         nNonConformingSides=nNonConformingSides+1
         Side%tmp=nNonConformingSides
       END IF
-      IF(ASSOCIATED(Side%Connection).AND.Side%tmp2.GT.0)THEN
+      IF(ASSOCIATED(Side%Connection).AND.Side%tmp2.NE.0)THEN
         nNonConformingSides=nNonConformingSides+1
         Side%Connection%tmp=nNonConformingSides
       END IF
@@ -481,7 +481,6 @@ DO WHILE(ASSOCIATED(Elem))
   Elem=>Elem%nextElem
 END DO
 
-print*,nNonConformingSides
 ALLOCATE(InnerSides(nNonConformingSides))
 ALLOCATE(SideDone(nNonConformingSides))
 
@@ -494,10 +493,10 @@ DO WHILE(ASSOCIATED(Elem))
         InnerSides(Side%tmp)%sp=>Side
       END IF
     ELSE
-      IF(.NOT.ASSOCIATED(Side%Connection).AND.Side%BC%BCType.EQ.100)THEN
+      IF(.NOT.ASSOCIATED(Side%Connection).AND.((Side%BC%BCType.EQ.100).OR.(Side%BC%BCType.EQ.1)))THEN
         InnerSides(Side%tmp)%sp=>Side
       END IF
-      IF(ASSOCIATED(Side%Connection).AND.Side%tmp2.GT.0)THEN
+      IF(ASSOCIATED(Side%Connection).AND.Side%tmp2.NE.0)THEN
         InnerSides(Side%Connection%tmp)%sp=>Side%Connection
       END IF
     END IF
@@ -720,13 +719,19 @@ DO WHILE(ASSOCIATED(Elem))
   aSide=>Elem%firstSide
   DO WHILE(ASSOCIATED(aSide))
 
-    print*, 'bin da',aSide%tmp2,aSide%MortarType
+    check=.TRUE.
+    IF(aSide%tmp2.LE.0)                    check=.FALSE.
+    IF(.NOT.ASSOCIATED(aSide%connection))THEN
+                                           check=.FALSE.
+    ELSE
+      IF(aSide%connection%MortarType.EQ.0) check=.FALSE.
+    END IF
+
     ! only check mortar sides which are periodic masters
-    IF(aSide%MortarType.EQ.0.OR.aSide%tmp2.LE.0)THEN
+    IF(.NOT.check)THEN
       aSide=>aSide%nextElemSide
       CYCLE ! normal side
     END IF
-    STOP        'bin da'
 
     dummySide=>aSide%connection
     IF(dummySide%nMortars.GT.0)THEN ! mortar master
