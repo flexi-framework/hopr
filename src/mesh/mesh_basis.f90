@@ -54,6 +54,19 @@ INTERFACE isOriented
    MODULE PROCEDURE isOriented
 END INTERFACE
 
+INTERFACE PACKGEO
+   MODULE PROCEDURE PACK1D
+   MODULE PROCEDURE PACK2D
+   MODULE PROCEDURE PACK3D
+END INTERFACE
+
+INTERFACE UNPACKGEO
+   MODULE PROCEDURE UNPACK1D
+   MODULE PROCEDURE UNPACK2D
+   MODULE PROCEDURE UNPACK3D
+END INTERFACE
+
+
 PUBLIC::ElemGeometry
 PUBLIC::getNewHexa
 PUBLIC::CreateSides
@@ -64,6 +77,8 @@ PUBLIC::FlushMesh
 PUBLIC::assignBC
 PUBLIC::isOriented
 PUBLIC::FindElemTypes
+PUBLIC::PackGeo
+PUBLIC::UnpackGeo
 
 !===================================================================================================================================
   !---------------------------------------------------------------------------!
@@ -734,16 +749,19 @@ DO WHILE(ASSOCIATED(aElem))
       DO jEdge=1,3
         DO kEdge=jEdge+1,4
           IF(ANY(indB(1,jEdge).EQ.indB(:,kEdge)).OR.ANY(indB(2,jEdge).EQ.indB(:,kEdge)))THEN
-            ALLOCATE(aEdge%MortarEdge(2))
-            IF(ANY(indA(1).EQ.indB(:,jEdge)))THEN
+            IF(ANY(indA(1).EQ.indB(:,jEdge)).AND.ANY(indA(2).EQ.indB(:,kEdge))) THEN
+              ALLOCATE(aEdge%MortarEdge(2))
               aEdge%MortarEdge(1)%edp=>smallEdges(jEdge)%edp
               aEdge%MortarEdge(2)%edp=>smallEdges(kEdge)%edp
-            ELSE
+              smallEdges(jEdge)%edp%parentEdge=>aEdge
+              smallEdges(kEdge)%edp%parentEdge=>aEdge
+            ELSEIF(ANY(indA(1).EQ.indB(:,kEdge)).AND.ANY(indA(2).EQ.indB(:,jEdge))) THEN
+              ALLOCATE(aEdge%MortarEdge(2))
               aEdge%MortarEdge(2)%edp=>smallEdges(jEdge)%edp
               aEdge%MortarEdge(1)%edp=>smallEdges(kEdge)%edp
+              smallEdges(jEdge)%edp%parentEdge=>aEdge
+              smallEdges(kEdge)%edp%parentEdge=>aEdge
             END IF
-            smallEdges(jEdge)%edp%parentEdge=>aEdge
-            smallEdges(kEdge)%edp%parentEdge=>aEdge
           END IF
         END DO
       END DO
@@ -855,7 +873,7 @@ REAL,INTENT(OUT)               :: data_out(3,0:Ngeo)
 INTEGER           :: iNgeo 
 !===================================================================================================================================
 DO iNgeo=0,Ngeo
-  data_out(:,iNgeo) = edge%curvedNode(iNgeo)%np%x
+  data_out(:,iNgeo) = edge%curvedNode(iNgeo+1)%np%x
 END DO 
 END SUBROUTINE Pack1D
 
@@ -934,7 +952,7 @@ TYPE(tEdge),POINTER,INTENT(IN) :: edge
 INTEGER           :: iNgeo 
 !===================================================================================================================================
 DO iNgeo=0,Ngeo
-  edge%curvedNode(iNgeo)%NP%x = data_in(:,iNgeo)
+  edge%curvedNode(iNgeo+1)%NP%x = data_in(:,iNgeo)
 END DO 
 END SUBROUTINE Unpack1D
 

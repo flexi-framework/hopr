@@ -191,8 +191,8 @@ INTEGER                        :: TypeIndex_surf(4)      ! typeIndex_surf(nNodes
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! MORTAR VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
-INTEGER                        :: MortarMesh             ! 0: conforming, 1: non-conforming octree based
-INTEGER                        :: nNonconformingSides    ! number of small and big mortar sides
+INTEGER             :: MortarMesh             ! 0: conforming, 1: non-conforming octree based
+INTEGER             :: nNonconformingSides    ! number of small and big mortar sides
 ! MoratarMesh==1
 INTEGER             :: NGeoTree              ! polynomial degree of trees geometric transformation
 INTEGER             :: nGlobalTrees          ! global number of trees
@@ -201,9 +201,9 @@ INTEGER,ALLOCATABLE :: ElemToTree(:)         ! index of the tree corresponding t
 REAL,ALLOCATABLE    :: TreeCoords(:,:,:,:,:) ! XYZ positions (equidistant,NGeoTree) of tree interpolation points from meshfile
 INTEGER             :: nTrees                ! local number of trees
 INTEGER             :: offsetTree            ! tree offset
-
-
-
+LOGICAL             :: doRebuildMortarGeometry ! for curved mortarmeshes ensure that small mortar geometry is identical
+REAL,ALLOCATABLE    :: M_0_1_T(:,:),M_0_2_T(:,:) 
+                                             ! to big mortar geometry
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! CURVED

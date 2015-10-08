@@ -228,6 +228,8 @@ IF(useCurveds) THEN
   ! 2-n: first n layers from the boundary are curved (not implemented yet)
   nCurvedBoundaryLayers=GETINT('nCurvedBoundaryLayers','-1')
 
+  ! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
+  doRebuildMortarGeometry=GETLOGICAL('doRebuildMortarGeometry','.TRUE.')
 END IF !usecurveds
 BoundaryOrder=N+1
 
@@ -382,6 +384,7 @@ USE MOD_Curved,           ONLY: create3dSplines,curvedEdgesToSurf,curvedSurfaces
 USE MOD_Curved,           ONLY: buildCurvedElementsFromVolume,buildCurvedElementsFromBoundarySides
 USE MOD_Curved,           ONLY: readNormals
 USE MOD_Curved,           ONLY: ProjectToExactSurfaces
+USE MOD_Curved,           ONLY: RebuildMortarGeometry
 USE MOD_Mesh_Basis,       ONLY: BuildEdges,ElemGeometry,FindElemTypes
 USE MOD_Mesh_Connect,     ONLY: Connect
 USE MOD_Mesh_Connect,     ONLY: Connect2DMesh
@@ -602,6 +605,8 @@ IF(useSpaceFillingCurve)THEN
 END IF
 
 CALL PostDeform()
+
+IF(useCurveds.AND.doRebuildMortarGeometry) CALL RebuildMortarGeometry()
 
 
 ! apply meshscale before output (default)

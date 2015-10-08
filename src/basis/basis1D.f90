@@ -77,6 +77,7 @@ PUBLIC:: ChebyGaussLobNodesAndWeights
 PUBLIC:: PolynomialDerivativeMatrix
 PUBLIC:: BarycentricWeights
 PUBLIC:: InitializeVandermonde
+PUBLIC:: GetMortarVandermonde
 PUBLIC:: ALMOSTEQUAL
 !===================================================================================================================================
 

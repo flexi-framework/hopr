@@ -65,9 +65,14 @@ INTERFACE splitToSpline
   MODULE PROCEDURE splitToSpline
 END INTERFACE
 
+INTERFACE RebuildMortarGeometry
+  MODULE PROCEDURE RebuildMortarGeometry
+END INTERFACE
+
 PUBLIC::SplitToSpline,ReconstructNormals,getExactNormals,deleteDuplicateNormals,create3DSplines,curvEdedgesToSurf
 PUBLIC::ProjectToExactSurfaces
 PUBLIC::CurvedSurfacesToElem,readNormals,buildCurvedElementsFromVolume,buildCurvedElementsFromBoundarySides
+PUBLIC::RebuildMortarGeometry
 !===================================================================================================================================
 
 CONTAINS
@@ -2800,6 +2805,205 @@ ELSE
   END DO
 END IF
 END FUNCTION GoToSide 
+
+
+SUBROUTINE RebuildMortarGeometry()
+!===================================================================================================================================
+! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars,ONLY:tElem,FirstElem,tSide,tEdge
+USE MOD_Mesh_Vars,ONLY:M_0_2_T,M_0_1_T,N
+USE MOD_Basis1D,  ONLY:GetMortarVandermonde
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+TYPE(tElem),POINTER       :: Elem  ! ?
+TYPE(tSide),POINTER       :: Side  ! ?
+TYPE(tEdge),POINTER       :: Edge  ! ?
+INTEGER                   :: iEdge ! ?
+!-----------------------------------------------------------------------------------------------------------------------------------
+WRITE(UNIT_stdOut,'(132("~"))')
+WRITE(UNIT_stdOut,*)'REBUILDING CURVED MORTAR INTERFACES...'
+
+ALLOCATE(M_0_1_T(0:N,0:N))
+ALLOCATE(M_0_2_T(0:N,0:N))
+CALL GetMortarVandermonde(N, M_0_1_T, M_0_2_T) 
+M_0_1_T=TRANSPOSE(M_0_1_T)
+M_0_2_T=TRANSPOSE(M_0_2_T)
+
+Elem=>firstElem
+DO WHILE(ASSOCIATED(Elem))
+  Side=>Elem%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    IF(Side%MortarType.GT.0) &
+      CALL MapBigSideToSmall(Side)
+    Side=>Side%nextElemSide
+  END DO
+  Elem=>Elem%nextElem
+END DO
+
+Elem=>firstElem
+DO WHILE(ASSOCIATED(Elem))
+  Side=>Elem%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    IF(Side%MortarType.GT.0)THEN
+      DO iEdge=1,Side%nNodes
+        Edge=>Side%Edge(iEdge)%edp
+        IF(.NOT.ASSOCIATED(Edge%parentEdge).AND.ASSOCIATED(Edge%MortarEdge)) &
+          CALL MapBigEdgeToSmall(Edge)
+      END DO
+    END IF
+    Side=>Side%nextElemSide
+  END DO
+  Elem=>Elem%nextElem
+END DO
+END SUBROUTINE RebuildMortarGeometry
+
+
+SUBROUTINE MapBigSideToSmall(Side)
+!===================================================================================================================================
+! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars,ONLY:tSide
+USE MOD_Mesh_Vars,ONLY:M_0_1_T,M_0_2_T,N
+USE MOD_Mesh_Basis,ONLY:PackGeo,UnpackGeo
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+TYPE(tSide),POINTER,INTENT(IN)   :: Side  ! ?
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER                          :: nMortars,p,q,l
+REAL                             :: XGeo2DBig(   3,0:N,0:N)
+REAL                             :: XGeo2DSmall4(3,0:N,0:N,4)
+REAL                             :: XGeo2DSmall2(3,0:N,0:N,2)
+!-----------------------------------------------------------------------------------------------------------------------------------
+XGeo2DBig=0.
+XGeo2DSmall4=0.
+XGeo2DSmall2=0.
+CALL PackGeo(N,Side,XGeo2DBig)
+
+SELECT CASE(Side%MortarType)
+CASE(1) !1->4
+  nMortars=4
+  !first in eta
+  DO q=0,N; DO p=0,N
+      XGeo2DSmall2(:,p,q,1)=                      M_0_1_T(0,q)*XGeo2DBig(:,p,0)
+      XGeo2DSmall2(:,p,q,2)=                      M_0_2_T(0,q)*XGeo2DBig(:,p,0)
+    DO l=1,N
+      XGeo2DSmall2(:,p,q,1)=XGeo2DSmall2(:,p,q,1)+M_0_1_T(l,q)*XGeo2DBig(:,p,l)
+      XGeo2DSmall2(:,p,q,2)=XGeo2DSmall2(:,p,q,2)+M_0_2_T(l,q)*XGeo2DBig(:,p,l)
+    END DO
+  END DO; END DO
+  ! then in xi
+  DO q=0,N; DO p=0,N
+      XGeo2DSmall4(:,p,q,1)=                      M_0_1_T(0,p)*XGeo2DSmall2(:,0,q,1)
+      XGeo2DSmall4(:,p,q,2)=                      M_0_2_T(0,p)*XGeo2DSmall2(:,0,q,1)
+      XGeo2DSmall4(:,p,q,3)=                      M_0_1_T(0,p)*XGeo2DSmall2(:,0,q,2)
+      XGeo2DSmall4(:,p,q,4)=                      M_0_2_T(0,p)*XGeo2DSmall2(:,0,q,2)
+    DO l=1,N
+      XGeo2DSmall4(:,p,q,1)=XGeo2DSmall4(:,p,q,1)+M_0_1_T(l,p)*XGeo2DSmall2(:,l,q,1)
+      XGeo2DSmall4(:,p,q,2)=XGeo2DSmall4(:,p,q,2)+M_0_2_T(l,p)*XGeo2DSmall2(:,l,q,1)
+      XGeo2DSmall4(:,p,q,3)=XGeo2DSmall4(:,p,q,3)+M_0_1_T(l,p)*XGeo2DSmall2(:,l,q,2)
+      XGeo2DSmall4(:,p,q,4)=XGeo2DSmall4(:,p,q,4)+M_0_2_T(l,p)*XGeo2DSmall2(:,l,q,2)
+    END DO !l=1,N
+  END DO; END DO !p,q=0,N
+
+CASE(2) !1->2 in eta
+  nMortars=2
+  DO q=0,N; DO p=0,N
+      XGeo2DSmall4(:,p,q,1)=                      M_0_1_T(0,q)*XGeo2DBig(:,p,0)
+      XGeo2DSmall4(:,p,q,2)=                      M_0_2_T(0,q)*XGeo2DBig(:,p,0)
+    DO l=1,N
+      XGeo2DSmall4(:,p,q,1)=XGeo2DSmall4(:,p,q,1)+M_0_1_T(l,q)*XGeo2DBig(:,p,l)
+      XGeo2DSmall4(:,p,q,2)=XGeo2DSmall4(:,p,q,2)+M_0_2_T(l,q)*XGeo2DBig(:,p,l)
+    END DO
+  END DO; END DO
+
+CASE(3) !1->2 in xi
+  nMortars=2
+  DO q=0,N; DO p=0,N
+      XGeo2DSmall4(:,p,q,1)=                      M_0_1_T(0,p)*XGeo2DBig(:,0,q)
+      XGeo2DSmall4(:,p,q,2)=                      M_0_2_T(0,p)*XGeo2DBig(:,0,q)
+    DO l=1,N
+      XGeo2DSmall4(:,p,q,1)=XGeo2DSmall4(:,p,q,1)+M_0_1_T(l,p)*XGeo2DBig(:,l,q)
+      XGeo2DSmall4(:,p,q,2)=XGeo2DSmall4(:,p,q,2)+M_0_2_T(l,p)*XGeo2DBig(:,l,q)
+    END DO
+  END DO; END DO
+END SELECT ! mortarType(SideID)
+
+DO p=1,nMortars
+  CALL UnpackGeo(N,XGeo2DSmall4(:,:,:,p),Side%MortarSide(p)%sp)
+END DO
+
+END SUBROUTINE MapBigSideToSmall
+
+
+
+RECURSIVE SUBROUTINE MapBigEdgeToSmall(edge)
+!===================================================================================================================================
+! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars,ONLY:tEdge
+USE MOD_Mesh_Vars,ONLY:M_0_1_T,M_0_2_T,N
+USE MOD_Mesh_Basis,ONLY:PackGeo,UnpackGeo
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+TYPE(tEdge),POINTER,INTENT(IN)   :: Edge  ! ?
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER                          :: p,l
+REAL                             :: XGeo1DBig(  3,0:N)
+REAL                             :: XGeo1DTmp(  3,0:N)
+REAL                             :: XGeo1DSmall(3,0:N,2)
+TYPE(tEdge),POINTER              :: smallEdge  ! ?
+!-----------------------------------------------------------------------------------------------------------------------------------
+XGeo1DBig=0.
+XGeo1DSmall=0.
+CALL PackGeo(N,Edge,XGeo1DBig)
+
+! split edge into 2 in xi
+DO p=0,N
+    XGeo1DSmall(:,p,1)=                   M_0_1_T(0,p)*XGeo1DBig(:,0)
+    XGeo1DSmall(:,p,2)=                   M_0_2_T(0,p)*XGeo1DBig(:,0)
+  DO l=1,N
+    XGeo1DSmall(:,p,1)=XGeo1DSmall(:,p,1)+M_0_1_T(l,p)*XGeo1DBig(:,l)
+    XGeo1DSmall(:,p,2)=XGeo1DSmall(:,p,2)+M_0_2_T(l,p)*XGeo1DBig(:,l)
+  END DO
+END DO
+
+DO p=1,2
+  smallEdge=>Edge%MortarEdge(p)%edp
+  IF(ASSOCIATED(Edge%Node(p)%np,smallEdge%Node(p)%np))THEN
+  ELSEIF(ASSOCIATED(Edge%Node(p)%np,smallEdge%Node(3-p)%np))THEN
+    XGeo1DTmp=XGeo1Dsmall(:,:,p)
+    DO l=0,N
+      XGeo1Dsmall(:,N-l,p)=XGeo1DTmp(:,l) 
+    END DO
+  ELSE 
+    STOP "Error: Edges of mortar master and slave do not conform!"
+  END IF
+  CALL UnpackGeo(N,XGeo1DSmall(:,:,p),smallEdge)
+  IF(ASSOCIATED(smallEdge%MortarEdge)) &
+    CALL MapBigEdgeToSmall(smallEdge)
+END DO
+
+END SUBROUTINE MapBigEdgeToSmall
 
 
 END MODULE MOD_Curved
