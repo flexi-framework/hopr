@@ -168,7 +168,6 @@ DO WHILE(ASSOCIATED(Elem))
     Elem%Node(i)%np%ind=NodeID
   END DO
   ElemBarycenters(ElemID,:)=ElemBarycenters(ElemID,:)/REAL(Elem%nNodes)
-  write(*,*) "ElemBarycenters", ElemID, ElemBarycenters(ElemID, :) ! TODO
   DO i=1,Elem%nCurvedNodes
     IF(Elem%CurvedNode(i)%np%ind.NE.-88888) CYCLE
     NodeID=NodeID+1
@@ -403,7 +402,6 @@ DO WHILE(ASSOCIATED(Elem))
   iNode = iNode + locnNodes
   iSide = iSide + locnSides
   Elem=>Elem%nextElem
-  write(*,*) ElemInfo(:,iElem) ! TODO
 END DO
 
 
@@ -474,73 +472,11 @@ DO WHILE(ASSOCIATED(Elem))
         SideInfo(SIDE_nbLocSide_flip,iSide)=10*Side%connection%locSide+Side%connection%flip
       END IF
     END IF
-
-    !================================================
-    !IF(Side%isCurved)THEN
-      !IF(N.GT.1)THEN
-        !SideInfo(SIDE_Type,iSide)=20+Side%nNodes         ! Side Type: NL tria/quad, 6/7
-      !ELSE
-        !IF(Side%nNodes.EQ.3)THEN
-          !SideInfo(SIDE_Type,iSide)=3
-        !ELSE  
-          !SideInfo(SIDE_Type,iSide)=10+Side%nNodes        ! Side Type: bilinear quad
-        !END IF
-      !END IF
-    !ELSE
-      !SideInfo(SIDE_Type,iSide)=Side%nNodes             ! Side Type: linear 3/4
-    !END IF
-    !!Side ID
-    !SideInfo(SIDE_ID,iSide)=Side%ind
-    !IF(.NOT.ISORIENTED(Side)) SideInfo(SIDE_ID,iSide)=-SideInfo(SIDE_ID,iSide)           
-    !!neighbor Element ID
-    !IF(ASSOCIATED(Side%Connection))THEN
-      !SideInfo(SIDE_nbElemID,iSide)=Side%Connection%Elem%ind                   ! Element ID of neighbor Element
-      !SideInfo(SIDE_nbLocSide_flip,iSide)=10*Side%connection%locSide+Side%connection%flip
-    !END IF
-    !!BC ID 
-    !IF(ASSOCIATED(Side%BC))THEN
-      !SideInfo(SIDE_BCID,iSide)=Side%BC%BCIndex                            
-      !IF(Side%BC%BCIndex.EQ.0) WRITE(*,*)'DEBUG, Warning, BC ind =0'
-    !END IF
-
-    !IF (Side%MortarType.LT.0) THEN
-       !i=MERGE(104,204,N.EQ.1)                              ! 104:bilinear,204:curved
-       !SideInfo(SIDE_Type,iSide)=MERGE(i,-i,Side%MortarType.GE.0)  ! mark side with mortar neighbour
-       !SideInfo(SIDE_ID,  iSide)=MERGE(Side%ind,-Side%ind,Side%flip.EQ.0) ! neg. sideID for slaves
-       !SideInfo(SIDE_nbLocSide_flip,iSide)=Side%flip
-       !IF(ASSOCIATED(Side%Connection))THEN
-         !SideInfo(SIDE_nbElemID,iSide)=Side%Connection%Elem%ind    ! neighbour Element ID
-       !END IF
-    !END IF
-
-    !!MORTAR
-    !IF(Side%MortarType.GT.0)THEN
-      !IF(ASSOCIATED(Side%Connection)) CALL abort(__STAMP__,&
-                                                 !'Mortar master with connection is not allowed')
-      !IF(Side%flip.NE.0) STOP 'Problem with flip on mortar'
-      !SideInfo(SIDE_nbElemID,iSide)=-Side%MortarType !marker for attached mortar sides
-      !DO iMortar=1,Side%nMortars
-        !iSide=iSide+1
-        !SideInfo(SIDE_Type,    iSide)= MERGE(104,204,N.EQ.1)
-        !SideInfo(SIDE_ID,      iSide)= Side%MortarSide(iMortar)%sp%ind       ! small are always master
-        !SideInfo(SIDE_nbElemID,iSide)= Side%MortarSide(iMortar)%sp%Elem%ind  ! neighbour Element ID
-        !IF (ASSOCIATED(Side%MortarSide(iMortar)%sp%BC)) THEN
-          !SideInfo(SIDE_BCID,    iSide)= Side%MortarSide(iMortar)%sp%BC%BCIndex
-        !ELSE
-          !SideInfo(SIDE_BCID,    iSide)= 0
-        !END IF
-
-      !END DO
-    !ENDIF
-
-
-
     Side=>Side%nextElemSide
   END DO
   Elem=>Elem%nextElem
 END DO
 
-write(*,*) iSide, nSides
 IF(iSide.NE.nSides) CALL abort(__STAMP__,&
                      'Sanity check: nSides not equal to total number of sides!')
 
