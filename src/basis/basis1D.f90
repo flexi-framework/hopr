@@ -60,6 +60,12 @@ INTERFACE ALMOSTEQUAL
    MODULE PROCEDURE ALMOSTEQUAL
 END INTERFACE
 
+INTERFACE GetMortarVandermonde
+   MODULE PROCEDURE GetMortarVandermonde
+END INTERFACE
+
+
+
 PUBLIC:: Vandermonde1D
 PUBLIC:: GradVandermonde1D
 PUBLIC:: JacobiP
@@ -754,5 +760,34 @@ ELSE ! x, y not zero
   IF((ABS(x-y).LE.PP_RealTolerance*ABS(x)).AND.((ABS(x-y).LE.PP_RealTolerance*ABS(y)))) AlmostEqual=.TRUE.
 END IF ! x,y zero
 END FUNCTION ALMOSTEQUAL
+
+SUBROUTINE GetMortarVandermonde(Ngeo, M_0_1, M_0_2) 
+!----------------------------------------------------------------------------------------------------------------------------------!
+! description
+!----------------------------------------------------------------------------------------------------------------------------------!
+! MODULES                                                                                                                          !
+!----------------------------------------------------------------------------------------------------------------------------------!
+! insert modules here
+!----------------------------------------------------------------------------------------------------------------------------------!
+IMPLICIT NONE
+! INPUT / OUTPUT VARIABLES 
+INTEGER,INTENT(IN)      :: Ngeo
+REAL,INTENT(OUT)        :: M_0_1(0:Ngeo,0:Ngeo), M_0_2(0:Ngeo,0:Ngeo)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+! LOCAL VARIABLES
+INTEGER                       :: i
+REAL,DIMENSION(0:Ngeo)        :: x,w,wBary
+REAL,DIMENSION(0:Ngeo)        :: test1,test2
+!===================================================================================================================================
+DO i=0,Ngeo
+  x(i) = -1 + i*2./Ngeo  
+END DO 
+CALL BarycentricWeights(Ngeo,x,wBary)
+
+!build interpolation operators M 0->1,M 0->2
+CALL InitializeVandermonde(Ngeo,Ngeo,wBary,x,0.5*(x-1.),M_0_1)
+CALL InitializeVandermonde(Ngeo,Ngeo,wBary,x,0.5*(x+1.),M_0_2)
+END SUBROUTINE GetMortarVandermonde
 
 END MODULE MOD_Basis1D
