@@ -22,7 +22,7 @@ PUBLIC::GlobalUniqueNodes
 
 CONTAINS
 
-SUBROUTINE GlobalUniqueNodes()
+SUBROUTINE GlobalUniqueNodes(withOrientedOpt)
 !===================================================================================================================================
 ! Eliminates multiple nodes, checks periodic boundary conditions and connects elements to their neighbours.
 !===================================================================================================================================
@@ -37,6 +37,7 @@ USE MOD_SortingTools,ONLY: Qsort1DoubleInt1Pint
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+LOGICAL,OPTIONAL,INTENT(IN) :: withOrientedOpt
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -61,11 +62,15 @@ INTEGER,ALLOCATABLE         :: IDList(:)  ! ?
 INTEGER                     :: nRanges  ! ?
 INTEGER                     :: percent  ! ?
 INTEGER                     :: lastNode,nextNode  ! ?
+LOGICAL                     :: withOriented
 !===================================================================================================================================
 CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'GLOBAL UNIQUE NODES ...'
 sLog2=1./LOG(2.)
+withOriented=.FALSE.
+IF(PRESENT(withOrientedOpt)) withOriented=withOrientedOpt
+
 ! First step: set node marker=0 
 Elem=>FirstElem
 DO WHILE(ASSOCIATED(Elem))
@@ -81,6 +86,7 @@ DO WHILE(ASSOCIATED(Elem))
   DO WHILE(ASSOCIATED(Side))
     DO iNode=1,Side%nNodes
       Side%Node(iNode)%np%tmp=0
+      IF(withOriented) Side%OrientedNode(iNode)%np%tmp=0
       IF(ASSOCIATED(Side%edge(iNode)%edp))THEN
         Edge=>Side%edge(iNode)%edp
         Edge%Node(1)%np%tmp=0
@@ -123,6 +129,7 @@ DO WHILE(ASSOCIATED(Elem))
   DO WHILE(ASSOCIATED(Side))
     DO iNode=1,Side%nNodes
       CALL SetCountNodeID(Side%Node(iNode)%np%tmp,NodeID)
+      IF(withOriented) CALL SetCountNodeID(Side%OrientedNode(iNode)%np%tmp,NodeID)
       IF(ASSOCIATED(Side%edge(iNode)%edp))THEN
         Edge=>Side%edge(iNode)%edp
         CALL SetCountNodeID(Edge%Node(1)%np%tmp,NodeID)
@@ -171,6 +178,7 @@ DO WHILE(ASSOCIATED(Elem))
   DO WHILE(ASSOCIATED(Side))
     DO iNode=1,Side%nNodes
       Nodes(Side%Node(iNode)%np%tmp)%np=>Side%Node(iNode)%np
+      IF(withOriented) Nodes(Side%OrientedNode(iNode)%np%tmp)%np=>Side%OrientedNode(iNode)%np
       IF(ASSOCIATED(Side%edge(iNode)%edp))THEN
         Edge=>Side%edge(iNode)%edp
         Nodes(Edge%Node(1)%np%tmp)%np=>Edge%Node(1)%np
@@ -251,6 +259,7 @@ DO WHILE(ASSOCIATED(Elem))
   DO WHILE(ASSOCIATED(Side))
     DO iNode=1,Side%nNodes
       Nodes(Side%Node(iNode)%np%tmp)%np=>Side%Node(iNode)%np
+      IF(withOriented) Nodes(Side%OrientedNode(iNode)%np%tmp)%np=>Side%OrientedNode(iNode)%np
       IF(ASSOCIATED(Side%edge(iNode)%edp))THEN
         Edge=>Side%edge(iNode)%edp
         Nodes(Edge%Node(1)%np%tmp)%np=>Edge%Node(1)%np
@@ -360,6 +369,7 @@ DO WHILE(ASSOCIATED(Elem))
   DO WHILE(ASSOCIATED(Side))
     DO iNode=1,Side%nNodes
       Side%Node(iNode)%np=>Nodes(Side%Node(iNode)%np%tmp)%np
+      IF(withOriented) Side%OrientedNode(iNode)%np=>Nodes(Side%OrientedNode(iNode)%np%tmp)%np
       IF(ASSOCIATED(Side%edge(iNode)%edp))THEN
         Edge=>Side%edge(iNode)%edp
         Edge%Node(1)%np=>Nodes(Edge%Node(1)%np%tmp)%np

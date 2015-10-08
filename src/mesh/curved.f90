@@ -2053,7 +2053,7 @@ DO WHILE(ASSOCIATED(Elem))
     END IF
 
     !check connection, but for periodic BCs Splines are not copied!
-    IF(ASSOCIATED(Side%Connection))THEN
+    IF(ASSOCIATED(Side%Connection).AND.Side%MortarType.EQ.0)THEN
       IF(.NOT.ASSOCIATED(Side%BC)) THEN
         IF(ASSOCIATED(Side%Connection%CurvedNode).AND..NOT.keepExistingCurveds) THEN
           CALL ABORT(__STAMP__,'connection already curved...')

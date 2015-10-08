@@ -53,6 +53,7 @@ TYPE(tSide),POINTER            :: Side  ! ?
 INTEGER                        :: ElemID,SideID,NodeID  ! ?
 INTEGER                        :: locnSides
 INTEGER                        :: iNode,i,iMortar
+LOGICAL                        :: found
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(132("~"))')
 CALL Timer(.TRUE.)
@@ -229,10 +230,14 @@ DO WHILE(ASSOCIATED(Elem))
       CYCLE
     END IF
     IF(.NOT.ISORIENTED(Side))THEN
+      found=.FALSE.
       DO iNode=1,Side%nNodes
-        IF(ASSOCIATED(Side%Node(iNode)%np,Side%OrientedNode(1)%np)) EXIT
+        IF(ASSOCIATED(Side%Node(iNode)%np,Side%OrientedNode(1)%np))THEN
+          found=.TRUE.
+          EXIT
+        END IF
       END DO 
-      IF(iNode.GT.Side%nNodes) STOP 'Flip not found'
+      IF(.NOT.found) STOP 'Flip not found'
       Side%flip=iNode
       IF(.NOT.ASSOCIATED(Side%connection)) CALL ABORT(__STAMP__, &
         'Side connection should be associated for non-oreinted side')

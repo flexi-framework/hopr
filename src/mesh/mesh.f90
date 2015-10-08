@@ -585,7 +585,7 @@ IF(useCurveds)THEN
 END IF ! useCurveds
 
 ! make all nodes unique
-CALL GlobalUniqueNodes()
+CALL GlobalUniqueNodes(.TRUE.)
 
 IF(doExactSurfProjection) CALL ProjectToExactSurfaces()
 ! get element types
