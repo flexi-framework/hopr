@@ -634,9 +634,9 @@ DO iSide=1,nNonConformingSides
   quartett(1)%sp=>aSide
 
   ! find quartett and big corner nodes
-  DO jSide=iSide+1,nNonConformingSides
+  DO jSide=1,nNonConformingSides
     bSide=>InnerSides(jSide)%sp
-    IF(SideDone(jSide)) CYCLE
+    IF(SideDone(jSide).OR.ASSOCIATED(aSide,bSide)) CYCLE
     DO iNode=1,bSide%nNodes
       IF(bSide%Node(iNode)%np%ind.EQ.ind)THEN
         nQuartett=nQuartett+1
@@ -663,6 +663,12 @@ DO iSide=1,nNonConformingSides
       bSide%nMortars=4
       SideDone(jSide)=.TRUE.
       ALLOCATE(bSide%MortarSide(4))
+      DO iNode=1,bSide%nNodes
+        bSide%Node(iNode)%np%tmp=0
+        DO jNode=1,bSide%nNodes
+          quartett(iNode)%sp%Node(jNode)%np%tmp=0
+        END DO
+      END DO
       DO iNode=1,bSide%nNodes
         ! for type 1, small mortars are sorted on a cartesian grid (first xi, then eta)
         ! this means that e.g. the small side at node 3 of big side is stored in position 4 of mortar array

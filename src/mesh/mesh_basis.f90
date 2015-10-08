@@ -596,7 +596,7 @@ TYPE(tEdgePtr)               :: smallEdges(4)  ! ?
 TYPE(tNode),POINTER          :: aNode,bNode  ! ?
 INTEGER                      :: iSide,jSide,iEdge,jEdge,kEdge,iNode,iPlus,nSides,EdgeInd,nNodes  ! ?
 INTEGER                      :: indA(2),indB(2,4),indTmp(2)
-INTEGER                      :: edgeCount,i  ! ?
+INTEGER                      :: edgeCount  ! ?
 LOGICAL                      :: edgeFound  ! ?
 !===================================================================================================================================
 CALL Timer(.TRUE.)
