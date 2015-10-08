@@ -840,21 +840,22 @@ SUBROUTINE Pack1D(Ngeo,edge,data_out)
 !----------------------------------------------------------------------------------------------------------------------------------!
 ! description
 !----------------------------------------------------------------------------------------------------------------------------------!
-! MODULES                                                                                                                          !
+! MODULES  
+USE MOD_Mesh_Vars,ONLY:tEdge
 !----------------------------------------------------------------------------------------------------------------------------------!
 ! insert modules here
 !----------------------------------------------------------------------------------------------------------------------------------!
 IMPLICIT NONE
 ! INPUT / OUTPUT VARIABLES 
-INTEGER,INTENT(IN)  :: Ngeo
-tEdgePtr,INTENT(IN) :: edge
-REAL,INTENT(OUT)    :: data_out(3,0:Ngeo)
+INTEGER,INTENT(IN)             :: Ngeo
+TYPE(tEdge),POINTER,INTENT(IN) :: edge
+REAL,INTENT(OUT)               :: data_out(3,0:Ngeo)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo 
 !===================================================================================================================================
 DO iNgeo=0,Ngeo
-  data_out(:,iNgeo) = edge%EDP%curvedNode(iNgeo)%NP%x
+  data_out(:,iNgeo) = edge%curvedNode(iNgeo)%np%x
 END DO 
 END SUBROUTINE Pack1D
 
@@ -863,14 +864,15 @@ SUBROUTINE Pack2D(Ngeo,side,data_out)
 ! description
 !----------------------------------------------------------------------------------------------------------------------------------!
 ! MODULES                                                                                                                          !
-USE MOD_Basis_Vars ,ONLY:QuadMap
+USE MOD_Mesh_Vars,ONLY:tSide
+USE MOD_Basis_Vars ,ONLY:QuadMapInv
 !----------------------------------------------------------------------------------------------------------------------------------!
 ! insert modules here
 !----------------------------------------------------------------------------------------------------------------------------------!
 IMPLICIT NONE
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)  :: Ngeo
-tSidePtr,INTENT(IN) :: side
+TYPE(tSide),POINTER,INTENT(IN) :: side
 REAL,INTENT(OUT)    :: data_out(3,0:Ngeo,0:Ngeo)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -878,8 +880,8 @@ INTEGER           :: iNgeo,jNgeo,i1D
 !===================================================================================================================================
 DO jNgeo=0,Ngeo
   DO iNgeo=0,Ngeo
-    i1D = QuadMap(iNgeo,jNgeo)
-    data_out(:,iNgeo,jNgeo) = side%SP%curvedNode(i1D)%NP%x
+    i1D = QuadMapInv(iNgeo,jNgeo)
+    data_out(:,iNgeo,jNgeo) = side%curvedNode(i1D)%NP%x
   END DO 
 END DO 
 END SUBROUTINE Pack2D
@@ -889,14 +891,15 @@ SUBROUTINE Pack3D(Ngeo,elem,data_out)
 ! description
 !----------------------------------------------------------------------------------------------------------------------------------!
 ! MODULES                                                                                                                          !
-USE MOD_Basis_Vars ,ONLY:HexMap
+USE MOD_Mesh_Vars,ONLY:tElem
+USE MOD_Basis_Vars ,ONLY:HexaMapInv
 !----------------------------------------------------------------------------------------------------------------------------------!
 ! insert modules here
 !----------------------------------------------------------------------------------------------------------------------------------!
 IMPLICIT NONE
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)  :: Ngeo
-tElemPtr,INTENT(IN) :: elem
+TYPE(tElem),POINTER,INTENT(IN) :: elem
 REAL,INTENT(OUT)    :: data_out(3,0:Ngeo,0:Ngeo,0:Ngeo)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -905,8 +908,8 @@ INTEGER           :: iNgeo,jNgeo,kNgeo,i1D
 DO kNgeo=0,Ngeo
   DO jNgeo=0,Ngeo
     DO iNgeo=0,Ngeo
-      i1D = HexMap(iNgeo,jNgeo,kNgeo)
-      data_out(:,iNgeo,jNgeo,kNgeo) = elem%EP%curvedNode(i1D)%NP%x
+      i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
+      data_out(:,iNgeo,jNgeo,kNgeo) = elem%curvedNode(i1D)%NP%x
     END DO 
   END DO 
 END DO 
@@ -917,6 +920,7 @@ SUBROUTINE Unpack1D(Ngeo,data_in,edge)
 ! description
 !----------------------------------------------------------------------------------------------------------------------------------!
 ! MODULES                                                                                                                          !
+USE MOD_Mesh_Vars,ONLY:tEdge
 !----------------------------------------------------------------------------------------------------------------------------------!
 ! insert modules here
 !----------------------------------------------------------------------------------------------------------------------------------!
@@ -924,13 +928,13 @@ IMPLICIT NONE
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)  :: Ngeo
 REAL,INTENT(IN)     :: data_in(3,0:Ngeo)
-tEdgePtr,INTENT(IN) :: edge
+TYPE(tEdge),POINTER,INTENT(IN) :: edge
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo 
 !===================================================================================================================================
 DO iNgeo=0,Ngeo
-  edge%EDP%curvedNode(iNgeo)%NP%x = data_in(:,iNgeo)
+  edge%curvedNode(iNgeo)%NP%x = data_in(:,iNgeo)
 END DO 
 END SUBROUTINE Unpack1D
 
@@ -939,7 +943,8 @@ SUBROUTINE Unpack2D(Ngeo,data_in,side)
 ! description
 !----------------------------------------------------------------------------------------------------------------------------------!
 ! MODULES                                                                                                                          !
-USE MOD_Basis_Vars ,ONLY:QuadMap
+USE MOD_Mesh_Vars,ONLY:tSide
+USE MOD_Basis_Vars ,ONLY:QuadMapInv
 !----------------------------------------------------------------------------------------------------------------------------------!
 ! insert modules here
 !----------------------------------------------------------------------------------------------------------------------------------!
@@ -947,15 +952,15 @@ IMPLICIT NONE
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)  :: Ngeo
 REAL,INTENT(IN)     :: data_in(3,0:Ngeo,0:Ngeo)
-tSidePtr,INTENT(IN) :: side
+TYPE(tSide),POINTER,INTENT(IN) :: side
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo,jNgeo,i1D
 !===================================================================================================================================
 DO jNgeo=0,Ngeo
   DO iNgeo=0,Ngeo
-    i1D = QuadMap(iNgeo,jNgeo)
-    side%SP%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo)
+    i1D = QuadMapInv(iNgeo,jNgeo)
+    side%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo)
   END DO 
 END DO 
 END SUBROUTINE Unpack2D
@@ -965,7 +970,8 @@ SUBROUTINE Unpack3D(Ngeo,data_in,elem)
 ! description
 !----------------------------------------------------------------------------------------------------------------------------------!
 ! MODULES                                                                                                                          !
-USE MOD_Basis_Vars ,ONLY:HexMap
+USE MOD_Mesh_Vars,ONLY:tElem
+USE MOD_Basis_Vars ,ONLY:HexaMapInv
 !----------------------------------------------------------------------------------------------------------------------------------!
 ! insert modules here
 !----------------------------------------------------------------------------------------------------------------------------------!
@@ -973,7 +979,7 @@ IMPLICIT NONE
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)  :: Ngeo
 REAL,INTENT(IN)     :: data_in(3,0:Ngeo,0:Ngeo,0:Ngeo)
-tElemPtr,INTENT(IN) :: elem
+TYPE(tElem),POINTER,INTENT(IN) :: elem
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo,jNgeo,kNgeo,i1D
@@ -981,8 +987,8 @@ INTEGER           :: iNgeo,jNgeo,kNgeo,i1D
 DO kNgeo=0,Ngeo
   DO jNgeo=0,Ngeo
     DO iNgeo=0,Ngeo
-      i1D = HexMap(iNgeo,jNgeo,kNgeo)
-      elem%EP%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo,kNgeo)
+      i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
+      elem%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo,kNgeo)
     END DO 
   END DO 
 END DO 
