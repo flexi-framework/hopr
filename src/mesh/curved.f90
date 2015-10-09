@@ -1718,8 +1718,8 @@ DO n=1,2
       DO WHILE (ASSOCIATED(aNormal(1)%np%nextNormal))
        aNormal(2)%np=>aNormal(1)%np%nextNormal
        DO WHILE (ASSOCIATED(aNormal(2)%np))
-         vTemp(:)=cross(aNormal(1)%np%normal,aNormal(2)%np%normal)
-         vTemp(:)=vTemp(:)/SQRT(SUM(vTemp(:)*vTemp(:)))
+         vTemp=cross(aNormal(1)%np%normal,aNormal(2)%np%normal)
+         vTemp=vTemp/NORM2(vTemp)
          AngleTmp=ABS(SUM(vTemp(:)*approxNormal(:))) !angle to approxnormal not too big
          IF (AngleTmp .LE. 0.4) THEN 
            AngleTmp=ABS(SUM(vTemp(:)*sideVect(:,n)))/length ! result is cos of angle
