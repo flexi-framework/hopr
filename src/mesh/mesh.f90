@@ -533,7 +533,6 @@ DO WHILE(ASSOCIATED(Elem))
 END DO
 IF(.NOT.curvedFound) curvingMethod=-1
 
-
 IF(useCurveds)THEN
   IF(meshIsAlreadyCurved.AND..NOT.rebuildCurveds)THEN
     ! if curved nodes have been read in and mesh should not be modified, just distribute nodes
@@ -553,8 +552,8 @@ IF(useCurveds)THEN
         CALL readNormals()                ! Read normal vector file
       CASE(3)
         CALL getExactNormals()
-        CALL deleteDuplicateNormals()
       END SELECT
+      CALL deleteDuplicateNormals()
       CALL create3DSplines()              ! Reconstruct curved boundaries
       CALL curvedEdgesToSurf(keepExistingCurveds=.FALSE.)
     CASE(3) ! STAR/ANSA: generate curved mesh from subgrid
