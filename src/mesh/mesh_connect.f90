@@ -119,7 +119,8 @@ DO WHILE(ASSOCIATED(Elem))
           CALL getNewSide(pSide,Side%nNodes)  
           DO iNode=1,Side%nNodes
             CALL getNewNode(pSide%Node(iNode)%np)
-            pSide%Node(iNode)%np%x=Side%Node(iNode)%np%x + VV(:,ABS(Side%tmp2)) 
+            pSide%Node(iNode)%np%x  =Side%Node(iNode)%np%x + VV(:,ABS(Side%tmp2)) 
+            pSide%Node(iNode)%np%ind=Side%Node(iNode)%np%ind
           END DO
           pSide%elem=>side%elem
           side%connection=>pSide 
@@ -775,6 +776,7 @@ DO WHILE(ASSOCIATED(Elem))
       DO iNode=1,aSide%nNodes
         aSide%OrientedNode(iNode)%np=>aSide%Node(iNode)%np
       END DO
+      NULLIFY(aSide%connection)
       DEALLOCATE(dummySide%node)
       DEALLOCATE(dummySide%orientedNode)
       DEALLOCATE(dummySide%MortarSide)
@@ -783,6 +785,7 @@ DO WHILE(ASSOCIATED(Elem))
     ELSE
       ! dummy side is mortar slave, update connection of mortar master
       bigSide=>dummySide%connection
+      IF(ASSOCIATED(dummySide,bigSide)) STOP 'ERROR: Periodic mortar slave has no connection to master!'
       DO iSide=1,bigSide%nMortars
         IF(ASSOCIATED(bigSide%MortarSide(iSide)%sp,dummySide))THEN
           bigSide%MortarSide(iSide)%sp=>aSide
