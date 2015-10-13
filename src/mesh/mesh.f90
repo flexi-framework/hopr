@@ -82,6 +82,7 @@ IF (MeshMode .EQ. 1) THEN
     CartMeshes(i)%CM%l0      =GETREALARRAY('l0',3,'0.,0.,0.') ! first length (+/-) = direction
     CartMeshes(i)%CM%factor  =GETREALARRAY('factor',3,'0.,0.,0.') ! stretch factor (+/-) = direction
     CartMeshes(i)%CM%ElemType=GETINT('elemtype') ! Element type
+    CartMeshes(i)%CM%meshTemplate=GETINT('meshTemplate','1') ! Element type
   END DO
 ELSEIF (MeshMode .EQ. 11) THEN
   ! ---------- INTERNAL 1 BLOCK CURVED CARTESIAN MESH -----------------------------------------------------------------

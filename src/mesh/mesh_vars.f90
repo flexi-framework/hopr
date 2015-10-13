@@ -321,10 +321,6 @@ INTERFACE getNewSuperNode
   MODULE PROCEDURE getNewSuperNode
 END INTERFACE
 
-INTERFACE getNewNodeAndIndex
-  MODULE PROCEDURE getNewNodeAndIndex
-END INTERFACE
-
 INTERFACE copyBC
   MODULE PROCEDURE copyBC
 END INTERFACE
@@ -464,7 +460,7 @@ NULLIFY(Edge%parentEdge)
 END SUBROUTINE getNewEdge
 
 
-SUBROUTINE getNewNode(Node,refCount)
+SUBROUTINE getNewNode(Node,refCount,ind)
 !===================================================================================================================================
 ! Allocate and initialize new node "Node"
 !===================================================================================================================================
@@ -474,6 +470,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 INTEGER,OPTIONAL,INTENT(IN)    :: refCount ! number of sides / elements that use this node
+INTEGER,OPTIONAL,INTENT(INOUT) :: ind      ! nodeind
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 TYPE(tNode),POINTER,INTENT(INOUT) :: Node     ! New node
@@ -482,11 +479,12 @@ TYPE(tNode),POINTER,INTENT(INOUT) :: Node     ! New node
 !===================================================================================================================================
 ALLOCATE(Node)
 Node%ind=0
-IF(PRESENT(refCount)) THEN
-  Node%refCount=refCount
-ELSE
-  Node%refCount=0
+Node%refCount=0
+IF(PRESENT(ind))THEN
+  ind=ind+1
+  Node%ind=ind
 END IF
+IF(PRESENT(refCount)) Node%refCount=refCount
 NodeCount=NodeCount+1
 NULLIFY(Node%firstNormal)
 NULLIFY(Node%firstEdge)
@@ -613,26 +611,6 @@ ELSE
 END IF
 END SUBROUTINE getNewSuperNode
 
-SUBROUTINE getNewNodeAndIndex(Node,maxInd)
-!===================================================================================================================================
-! ?
-!===================================================================================================================================
-! MODULES
-! IMPLICIT VARIABLE HANDLING
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-TYPE(tNode),POINTER,INTENT(INOUT)            :: Node  ! ?
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-INTEGER,INTENT(INOUT)          :: maxInd  ! ?
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-!===================================================================================================================================
-CALL getNewNode(node)
-maxInd=maxInd+1
-node%ind=maxInd
-END SUBROUTINE getNewNodeAndIndex
 
 SUBROUTINE copyBC(BCSide,Side)
 !===================================================================================================================================
