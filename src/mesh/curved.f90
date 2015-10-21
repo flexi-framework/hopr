@@ -2638,7 +2638,8 @@ DO WHILE(ASSOCIATED(Elem))
         Edge=>Side%Edge(iEdge)%edp
         IF(.NOT.ASSOCIATED(Edge%parentEdge).AND.ASSOCIATED(Edge%MortarEdge))THEN
           IF(ASSOCIATED(Side%BC).AND.Side%BC%BCType.EQ.1) &
-            CALL abort(__STAMP__,'Rebuilding curved periodic mortar edges is not yet implemented.')
+            CALL abort(__STAMP__,&
+              'Rebuilding curved periodic mortar edges is not yet implemented.')
           CALL MapBigEdgeToSmall(Edge)
         END IF
       END DO
