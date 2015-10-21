@@ -2592,6 +2592,7 @@ SUBROUTINE RebuildMortarGeometry()
 ! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
 !===================================================================================================================================
 ! MODULES
+USE MOD_Globals  ,ONLY:abort
 USE MOD_Mesh_Vars,ONLY:tElem,FirstElem,tSide,tEdge
 USE MOD_Mesh_Vars,ONLY:M_0_2_T,M_0_1_T,N
 USE MOD_Basis1D,  ONLY:GetMortarVandermonde
@@ -2635,8 +2636,11 @@ DO WHILE(ASSOCIATED(Elem))
     IF(Side%MortarType.GT.0)THEN
       DO iEdge=1,Side%nNodes
         Edge=>Side%Edge(iEdge)%edp
-        IF(.NOT.ASSOCIATED(Edge%parentEdge).AND.ASSOCIATED(Edge%MortarEdge)) &
+        IF(.NOT.ASSOCIATED(Edge%parentEdge).AND.ASSOCIATED(Edge%MortarEdge))THEN
+          IF(ASSOCIATED(Side%BC).AND.Side%BC%BCType.EQ.1) &
+            CALL abort(__STAMP__,'Rebuilding curved periodic mortar edges is not yet implemented.')
           CALL MapBigEdgeToSmall(Edge)
+        END IF
       END DO
     END IF
     Side=>Side%nextElemSide
@@ -2651,7 +2655,7 @@ SUBROUTINE MapBigSideToSmall(Side)
 ! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
 !===================================================================================================================================
 ! MODULES
-USE MOD_Mesh_Vars,ONLY:tSide
+USE MOD_Mesh_Vars,ONLY:tSide,VV
 USE MOD_Mesh_Vars,ONLY:M_0_1_T,M_0_2_T,N
 USE MOD_Mesh_Basis,ONLY:PackGeo,UnpackGeo
 ! IMPLICIT VARIABLE HANDLING
@@ -2672,6 +2676,15 @@ XGeo2DBig=0.
 XGeo2DSmall4=0.
 XGeo2DSmall2=0.
 CALL PackGeo(N,Side,XGeo2DBig)
+
+! in case of periodic BCs add displacement vector
+IF(ASSOCIATED(Side%BC))THEN
+  IF(Side%BC%BCType.EQ.1.AND.Side%BC%BCalphaInd.GT.0)THEN
+    DO q=0,N; DO p=0,N
+      XGeo2DBig(:,p,q)=XGeo2DBig(:,p,q)+VV(:,ABS(Side%BC%BCalphaInd))
+    END DO; END DO
+  END IF
+END IF
 
 SELECT CASE(Side%MortarType)
 CASE(1) !1->4
