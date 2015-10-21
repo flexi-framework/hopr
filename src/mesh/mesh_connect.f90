@@ -25,6 +25,10 @@ PUBLIC::Connect
 PUBLIC::Connect2DMesh
 !===================================================================================================================================
 
+INTEGER :: next1(4,3:4)=RESHAPE((/2,3,1,0,2,3,4,1/),SHAPE(next1))
+INTEGER :: prev1(4,3:4)=RESHAPE((/3,1,2,0,4,1,2,3/),SHAPE(prev1))
+INTEGER :: next2(4,3:4)=RESHAPE((/3,1,2,0,3,4,1,2/),SHAPE(next2))
+
 CONTAINS
 
 SUBROUTINE Connect()
@@ -441,10 +445,11 @@ TYPE(tSidePtr),POINTER    :: Sides(:)   ! ?
 TYPE(tSidePtr)            :: quartett(4)   ! ?
 INTEGER                   :: iNode,jNode,iSide,jSide,kSide,ind,nQuartett  ! ?
 INTEGER                   :: aLocSide,bLocSide,counter  ! ?
-INTEGER                   :: next1(4),prev1(4),next2(4),CGNSToCart(4)
-INTEGER                   :: bigCorner(4),bigCorner2(4),bigCornerNoSort(4)
+INTEGER                   :: CGNSToCart(4)
+INTEGER                   :: bigCorner(4),bigCornerNoSort(4)
 INTEGER                   :: masterNode,slaveNode
-LOGICAL,ALLOCATABLE       :: SideDone(:) ! ?
+INTEGER,ALLOCATABLE       :: edgeNodes(:,:)
+LOGICAL,ALLOCATABLE       :: SideDone(:),checkSide(:) ! ?
 LOGICAL                   :: commonNode,check
 LOGICAL                   :: aFoundEdge(4,2),bFoundEdge(4,2),cFoundEdge(4,2)
 LOGICAL                   :: aFoundNode(4,2),bFoundNode(4,2),cFoundNode(4,2)
@@ -453,9 +458,6 @@ LOGICAL                   :: aFoundNode(4,2),bFoundNode(4,2),cFoundNode(4,2)
 
 ! here we assume that all conforming sides are already connected and all remaining sides are nonconforming
 ! first count and collect all unconnected sides
-next1=(/2,3,4,1/)
-prev1=(/4,1,2,3/)
-next2=(/3,4,1,2/)
 CGNSToCart=(/1,2,4,3/)
 
 ! count number of unconnected (potetially non-conforming) sides
@@ -487,6 +489,8 @@ END DO
 ! collect all non-conforming sides
 ALLOCATE(Sides(nNonConformingSides))
 ALLOCATE(SideDone(nNonConformingSides))
+ALLOCATE(checkSide(nNonConformingSides))
+ALLOCATE(edgeNodes(4,nNonConformingSides))
 Elem=>FirstElem
 DO WHILE(ASSOCIATED(Elem))
   Side=>Elem%firstSide
@@ -525,22 +529,28 @@ SideDone=.FALSE.
 counter=0
 DO iSide=1,nNonConformingSides
   IF(SideDone(iSide)) CYCLE
+  checkSide=.TRUE.
   aSide=>Sides(iSide)%sp
   DO jSide=iSide+1,nNonConformingSides
     IF(SideDone(jSide)) CYCLE
+    IF(.NOT.checkSide(jSide)) CYCLE
     bSide=>Sides(jSide)%sp
     CALL CommonNodeAndEdge(aSide,bSide,aFoundNode(:,1),bFoundNode(:,1),aFoundEdge(:,1),bFoundEdge(:,1))
     ! condition for 2->1, exactly one edge of two sides is identical
     IF(COUNT(aFoundEdge(:,1)).NE.1) CYCLE
 
     DO kSide=jSide+1,nNonConformingSides
+      IF(SideDone(kSide)) CYCLE
       cSide=>Sides(kSide)%sp
       CALL CommonNodeAndEdge(aSide,cSide,aFoundNode(:,2),cFoundNode(:,1),aFoundEdge(:,2),cFoundEdge(:,1))
-      IF(COUNT(aFoundEdge(:,2)).NE.1) CYCLE
+      IF(COUNT(aFoundEdge(:,2)).NE.1)THEN
+        checkSide(kSide)=.FALSE.
+        CYCLE
+      END IF
       commonNode=.TRUE.
       ! check if the two edges found for side A are opposite edges (dont share a common node)
       DO iNode=1,aSide%nNodes
-        IF(aFoundEdge(iNode,1).AND.aFoundEdge(next2(iNode),2)) commonNode=.FALSE.
+        IF(aFoundEdge(iNode,1).AND.aFoundEdge(next2(iNode,aSide%nNodes),2)) commonNode=.FALSE.
       END DO
       IF(.NOT.commonNode)THEN
         CALL CommonNodeAndEdge(bSide,cSide,bFoundNode(:,2),cFoundNode(:,2),bFoundEdge(:,2),cFoundEdge(:,2))
@@ -615,8 +625,10 @@ DO iSide=1,nNonConformingSides
   IF(SideDone(iSide)) CYCLE
   aSide=>Sides(iSide)%sp
   DO iNode=1,aSide%nNodes
+    edgeNodes(iNode,iSide)=aSide%Node(iNode)%np%ind
     aSide%Node(iNode)%np%tmp=0
   END DO
+  CALL Qsort1Int(edgeNodes(:,iSide))
 END DO
 DO iSide=1,nNonConformingSides
   IF(SideDone(iSide)) CYCLE
@@ -637,7 +649,7 @@ DO iSide=1,nNonConformingSides
     IF(aSide%Node(iNode)%np%tmp.EQ.4)THEN
       ! check if diagonal node is corner node of big, then node is midnode of big mortar interface
       ind=aSide%Node(iNode)%np%ind
-      bigCorner(1)=aSide%Node(next2(iNode))%np%ind
+      bigCorner(1)=aSide%Node(next2(iNode,aSide%nNodes))%np%ind
     END IF
   END DO
   IF(ind.LE.0) CYCLE
@@ -647,13 +659,13 @@ DO iSide=1,nNonConformingSides
   ! find 4 sides with same node ind as specified above and their corner nodes
   ! if bSide is a small side then the node at the opposite corner to ind is a big sides corner node
   DO jSide=1,nNonConformingSides
+    IF(SideDone(jSide).OR.ASSOCIATED(aSide,Sides(jSide)%sp)) CYCLE
     bSide=>Sides(jSide)%sp
-    IF(SideDone(jSide).OR.ASSOCIATED(aSide,bSide)) CYCLE
     DO iNode=1,bSide%nNodes
       IF(bSide%Node(iNode)%np%ind.EQ.ind)THEN
         nQuartett=nQuartett+1
         quartett(nQuartett)%sp=>bSide
-        bigCorner(nQuartett)=bSide%Node(next2(iNode))%np%ind
+        bigCorner(nQuartett)=bSide%Node(next2(iNode,bSide%nNodes))%np%ind
       END IF
     END DO
   END DO
@@ -666,15 +678,11 @@ DO iSide=1,nNonConformingSides
 
   ! find big side belonging to quartett
   DO jSide=1,nNonConformingSides
-    bSide=>Sides(jSide)%sp
     IF(SideDone(jSide)) CYCLE
-    DO iNode=1,bSide%nNodes
-      bigCorner2(iNode)=bSide%Node(iNode)%np%ind
-    END DO
-    CALL Qsort1Int(bigCorner2)
+    bSide=>Sides(jSide)%sp
     ! check potential big corner nodes of quartett against all nodes of bSide
     ! if nodes are identical then bSide is big side and quartett are small sides
-    IF(ALL(bigCorner.EQ.bigCorner2))THEN
+    IF(ALL(bigCorner.EQ.edgeNodes(:,jSide)))THEN
       bSide%MortarType=1
       bSide%nMortars=4
       SideDone(jSide)=.TRUE.
@@ -736,8 +744,8 @@ DO iSide=1,nNonConformingSides
     IF(.NOT.commonNode) STOP 'ERROR: no common node of big and small mortar sides found'
     DO iNode=1,aSide%nNodes
       bSide%orientedNode(masterNode)%np=>bSide%Node(slaveNode)%np
-      masterNode=prev1(masterNode)
-      slaveNode=next1(slaveNode)
+      masterNode=prev1(masterNode,aSide%nNodes)
+      slaveNode=next1(slaveNode,aSide%nNodes)
     END DO
   END DO
 END DO
@@ -820,6 +828,8 @@ END IF
 WRITE(UNIT_StdOut,*)'   --> ',counter,' nonconforming sides of ', nInnerSides,'  sides connected.'
 
 DEALLOCATE(SideDone)
+DEALLOCATE(checkSide)
+DEALLOCATE(edgeNodes)
 DEALLOCATE(Sides)
 
 END SUBROUTINE NonconformConnectMesh
@@ -843,10 +853,12 @@ LOGICAL,INTENT(OUT)                  :: aFoundNode(4),bFoundNode(4)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 INTEGER                              :: iNode,jNode  ! ?
-INTEGER                              :: nextNode(3:4,4)
 !===================================================================================================================================
 aFoundNode=.FALSE.
 bFoundNode=.FALSE.
+aFoundEdge=.FALSE.
+bFoundEdge=.FALSE.
+
 DO iNode=1,aSide%nNodes
   DO jNode=1,bSide%nNodes
     IF(aSide%Node(iNode)%np%ind.EQ.bSide%Node(jNode)%np%ind)THEN
@@ -857,18 +869,16 @@ DO iNode=1,aSide%nNodes
   END DO
 END DO
 
-nextNode(3,:)=(/2,3,1,0/)
-nextNode(4,:)=(/2,3,4,1/)
-aFoundEdge=.FALSE.
-bFoundEdge=.FALSE.
-DO iNode=1,aSide%nNodes
-  IF(aFoundNode(iNode).AND.aFoundNode(nextNode(aSide%nNodes,iNode))) &
-    aFoundEdge(iNode)=.TRUE.
-END DO
-DO iNode=1,bSide%nNodes
-  IF(bFoundNode(iNode).AND.bFoundNode(nextNode(bSide%nNodes,iNode))) &
-    bFoundEdge(iNode)=.TRUE.
-END DO
+IF(ANY(aFoundNode).OR.ANY(bFoundNode))THEN
+  DO iNode=1,aSide%nNodes
+    IF(aFoundNode(iNode).AND.aFoundNode(next1(iNode,aSide%nNodes))) &
+      aFoundEdge(iNode)=.TRUE.
+  END DO
+  DO iNode=1,bSide%nNodes
+    IF(bFoundNode(iNode).AND.bFoundNode(next1(iNode,bSide%nNodes))) &
+      bFoundEdge(iNode)=.TRUE.
+  END DO
+END IF
 
 END SUBROUTINE CommonNodeAndEdge
 
