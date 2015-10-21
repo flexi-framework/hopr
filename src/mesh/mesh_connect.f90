@@ -443,16 +443,17 @@ TYPE(tSide),POINTER       :: Side,dummySide
 TYPE(tSide),POINTER       :: aSide,bSide,cSide,smallSide1,smallSide2,bigSide,tmpSide
 TYPE(tSidePtr),POINTER    :: Sides(:)   ! ?
 TYPE(tSidePtr)            :: quartett(4)   ! ?
-INTEGER                   :: iNode,jNode,iSide,jSide,kSide,ind,nQuartett  ! ?
+INTEGER                   :: iNode,jNode,iSide,jSide,ind,nQuartett  ! ?
 INTEGER                   :: aLocSide,bLocSide,counter  ! ?
 INTEGER                   :: CGNSToCart(4)
 INTEGER                   :: bigCorner(4),bigCornerNoSort(4)
 INTEGER                   :: masterNode,slaveNode
-INTEGER,ALLOCATABLE       :: edgeNodes(:,:)
+INTEGER,ALLOCATABLE       :: edgeNodes(:,:),sideInds(:)
 LOGICAL,ALLOCATABLE       :: SideDone(:),checkSide(:) ! ?
+LOGICAL,ALLOCATABLE       :: foundEdge(:,:)
+INTEGER                   :: iCheck,jCheck,nCheck
 LOGICAL                   :: commonNode,check
-LOGICAL                   :: aFoundEdge(4,2),bFoundEdge(4,2),cFoundEdge(4,2)
-LOGICAL                   :: aFoundNode(4,2),bFoundNode(4,2),cFoundNode(4,2)
+LOGICAL                   :: aFoundEdge(4),bFoundEdge(4)
 !===================================================================================================================================
 !count inner Sides and set side IDs (side%tmp)
 
@@ -512,6 +513,13 @@ DO WHILE(ASSOCIATED(Elem))
   Elem=>Elem%nextElem
 END DO
 
+DO iSide=1,nNonConformingSides
+  aSide=>Sides(iSide)%sp
+  DO iNode=1,aSide%nNodes
+    edgeNodes(iNode,iSide)=aSide%Node(iNode)%np%ind
+  END DO
+END DO
+
 ! now connect 2->1: we need exactly 3 sides (two small one big)
 ! connected by 3 edges where no 2 edges may have common nodes
 ! |-----------------------| Edge 1
@@ -525,36 +533,41 @@ END DO
 ! | |-------------------| | Edge 3
 ! |-----------------------|
 
+
 SideDone=.FALSE.
 counter=0
-DO iSide=1,nNonConformingSides
+ALLOCATE(sideInds(nNonConformingSides))
+ALLOCATE(foundEdge(4,nNonConformingSides))
+sideInds=0
+DO iSide=1,nNonConformingSides-2
   IF(SideDone(iSide)) CYCLE
-  checkSide=.TRUE.
   aSide=>Sides(iSide)%sp
+
+  nCheck=0
   DO jSide=iSide+1,nNonConformingSides
     IF(SideDone(jSide)) CYCLE
-    IF(.NOT.checkSide(jSide)) CYCLE
-    bSide=>Sides(jSide)%sp
-    CALL CommonNodeAndEdge(aSide,bSide,aFoundNode(:,1),bFoundNode(:,1),aFoundEdge(:,1),bFoundEdge(:,1))
+    CALL CommonEdge2(edgeNodes(:,iSide),edgeNodes(:,jSide),aSide%nNodes,Sides(jSide)%sp%nNodes,aFoundEdge)
     ! condition for 2->1, exactly one edge of two sides is identical
-    IF(COUNT(aFoundEdge(:,1)).NE.1) CYCLE
+    IF(COUNT(aFoundEdge).EQ.1)THEN
+      nCheck=nCheck+1
+      foundEdge(:,nCheck)=aFoundEdge
+      sideInds(nCheck)=jSide
+    END IF
+  END DO
+  IF(nCheck.LT.2) CYCLE
 
-    DO kSide=jSide+1,nNonConformingSides
-      IF(SideDone(kSide)) CYCLE
-      cSide=>Sides(kSide)%sp
-      CALL CommonNodeAndEdge(aSide,cSide,aFoundNode(:,2),cFoundNode(:,1),aFoundEdge(:,2),cFoundEdge(:,1))
-      IF(COUNT(aFoundEdge(:,2)).NE.1)THEN
-        checkSide(kSide)=.FALSE.
-        CYCLE
-      END IF
+  DO iCheck=1,nCheck-1
+    DO jCheck=iCheck+1,nCheck
       commonNode=.TRUE.
       ! check if the two edges found for side A are opposite edges (dont share a common node)
       DO iNode=1,aSide%nNodes
-        IF(aFoundEdge(iNode,1).AND.aFoundEdge(next2(iNode,aSide%nNodes),2)) commonNode=.FALSE.
+        IF(foundEdge(iNode,iCheck).AND.foundEdge(next2(iNode,aSide%nNodes),jCheck)) commonNode=.FALSE.
       END DO
       IF(.NOT.commonNode)THEN
-        CALL CommonNodeAndEdge(bSide,cSide,bFoundNode(:,2),cFoundNode(:,2),bFoundEdge(:,2),cFoundEdge(:,2))
-        IF(COUNT(bFoundEdge(:,2)).NE.1) CYCLE ! if we have a 2->1 mortar interface a,b and c share one unique edge
+        bSide=>Sides(sideInds(iCheck))%sp
+        cSide=>Sides(sideInds(jCheck))%sp
+        CALL CommonEdge2(edgeNodes(:,sideInds(iCheck)),edgeNodes(:,sideInds(jCheck)),bSide%nNodes,cSide%nNodes,bFoundEdge)
+        IF(COUNT(bFoundEdge).NE.1) CYCLE ! if we have a 2->1 mortar interface a,b and c share one unique edge
         ! now we know that we have 3 common edges, we can thus identify small/big sides by checking if
         ! two elements of the connected sides share a common side (-> small sides)
         ! This is a 3D (!) check, from this point on there has to be a solution, if not the mesh is broken
@@ -570,24 +583,22 @@ DO iSide=1,nNonConformingSides
         IF(aLocSide.GT.0) THEN
           smallSide1=>bSide; smallSide2=>cSide; bigSide=>aSide
         END IF
-
         
         ! check which edges of big and small side are identical to determine the mortar type (wheter mortar is in
         !  xi or eta direction), then set the connection
-        CALL CommonNodeAndEdge(bigSide,smallSide1,aFoundNode(:,1),bFoundNode(:,1),aFoundEdge(:,1),bFoundEdge(:,1))
-        CALL CommonNodeAndEdge(bigSide,smallSide2,aFoundNode(:,2),bFoundNode(:,2),aFoundEdge(:,2),bFoundEdge(:,2))
-        IF(aFoundEdge(1,1).OR.aFoundEdge(3,1))THEN
+        CALL CommonEdge(bigSide,smallSide1,aFoundEdge)
+        IF(aFoundEdge(1).OR.aFoundEdge(3))THEN
           ! mortar type 2
           bigSide%MortarType=2
-          IF(aFoundEdge(3,1))THEN
+          IF(aFoundEdge(3))THEN
             tmpSide=>smallSide1
             smallSide1=>smallSide2
             smallSide2=>tmpSide
           END IF
-        ELSEIF(aFoundEdge(2,1).OR.aFoundEdge(4,1))THEN
+        ELSEIF(aFoundEdge(2).OR.aFoundEdge(4))THEN
           ! mortar type 3
           bigSide%MortarType=3
-          IF(aFoundEdge(2,1))THEN
+          IF(aFoundEdge(2))THEN
             tmpSide=>smallSide1
             smallSide1=>smallSide2
             smallSide2=>tmpSide
@@ -613,6 +624,7 @@ DO iSide=1,nNonConformingSides
     END DO
   END DO
 END DO
+  print*,counter
 
 ! Find 4->1 interfaces: 
 ! We assume that only sides belonging to a 4-> mortar interface are left in the sidelist
@@ -625,7 +637,6 @@ DO iSide=1,nNonConformingSides
   IF(SideDone(iSide)) CYCLE
   aSide=>Sides(iSide)%sp
   DO iNode=1,aSide%nNodes
-    edgeNodes(iNode,iSide)=aSide%Node(iNode)%np%ind
     aSide%Node(iNode)%np%tmp=0
   END DO
   CALL Qsort1Int(edgeNodes(:,iSide))
@@ -835,7 +846,41 @@ DEALLOCATE(Sides)
 END SUBROUTINE NonconformConnectMesh
 
 
-SUBROUTINE CommonNodeAndEdge(aSide,bSide,aFoundNode,bFoundNode,aFoundEdge,bFoundEdge)
+PURE SUBROUTINE CommonEdge2(aSide,bSide,nA,nB,aFoundEdge)
+!===================================================================================================================================
+! Check if two sides share a common edge just by node inds
+!===================================================================================================================================
+! MODULES
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+INTEGER,INTENT(IN)                   :: aSide(4),bSide(4)
+INTEGER,INTENT(IN)                   :: nA,nB
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+LOGICAL,INTENT(OUT)                  :: aFoundEdge(4)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+LOGICAL                              :: aFoundNode(4)
+INTEGER                              :: iNode,jNode  ! ?
+!===================================================================================================================================
+aFoundNode=.FALSE.
+
+DO iNode=1,nA
+  DO jNode=1,nB
+    IF(aSide(iNode).EQ.bSide(jNode))THEN
+      aFoundNode(iNode)=.TRUE.
+      EXIT
+    END IF
+  END DO
+END DO
+
+DO iNode=1,nA
+  aFoundEdge(iNode)=(aFoundNode(iNode).AND.aFoundNode(next1(iNode,nA)))
+END DO
+END SUBROUTINE CommonEdge2
+SUBROUTINE CommonEdge(aSide,bSide,aFoundEdge)
 !===================================================================================================================================
 ! Check if two sides share a common edge just by node inds
 !===================================================================================================================================
@@ -848,39 +893,27 @@ IMPLICIT NONE
 TYPE(tSide),POINTER,INTENT(IN)       :: aSide,bSide
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-LOGICAL,INTENT(OUT)                  :: aFoundEdge(4),bFoundEdge(4)
-LOGICAL,INTENT(OUT)                  :: aFoundNode(4),bFoundNode(4)
+LOGICAL,INTENT(OUT)                  :: aFoundEdge(4)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
+LOGICAL                              :: aFoundNode(4)
 INTEGER                              :: iNode,jNode  ! ?
 !===================================================================================================================================
 aFoundNode=.FALSE.
-bFoundNode=.FALSE.
-aFoundEdge=.FALSE.
-bFoundEdge=.FALSE.
 
 DO iNode=1,aSide%nNodes
   DO jNode=1,bSide%nNodes
     IF(aSide%Node(iNode)%np%ind.EQ.bSide%Node(jNode)%np%ind)THEN
       aFoundNode(iNode)=.TRUE.
-      bFoundNode(jNode)=.TRUE.
       EXIT
     END IF
   END DO
 END DO
 
-IF(ANY(aFoundNode).OR.ANY(bFoundNode))THEN
-  DO iNode=1,aSide%nNodes
-    IF(aFoundNode(iNode).AND.aFoundNode(next1(iNode,aSide%nNodes))) &
-      aFoundEdge(iNode)=.TRUE.
-  END DO
-  DO iNode=1,bSide%nNodes
-    IF(bFoundNode(iNode).AND.bFoundNode(next1(iNode,bSide%nNodes))) &
-      bFoundEdge(iNode)=.TRUE.
-  END DO
-END IF
-
-END SUBROUTINE CommonNodeAndEdge
+DO iNode=1,aSide%nNodes
+  aFoundEdge(iNode)=(aFoundNode(iNode).AND.aFoundNode(next1(iNode,aSide%nNodes)))
+END DO
+END SUBROUTINE CommonEdge
 
 
 
