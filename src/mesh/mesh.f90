@@ -167,7 +167,6 @@ ELSE
 END IF
 
 ! Geometry
-preScale=GETLOGICAL('preScaleMesh','.FALSE.') ! apply scaling either after readin or before output
 postScale=GETLOGICAL('postScaleMesh','.FALSE.') ! apply scaling either after readin or before output
 MeshScale=GETREAL('meshScale','1.0')           ! scaling factor applied to node coordinates during read in
 doScale  = (ABS(MeshScale-1.).GT.PP_RealTolerance)
@@ -225,7 +224,7 @@ IF(useCurveds) THEN
 
   ! If domain is curved, try to uncurve it and leave only the sides with BCs speciefied curved
   ! -1: deactivated, 0: only boundary is curved, 1: only first element is curved,
-  ! 2-n: first n layers from the boundary are curved (not implemented yet)
+  ! 2-n: first n layers from the boundary are curved
   nCurvedBoundaryLayers=GETINT('nCurvedBoundaryLayers','-1')
 
 END IF !usecurveds

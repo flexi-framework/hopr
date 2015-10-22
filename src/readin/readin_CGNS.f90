@@ -145,6 +145,7 @@ USE MOD_Mesh_Vars,ONLY:BoundaryType
 USE MOD_Mesh_Vars,ONLY:getNewElem,getNewNode,getNewBC
 USE MOD_Mesh_Vars,ONLY:BugFix_ANSA_CGNS
 USE MOD_Mesh_Basis,ONLY:createSides,GetBoundaryIndex
+USE MOD_SortingTools,ONLY:Qsort1Int
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -167,7 +168,7 @@ PP_CGNS_INT_TYPE ,ALLOCATABLE:: ElemMapping(:)                      ! Global ele
 PP_CGNS_INT_TYPE ,ALLOCATABLE:: ElemConnect(:,:), SurfElemConnect(:,:) ! Connectivity data for (surface) element (nNodes+1,nElems)
 PP_CGNS_INT_TYPE ,ALLOCATABLE:: LocalConnect(:), ParentData(:,:)    ! Arrays for reading the (local=one section) connectivity data
 PP_CGNS_INT_TYPE ,ALLOCATABLE:: BCPoints(:), BCElemList(:)          ! Boundary node /side indices
-PP_CGNS_INT_TYPE             :: iNode,iElem,iElemGlob,iVolElem,iSurfElem
+PP_CGNS_INT_TYPE             :: iNode,iElem,iBCElem,iElemGlob,iVolElem,iSurfElem
 PP_CGNS_INT_TYPE             :: dm, iSect, DimVec(3),j  ! ?
 PP_CGNS_INT_TYPE             :: IndMin, IndMax, iStart, iEnd        ! Start and end index
 PP_CGNS_INT_TYPE             :: nSect                               ! Number of sections in CGNS file
@@ -193,6 +194,9 @@ LOGICAL                      :: SideIsBCSide                        ! .TRUE. = S
 PP_CGNS_INT_TYPE             :: skip  ! ?
 PP_CGNS_INT_TYPE             :: one  ! ?
 LOGICAL                      :: orient2D  ! ?
+INTEGER,ALLOCATABLE          :: nNodesBCInds(:),BCInds(:,:)
+INTEGER                      :: locInds(4)
+LOGICAL,ALLOCATABLE          :: BCFound(:)
 !===================================================================================================================================
 coordNameCGNS(1) = 'CoordinateX'
 coordNameCGNS(2) = 'CoordinateY'
@@ -418,6 +422,26 @@ DO iBC=1,nCGNSBC
       DEALLOCATE(BCPoints)
     END IF
 
+    ! I think we will finish the boundaries
+    DO iElem=1,nElems
+      Side=>Elems(iElem)%EP%firstSide
+      DO WHILE(ASSOCIATED(Side))
+        DO iNode=1,Side%nNodes
+          SideIsBCSide=NodeIsBCNode(Side%Node(iNode)%NP%Ind-nNodesGlob) ! Check if node is a boundary node
+          IF(.NOT. SideIsBCSide) EXIT                        ! All nodes of a side must be boundary nodes
+        END DO
+        IF(SideIsBCSide)THEN
+          CALL getNewBC(Side%BC)
+          Side%BC%BCType    =BoundaryType(BCTypeIndex,1)
+          Side%CurveIndex   =BoundaryType(BCTypeIndex,2)
+          Side%BC%BCstate   =BoundaryType(BCTypeIndex,3)
+          Side%BC%BCalphaInd=BoundaryType(BCTypeIndex,4)
+          Side%BC%BCIndex   =BCTypeIndex
+        END IF
+        Side=>Side%nextElemSide
+      END DO  ! WHILE(ASSOCIATED(Side))
+    END DO  ! iElem=1,nElems
+
   ! Boundary is given as a list of boundary elements
   ELSEIF ((PntSetType .EQ. ElementList).OR.(PntSetType .EQ. ElementRange)) THEN
     IF(PntSetType .EQ. ElementRange)THEN
@@ -431,41 +455,65 @@ DO iBC=1,nCGNSBC
       ALLOCATE(BCElemList(nBCElems))
       CALL CG_BOCO_READ_F(CGNSfile,CGNSBase,iZone,iBC,BCElemList,NorVec,iError)
     END IF
+
+    ALLOCATE(nNodesBCInds(nBCElems))
+    ALLOCATE(BCInds(4,nBCElems))
+    ALLOCATE(BCFound(nBCElems))
     DO iElem=1,nBCElems
       iElemGlob=BCElemList(iElem)              ! Global element index
       iSurfElem=ElemMapping(iElemGlob)         ! Surface element index (boundary elements must be surface elements)
       LocType  =SurfElemConnect(1,iSurfElem)   ! Element type (important for mixed types mode)
       CALL CG_NPE_F(LocType,nNodesLoc,iError)  ! Get number of nodes of element
-      DO iNode=1,nNodesLoc
-        NodeIsBCNode(SurfElemConnect(iNode+1,iSurfElem))=.TRUE.  ! Set boundary condition
-      END DO
+      nNodesBCInds(iElem)=nNodesLoc
+      BCInds(1:nNodesLoc,iElem)=SurfElemConnect(2:nNodesLoc+1,iSurfElem)
+      CALL Qsort1Int(BCInds(1:nNodesLoc,iElem))
     END DO
     DEALLOCATE(BCElemList)
+
+    ! I think we will finish the boundaries
+    BCFound=.FALSE.
+    DO iElem=1,nElems
+      Side=>Elems(iElem)%EP%firstSide
+      DO WHILE(ASSOCIATED(Side))
+        IF(ASSOCIATED(Side%BC))THEN
+          Side=>Side%nextElemSide
+          CYCLE
+        END IF
+        DO iNode=1,Side%nNodes
+          locInds(iNode)=Side%Node(iNode)%NP%Ind-nNodesGlob
+        END DO
+        CALL Qsort1Int(locInds(1:Side%nNodes))
+        SideIsBCSide=.FALSE.
+        DO iBCElem=1,nBCElems
+          IF(BCFound(iBCElem)) CYCLE
+          IF(Side%nNodes.NE.nNodesBCInds(iBCElem)) CYCLE
+          SideIsBCSide=(ALL(locInds(1:Side%nNodes).EQ.BCInds(1:Side%nNodes,iBCElem)))
+          IF(SideIsBCSide)THEN
+            BCFound(iBCElem)=.TRUE.
+            EXIT
+          END IF
+        END DO
+        IF(SideIsBCSide)THEN
+          CALL getNewBC(Side%BC)
+          Side%BC%BCType    =BoundaryType(BCTypeIndex,1)
+          Side%CurveIndex   =BoundaryType(BCTypeIndex,2)
+          Side%BC%BCstate   =BoundaryType(BCTypeIndex,3)
+          Side%BC%BCalphaInd=BoundaryType(BCTypeIndex,4)
+          Side%BC%BCIndex   =BCTypeIndex
+        END IF
+        Side=>Side%nextElemSide
+      END DO  ! WHILE(ASSOCIATED(Side))
+    END DO  ! iElem=1,nElems
+    IF(.NOT.ALL(BCFound)) THEN
+      PRINT*,'BC sides found/expected',COUNT(BCFound),nBCElems
+      CALL abort(__STAMP__,'ERROR: not all BC sides could be associated')
+    END IF
+    DEALLOCATE(nNodesBCInds,BCInds,BCFound)
   ELSE
     CALL closeFile(CGNSFile)
     CALL abort(__STAMP__,&
                'unknown BC specification')
   END IF
-
-  ! I think we will finish the boundaries
-  DO iElem=1,nElems
-    Side=>Elems(iElem)%EP%firstSide
-    DO WHILE(ASSOCIATED(Side))
-      DO iNode=1,Side%nNodes
-        SideIsBCSide=NodeIsBCNode(Side%Node(iNode)%NP%Ind-nNodesGlob) ! Check if node is a boundary node
-        IF(.NOT. SideIsBCSide) EXIT                        ! All nodes of a side must be boundary nodes
-      END DO
-      IF(SideIsBCSide)THEN
-        CALL getNewBC(Side%BC)
-        Side%BC%BCType    =BoundaryType(BCTypeIndex,1)
-        Side%CurveIndex   =BoundaryType(BCTypeIndex,2)
-        Side%BC%BCstate   =BoundaryType(BCTypeIndex,3)
-        Side%BC%BCalphaInd=BoundaryType(BCTypeIndex,4)
-        Side%BC%BCIndex   =BCTypeIndex
-      END IF
-      Side=>Side%nextElemSide
-    END DO  ! WHILE(ASSOCIATED(Side))
-  END DO  ! iElem=1,nElems
 END DO !nCGNSBC (boundaries done...)
 
 DEALLOCATE(ElemMapping,SurfElemConnect,NodeIsBCNode)
