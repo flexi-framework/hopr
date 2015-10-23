@@ -194,8 +194,8 @@ LOGICAL                      :: SideIsBCSide                        ! .TRUE. = S
 PP_CGNS_INT_TYPE             :: skip  ! ?
 PP_CGNS_INT_TYPE             :: one  ! ?
 LOGICAL                      :: orient2D  ! ?
-INTEGER,ALLOCATABLE          :: nNodesBCInds(:),BCInds(:,:)
-INTEGER                      :: locInds(4)
+INTEGER,ALLOCATABLE          :: nBCNodes(:),BCInds(:,:)
+INTEGER                      :: locInds(4),nUnique
 LOGICAL,ALLOCATABLE          :: BCFound(:)
 !===================================================================================================================================
 coordNameCGNS(1) = 'CoordinateX'
@@ -456,7 +456,7 @@ DO iBC=1,nCGNSBC
       CALL CG_BOCO_READ_F(CGNSfile,CGNSBase,iZone,iBC,BCElemList,NorVec,iError)
     END IF
 
-    ALLOCATE(nNodesBCInds(nBCElems))
+    ALLOCATE(nBCNodes(nBCElems))
     ALLOCATE(BCInds(4,nBCElems))
     ALLOCATE(BCFound(nBCElems))
     DO iElem=1,nBCElems
@@ -464,9 +464,10 @@ DO iBC=1,nCGNSBC
       iSurfElem=ElemMapping(iElemGlob)         ! Surface element index (boundary elements must be surface elements)
       LocType  =SurfElemConnect(1,iSurfElem)   ! Element type (important for mixed types mode)
       CALL CG_NPE_F(LocType,nNodesLoc,iError)  ! Get number of nodes of element
-      nNodesBCInds(iElem)=nNodesLoc
+      nBCNodes(iElem)=nNodesLoc
       BCInds(1:nNodesLoc,iElem)=SurfElemConnect(2:nNodesLoc+1,iSurfElem)
       CALL Qsort1Int(BCInds(1:nNodesLoc,iElem))
+      NodeIsBCNode(  BCInds(1:nNodesLoc,iElem))=.TRUE.
     END DO
     DEALLOCATE(BCElemList)
 
@@ -475,19 +476,27 @@ DO iBC=1,nCGNSBC
     DO iElem=1,nElems
       Side=>Elems(iElem)%EP%firstSide
       DO WHILE(ASSOCIATED(Side))
-        IF(ASSOCIATED(Side%BC))THEN
-          Side=>Side%nextElemSide
-          CYCLE
-        END IF
         DO iNode=1,Side%nNodes
           locInds(iNode)=Side%Node(iNode)%NP%Ind-nNodesGlob
         END DO
-        CALL Qsort1Int(locInds(1:Side%nNodes))
+        IF(.NOT.ALL(NodeIsBCNode(locInds(1:side%nNodes))).OR.ASSOCIATED(Side%BC))THEN ! speed up search
+          Side=>Side%nextElemSide
+          CYCLE
+        END IF
         SideIsBCSide=.FALSE.
+        ! sort nodes and remove duplicates
+        CALL Qsort1Int(locInds(1:Side%nNodes))
+        nUnique=1
+        DO iNode=2,Side%nNodes
+          IF(locInds(nUnique).NE.locInds(iNode))THEN
+            nUnique=nUnique+1
+            locInds(nUnique)=locInds(iNode)
+          END IF
+        END DO
         DO iBCElem=1,nBCElems
           IF(BCFound(iBCElem)) CYCLE
-          IF(Side%nNodes.NE.nNodesBCInds(iBCElem)) CYCLE
-          SideIsBCSide=(ALL(locInds(1:Side%nNodes).EQ.BCInds(1:Side%nNodes,iBCElem)))
+          IF(nUnique.NE.nBCNodes(iBCElem)) CYCLE
+          SideIsBCSide=(ALL(locInds(1:nUnique).EQ.BCInds(1:nUnique,iBCElem)))
           IF(SideIsBCSide)THEN
             BCFound(iBCElem)=.TRUE.
             EXIT
@@ -508,7 +517,7 @@ DO iBC=1,nCGNSBC
       PRINT*,'BC sides found/expected',COUNT(BCFound),nBCElems
       CALL abort(__STAMP__,'ERROR: not all BC sides could be associated')
     END IF
-    DEALLOCATE(nNodesBCInds,BCInds,BCFound)
+    DEALLOCATE(nBCNodes,BCInds,BCFound)
   ELSE
     CALL closeFile(CGNSFile)
     CALL abort(__STAMP__,&
