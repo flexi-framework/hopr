@@ -55,9 +55,9 @@ IMPLICIT NONE
 TYPE(tElem),POINTER       :: Elem                                                       ! Local element pointers
 TYPE(tSide),POINTER       :: Side                                                       ! Local side pointers
 TYPE(tSide),POINTER       :: pSide  ! ?
-INTEGER                   :: iNode  ! ?
+INTEGER                   :: iNode,i  ! ?
 INTEGER                   :: nInner(2),nPeriodic(2)  ! ?
-INTEGER                   :: nBCSides,nTotalSides,nPeriodicSides  ! ?
+INTEGER                   :: nBCSides,nTotalSides,nPeriodicSides,connectedSides  ! ?
 !===================================================================================================================================
 CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("~"))')
@@ -144,10 +144,20 @@ CALL GlobalUniqueNodes()
 
 WRITE(UNIT_stdOut,'(A)')'Connect Conforming inner and periodic sides...'
 CALL ConnectMesh()
+connectedSides=nConformingSides
 WRITE(UNIT_stdOut,'(A)')'Connect Non-Conforming inner and periodic sides...'
-CALL NonconformConnectMesh()
+DO i=1,10
+  IF(connectedSides.NE.nInnerSides)THEN
+    IF(i.GT.1) WRITE(UNIT_stdOut,'(A)')'Not all Non-Conforming could be connected in first run, try again...'
+  ELSE
+    EXIT
+  END IF
+  CALL NonconformConnectMesh()
+  IF(nNonConformingSides.EQ.0) EXIT
+  connectedSides=connectedSides+nNonConformingSides
+  WRITE(UNIT_StdOut,*)'   --> ',connectedSides,' sides of ', nInnerSides,'  sides connected.'
+END DO
 
-WRITE(UNIT_StdOut,*)'   --> ',nConformingSides+nNonconformingSides,' sides of ', nInnerSides,'  sides connected.'
 
 
 ! 4. Check connectivity
@@ -177,6 +187,7 @@ DO WHILE(ASSOCIATED(Elem))
         END IF
       END IF
       IF(Side%BC%BCType .EQ. 100) THEN
+        STOP
         nInner(1)=nInner(1)+1
         IF(.NOT. ASSOCIATED(Side%Connection)) THEN
           IF(.NOT.ASSOCIATED(Side%MortarSide))THEN
@@ -426,7 +437,7 @@ SUBROUTINE NonconformConnectMesh()
 ! This routine assumes that all conforming sides have already been connected and that all nodes in the mesh are unique.
 !===================================================================================================================================
 ! MODULES
-USE MOD_Mesh_Vars, ONLY:tElem,tSide,tSidePtr,FirstElem
+USE MOD_Mesh_Vars, ONLY:tElem,tSide,tSidePtr,tNode,FirstElem
 USE MOD_Mesh_Vars, ONLY:nNonconformingSides,nInnerSides
 USE MOD_Mesh_Vars, ONLY:deleteNode
 USE MOD_SortingTools,ONLY:Qsort1Int,Qsort4Int,MSortNInt
@@ -443,7 +454,8 @@ TYPE(tSide),POINTER       :: Side,dummySide
 TYPE(tSide),POINTER       :: aSide,bSide,cSide,smallSide1,smallSide2,bigSide,tmpSide
 TYPE(tSidePtr),POINTER    :: Sides(:)   ! ?
 TYPE(tSidePtr)            :: quartett(4)   ! ?
-INTEGER                   :: iNode,jNode,iSide,jSide,ind,nQuartett  ! ?
+TYPE(tNode),POINTER       :: node
+INTEGER                   :: iNode,jNode,iSide,jSide,kSide,ind,nQuartett  ! ?
 INTEGER                   :: aLocSide,bLocSide,counter  ! ?
 INTEGER                   :: CGNSToCart(4)
 INTEGER                   :: bigCorner(4),bigCornerNoSort(4)
@@ -467,6 +479,10 @@ Elem=>FirstElem
 DO WHILE(ASSOCIATED(Elem))
   Side=>Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
+    IF(Side%MortarType.NE.0)THEN
+      Side=>Side%nextElemSide
+      CYCLE
+    END IF
     IF(.NOT.ASSOCIATED(Side%BC))THEN
       IF(.NOT.ASSOCIATED(Side%Connection))THEN
         nNonConformingSides=nNonConformingSides+1
@@ -496,6 +512,10 @@ Elem=>FirstElem
 DO WHILE(ASSOCIATED(Elem))
   Side=>Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
+    IF(Side%MortarType.NE.0)THEN
+      Side=>Side%nextElemSide
+      CYCLE
+    END IF
     IF(.NOT.ASSOCIATED(Side%BC))THEN
       IF(.NOT.ASSOCIATED(Side%Connection))THEN
         Sides(Side%tmp)%sp=>Side
@@ -520,6 +540,35 @@ DO iSide=1,nNonConformingSides
   END DO
 END DO
 
+
+! Nullify tmp and count number of adjacent sides for each nodes
+DO iSide=1,nNonConformingSides
+  aSide=>Sides(iSide)%sp
+  DO iNode=1,aSide%nNodes
+    aSide%Node(iNode)%np%tmp=0
+  END DO
+END DO
+DO iSide=1,nNonConformingSides
+  aSide=>Sides(iSide)%sp
+  DO iNode=1,aSide%nNodes
+    aSide%Node(iNode)%np%tmp=aSide%Node(iNode)%np%tmp+1
+  END DO
+END DO
+DO iSide=1,nNonConformingSides
+  aSide=>Sides(iSide)%sp
+  NULLIFY(aSide%MortarSide)
+  DO iNode=1,aSide%nNodes
+    node=>aSide%Node(iNode)%np
+    IF(.NOT.ASSOCIATED(node%firstNormal))THEN
+      ALLOCATE(node%firstNormal)
+      ALLOCATE(node%firstNormal%FaceID(node%tmp))
+      node%tmp=0
+    END IF
+    node%tmp=node%tmp+1
+    node%firstNormal%FaceID(node%tmp)=iSide
+  END DO
+END DO
+
 ! now connect 2->1: we need exactly 3 sides (two small one big)
 ! connected by 3 edges where no 2 edges may have common nodes
 ! |-----------------------| Edge 1
@@ -539,25 +588,34 @@ counter=0
 ALLOCATE(sideInds(nNonConformingSides))
 ALLOCATE(foundEdge(4,nNonConformingSides))
 sideInds=0
+print*, nNonConformingSides
 DO iSide=1,nNonConformingSides-2
   IF(SideDone(iSide)) CYCLE
   aSide=>Sides(iSide)%sp
 
+  ! find all sides which share a common edge with aSide
   nCheck=0
-  DO jSide=iSide+1,nNonConformingSides
-    IF(SideDone(jSide)) CYCLE
-    CALL CommonEdge2(edgeNodes(:,iSide),edgeNodes(:,jSide),aSide%nNodes,Sides(jSide)%sp%nNodes,aFoundEdge)
-    ! condition for 2->1, exactly one edge of two sides is identical
-    IF(COUNT(aFoundEdge).EQ.1)THEN
-      nCheck=nCheck+1
-      foundEdge(:,nCheck)=aFoundEdge
-      sideInds(nCheck)=jSide
-    END IF
+  DO iNode=1,aSide%nNodes
+    node=>aSide%node(iNode)%np
+    DO kSide=1,node%tmp
+      jSide=node%firstNormal%FaceID(kSide)
+      IF(iSide.EQ.jSide)  CYCLE
+      IF(ANY(sideInds(1:nCheck).EQ.jSide)) CYCLE
+      IF(SideDone(jSide)) CYCLE
+      CALL CommonEdge2(edgeNodes(:,iSide),edgeNodes(:,jSide),aSide%nNodes,Sides(jSide)%sp%nNodes,aFoundEdge)
+      ! condition for 2->1, exactly one edge of two sides is identical
+      IF(COUNT(aFoundEdge).EQ.1)THEN
+        nCheck=nCheck+1
+        foundEdge(:,nCheck)=aFoundEdge
+        sideInds(nCheck)=jSide
+      END IF
+    END DO
   END DO
   IF(nCheck.LT.2) CYCLE
 
   DO iCheck=1,nCheck-1
     DO jCheck=iCheck+1,nCheck
+      IF(SideDone(iSide)) CYCLE
       commonNode=.TRUE.
       ! check if the two edges found for side A are opposite edges (dont share a common node)
       DO iNode=1,aSide%nNodes
@@ -571,18 +629,23 @@ DO iSide=1,nNonConformingSides-2
         ! now we know that we have 3 common edges, we can thus identify small/big sides by checking if
         ! two elements of the connected sides share a common side (-> small sides)
         ! This is a 3D (!) check, from this point on there has to be a solution, if not the mesh is broken
+        check=.FALSE.
         CALL CommonElementSide(aSide%Elem,bSide%Elem,aLocSide,bLocSide)
         IF(aLocSide.GT.0) THEN
+          check=.TRUE.
           smallSide1=>aSide; smallSide2=>bSide; bigSide=>cSide
         END IF
         CALL CommonElementSide(aSide%Elem,cSide%Elem,aLocSide,bLocSide)
         IF(aLocSide.GT.0) THEN
+          check=.TRUE.
           smallSide1=>aSide; smallSide2=>cSide; bigSide=>bSide
         END IF
         CALL CommonElementSide(bSide%Elem,cSide%Elem,aLocSide,bLocSide)
         IF(aLocSide.GT.0) THEN
+          check=.TRUE.
           smallSide1=>bSide; smallSide2=>cSide; bigSide=>aSide
         END IF
+        IF(.NOT.check) CYCLE  ! fuck, small elements are not yet connected, maybe they have another morter side, this is a problem
         
         ! check which edges of big and small side are identical to determine the mortar type (wheter mortar is in
         !  xi or eta direction), then set the connection
@@ -608,6 +671,21 @@ DO iSide=1,nNonConformingSides-2
         END IF
 
         bigSide%nMortars=2
+      IF(ASSOCIATED(bigSide%MortarSide))THEN
+        print*,iSide
+        print*,aSide%tmp
+        print*,bSide%tmp
+        print*,cSide%tmp
+        print*,bigSide%tmp
+        print*,smallSide1%tmp
+        print*,smallSide2%tmp
+        print*,bigSide%MortarSide(1)%sp%tmp
+        print*,bigSide%MortarSide(2)%sp%tmp
+        print*,smallSide1%tmp
+        print*,smallSide2%tmp
+        STOP 'already assoc 2 1'
+      END IF
+      IF(ALLOCATED(bigSide%MortarSide)) STOP 'already allocated 2 1'
         ALLOCATE(bigSide%MortarSide(2))
         bigSide%MortarSide(1)%sp=>smallSide1
         bigSide%MortarSide(2)%sp=>smallSide2
@@ -616,9 +694,9 @@ DO iSide=1,nNonConformingSides-2
         smallSide1%MortarType=-bigSide%MortarType
         smallSide2%MortarType=-bigSide%MortarType
         
-        SideDone(aSide%tmp)=.TRUE.
-        SideDone(bSide%tmp)=.TRUE.
-        SideDone(cSide%tmp)=.TRUE.
+        SideDone(bigSide%tmp)=.TRUE.
+        SideDone(smallSide1%tmp)=.TRUE.
+        SideDone(smallSide2%tmp)=.TRUE.
         counter=counter+3
       END IF
     END DO
@@ -632,7 +710,6 @@ END DO
 ! more neighbour sides. We want to find the nodes with exactly 4 neighbour sides
 ! This criterion is necessary but not sufficient
 
-! Nullify tmp and count number of adjacent sides for each nodes
 DO iSide=1,nNonConformingSides
   IF(SideDone(iSide)) CYCLE
   aSide=>Sides(iSide)%sp
@@ -654,36 +731,58 @@ DO iSide=1,nNonConformingSides
   aSide=>Sides(iSide)%sp
   IF(SideDone(iSide)) CYCLE
 
-  ! set node index to search in node list
-  ind=-999
+  ! find quartett
   DO iNode=1,aSide%nNodes
-    IF(aSide%Node(iNode)%np%tmp.EQ.4)THEN
-      ! check if diagonal node is corner node of big, then node is midnode of big mortar interface
-      ind=aSide%Node(iNode)%np%ind
-      bigCorner(1)=aSide%Node(next2(iNode,aSide%nNodes))%np%ind
-    END IF
-  END DO
-  IF(ind.LE.0) CYCLE
-  nQuartett=1
-  quartett(1)%sp=>aSide
-
-  ! find 4 sides with same node ind as specified above and their corner nodes
-  ! if bSide is a small side then the node at the opposite corner to ind is a big sides corner node
-  DO jSide=1,nNonConformingSides
-    IF(SideDone(jSide).OR.ASSOCIATED(aSide,Sides(jSide)%sp)) CYCLE
-    bSide=>Sides(jSide)%sp
-    DO iNode=1,bSide%nNodes
-      IF(bSide%Node(iNode)%np%ind.EQ.ind)THEN
+    node=>aSide%Node(iNode)%np
+    nQuartett=0
+    IF(node%tmp.EQ.4)THEN
+      DO kSide=1,node%tmp
+        jSide=node%firstNormal%FaceID(kSide)
+        IF(SideDone(jSide)) EXIT
         nQuartett=nQuartett+1
+        bSide=>Sides(jSide)%sp
         quartett(nQuartett)%sp=>bSide
-        bigCorner(nQuartett)=bSide%Node(next2(iNode,bSide%nNodes))%np%ind
-      END IF
-    END DO
+
+        ! check if diagonal node is corner node of big, then node is midnode of big mortar interface
+        DO jNode=1,bSide%nNodes
+          IF(node%ind.EQ.bSide%node(jNode)%np%ind)THEN
+            bigCorner(nQuartett)=bSide%Node(next2(jNode,bSide%nNodes))%np%ind
+            EXIT
+          END IF
+        END DO
+      END DO
+    END IF
+    IF(nQuartett.EQ.4) EXIT
   END DO
-  IF(nQuartett.NE.4) THEN
-    CALL Abort(__STAMP__,&
-      'ERROR: Expected four adjacent sides to search node, but found',nQuartett)
-  END IF
+  IF(nQuartett.NE.4) CYCLE
+
+  !! find 4 sides with same node ind as specified above and their corner nodes
+  !! if bSide is a small side then the node at the opposite corner to ind is a big sides corner node
+  !DO jNode=1,aSide%nNodes
+  !  node=>aSide%node(jNode)%np
+  !  IF(node%tmp.NE.4) CYCLE
+  !  DO kSide=1,node%tmp
+  !    jSide=node%firstNormal%FaceID(kSide)
+  !    IF(iSide.EQ.jSide)  CYCLE
+  !    IF(SideDone(jSide)) CYCLE
+  !    bSide=>Sides(jSide)%sp
+  !    !IF(bSide%tmp.EQ.iSide) CYCLE
+  !    DO iNode=1,bSide%nNodes
+  !      IF(bSide%Node(iNode)%np%ind.EQ.ind)THEN
+  !        nQuartett=nQuartett+1
+  !        quartett(nQuartett)%sp=>bSide
+  !        bigCorner(nQuartett)=bSide%Node(next2(iNode,bSide%nNodes))%np%ind
+  !        bSide%tmp=iSide ! marker
+  !        EXIT
+  !      END IF
+  !    END DO
+  !  END DO
+  !END DO
+  !IF(nQuartett.NE.4) THEN
+  !  CALL Abort(__STAMP__,&
+  !    'ERROR: Expected four adjacent sides to search node, but found',nQuartett)
+  !END IF
+
   bigCornerNoSort=bigCorner
   CALL Qsort1Int(bigCorner)
 
@@ -697,6 +796,7 @@ DO iSide=1,nNonConformingSides
       bSide%MortarType=1
       bSide%nMortars=4
       SideDone(jSide)=.TRUE.
+      IF(ALLOCATED(bSide%MortarSide)) STOP 'already allocated 4 1'
       ALLOCATE(bSide%MortarSide(4))
       DO iNode=1,bSide%nNodes
         bSide%Node(iNode)%np%tmp=0
@@ -719,9 +819,9 @@ DO iSide=1,nNonConformingSides
       counter=counter+5
     ELSE
       ! bSide is not a big side, reset tmp
-      DO iNode=1,aSide%nNodes
-        IF(aSide%Node(iNode)%np%ind.EQ.ind) aSide%Node(iNode)%np%tmp=0
-      END DO
+      !DO iNode=1,aSide%nNodes
+      !  IF(aSide%Node(iNode)%np%ind.EQ.ind) aSide%Node(iNode)%np%tmp=0
+      !END DO
     END IF
   END DO
 END DO
@@ -831,17 +931,27 @@ DO WHILE(ASSOCIATED(Elem))
   Elem=>Elem%nextElem
 END DO
 
+! deallocate temporary side markers again
+DO iSide=1,nNonConformingSides
+  aSide=>Sides(iSide)%sp
+  DO iNode=1,aSide%nNodes
+    node=>aSide%Node(iNode)%np
+    IF(ASSOCIATED(node%firstNormal)) DEALLOCATE(node%firstNormal)
+  END DO
+END DO
+
 IF(counter.NE.nNonConformingSides) THEN
-  WRITE(*,*) 'Warning: Number of expected nonconforming sides:', nNonConformingSides
+  WRITE(*,*) 'Warning: Number of remaining nonconforming sides:', nNonConformingSides
   WRITE(*,*) '         Number of found nonconforming sides:', counter
 END IF
 
-WRITE(UNIT_StdOut,*)'   --> ',counter,' nonconforming sides of ', nInnerSides,'  sides connected.'
-
 DEALLOCATE(SideDone)
 DEALLOCATE(checkSide)
+DEALLOCATE(sideInds)
 DEALLOCATE(edgeNodes)
 DEALLOCATE(Sides)
+DEALLOCATE(foundEdge)
+nNonConformingSides=counter
 
 END SUBROUTINE NonconformConnectMesh
 
@@ -866,6 +976,7 @@ LOGICAL                              :: aFoundNode(4)
 INTEGER                              :: iNode,jNode  ! ?
 !===================================================================================================================================
 aFoundNode=.FALSE.
+aFoundEdge=.FALSE.
 
 DO iNode=1,nA
   DO jNode=1,nB
@@ -943,10 +1054,17 @@ DO WHILE(ASSOCIATED(aSide))
   bSide=>bElem%firstSide
   DO WHILE(ASSOCIATED(bSide))
     ! TODO: Maybe dont rely on connection but use corners node inds instead
-    bLocSide=bLocSide+1 
+    bLocSide=bLocSide+1
     IF(ASSOCIATED(aSide%connection,bSide)) THEN
-      IF (ASSOCIATED(aSide%BC)) THEN
+      IF     (ASSOCIATED(aSide%BC)) THEN
         IF(aSide%BC%BCType .NE. 1) RETURN ! no periodics
+      ELSE
+        RETURN
+      END IF
+    END IF
+    IF(ASSOCIATED(bSide%connection,aSide)) THEN  ! double check is necessary in case one of the sides is a mortar side
+      IF     (ASSOCIATED(bSide%BC)) THEN
+        IF(bSide%BC%BCType .NE. 1) RETURN ! no periodics
       ELSE
         RETURN
       END IF
