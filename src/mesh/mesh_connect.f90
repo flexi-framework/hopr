@@ -761,14 +761,9 @@ DO iSide=1,nNonConformingSides
   DO iNode=1,4
     ! for type 1, small mortars are sorted on a cartesian grid (first xi, then eta)
     ! this means that e.g. the small side at node 3 of big side is stored in position 4 of mortar array
-    jNode=-999
-    DO jNode=1,4
-      IF(quartett(iNode)%sp%Node(jNode)%np%ind.EQ.aSide%Node(iNode)%np%ind) EXIT
-    END DO
-    aSide%MortarSide(CGNSToCart(iNode))%sp=>quartett(jNode)%sp
-    quartett(jNode)%sp%connection=>aSide
-    quartett(jNode)%sp%MortarType=-1
-    !SideDone(quartett(jNode)%sp%tmp)=.TRUE.
+    aSide%MortarSide(CGNSToCart(iNode))%sp=>quartett(iNode)%sp
+    quartett(iNode)%sp%connection=>aSide
+    quartett(iNode)%sp%MortarType=-1
     SideDone(bigCorner(iNode))=.TRUE.
   END DO
   counter=counter+5
