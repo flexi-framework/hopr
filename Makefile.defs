@@ -16,7 +16,7 @@
 #                      NEHALEM   (HLRS Nehalem cluster)
 #                      CRAY      (HLRS Cray cluster)
 #=================================================================================================================================#
-COMPILER=GNU_DEBUG_MPI
+COMPILER=INTEL_MPI
 MACHINE=AUTO  # AUTO, CRAY, NEHALEM or leave empty
 CGNS_INT=32
 BLAS_LAPACK=T
