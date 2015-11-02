@@ -557,6 +557,7 @@ DO iSide=1,nNonConformingSides
   aSide=>Sides(iSide)%sp
   DO iNode=1,aSide%nNodes
     aSide%Node(iNode)%np%tmp=aSide%Node(iNode)%np%tmp+1
+    NULLIFY(aSide%Node(iNode)%np%firstNormal)
   END DO
 END DO
 DO iSide=1,nNonConformingSides
@@ -804,6 +805,7 @@ DO iSide=1,nNonConformingSides
   END DO
 END DO
 
+
 ! for periodic side connections, dummy sides have been introduced for periodic masters
 ! only these sides are connected by mortars
 ! remove temporary periodic dummy sides and update mortar connection to real (inner) sides
@@ -826,6 +828,9 @@ DO WHILE(ASSOCIATED(Elem))
     END IF
 
     dummySide=>aSide%connection
+    IF(dummySide%tmp.NE.0)THEN
+      Sides(dummySide%tmp)%sp=>aSide
+    END IF
     IF(dummySide%nMortars.GT.0)THEN
       ! dummy side is mortar master, build mortar connection in aSide
       ALLOCATE(aSide%MortarSide(dummySide%nMortars))
@@ -879,7 +884,10 @@ DO iSide=1,nNonConformingSides
   aSide=>Sides(iSide)%sp
   DO iNode=1,aSide%nNodes
     node=>aSide%Node(iNode)%np
-    IF(ASSOCIATED(node%firstNormal)) DEALLOCATE(node%firstNormal)
+    IF(ASSOCIATED(node%firstNormal))THEN
+      DEALLOCATE(node%firstNormal)
+      NULLIFY(node%firstNormal)
+    END IF
   END DO
 END DO
 
