@@ -74,6 +74,7 @@ TYPE(tNodePtr)                  :: node(14)
 ! 2. strategy: 6 tets per box, split hex into two prisms and each prism into 3 tets, periodic but strongly anisotropic
 ! 3. strategy: 5 tets per box (minimum number of tets), 4 small tets at the edges one big in the middle, not periodic not isotropic
 ! 4. strategy: 24 tets per box: one tet per edge (12), 4 in the center and 8 at the edges, fully symmetric and periodic mesh
+! 5. strategy: 12 tets per box: one pyramid per face, each of them splitted into to tets
 ! Corner node ordering:
 ! 1. (-,-,-)
 ! 2. (+,-,-)
@@ -169,6 +170,32 @@ CASE(4)   ! template is not periodic only use for single element
   tetMap(:,4)=(/7,8,5,4/)
   tetMap(:,5)=(/2,4,5,7/)
   IF(ANY(cartmesh%nElems.GT.1)) STOP 'The selected mesh template is not periodic and can only be used for a single element.'
+CASE(5)
+  nTets=12
+  !Center node of box is required
+  CALL getNewNode(node(9)%np,ind=ind)
+  node(9 )%np%x=(node(1)%np%x+node(2)%np%x+node(3)%np%x+node(4)%np%x+node(5)%np%x+node(6)%np%x+node(7)%np%x+node(8)%np%x)/8.
+
+  !x_minus
+  tetMap(:,1) =(/1,2,6,9/)
+  tetMap(:,2) =(/1,5,6,9/)
+  !y_plus
+  tetMap(:,3) =(/2,3,7,9/)
+  tetMap(:,4) =(/2,6,7,9/)
+  !x_plus
+  tetMap(:,5) =(/3,4,7,9/)
+  tetMap(:,6) =(/4,7,8,9/)
+  !y_minus
+  tetMap(:,7) =(/1,5,8,9/)
+  tetMap(:,8) =(/1,4,8,9/)
+  !z_plus
+  tetMap(:,9) =(/5,6,8,9/)
+  tetMap(:,10)=(/6,7,8,9/)
+  !z_minus
+  tetMap(:,11)=(/1,2,4,9/)
+  tetMap(:,12)=(/2,3,4,9/)
+
+
 CASE DEFAULT
   STOP 'The selected mesh template does not exist for tetrahedra.'
 END SELECT
