@@ -16,6 +16,9 @@ hoprtools:
 shared:
 	cd share && $(MAKE) 
 
+doc:
+	pandoc README.md INSTALL.md LICENSE -o README.pdf --toc -N -V documentclass=scrreprt
+
 # utility targets
 .PHONY: clean veryclean cleanshare
 
