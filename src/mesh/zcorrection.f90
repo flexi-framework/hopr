@@ -50,6 +50,7 @@ REAL                        :: scalprod,dir(3,3)  ! ?
 INTEGER                     :: whichdir,switch,Map(8,2,3),MapCurved(3,0:N,0:N,0:N,2,3),MapSides(6,2,3)  ! ?
 INTEGER                     :: iNode,iSide,i,j,k,im,jm,km   ! ?
 INTEGER                     :: counter(2,3)  ! ?
+LOGICAL                     :: found
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A)') ' ORIENT ELEMENTS IN Z FOR 3D->2D compatibility...'
 CALL Timer(.TRUE.)
@@ -113,10 +114,17 @@ DO WHILE(ASSOCIATED(Elem))
   dir(1,:)=NORMALIZE(Elem%node(2)%np%x-Elem%node(1)%np%x,3)
   dir(2,:)=NORMALIZE(Elem%node(4)%np%x-Elem%node(1)%np%x,3)
   dir(3,:)=NORMALIZE(Elem%node(5)%np%x-Elem%node(1)%np%x,3)
+  found=.FALSE.
   DO whichdir=1,3
     scalprod=SUM(dir(whichdir,:)*(/0.,0.,1./))
-    IF(ABS(scalprod).GT.0.95) EXIT
+    IF(ABS(scalprod).GT.0.95) THEN
+      found=.TRUE.     
+      EXIT
+    END IF
   END DO
+  IF(.NOT.found) THEN
+    STOP "Element with no axis aligned with z direction found, cannot perform z orientation!"
+  END IF
   switch=2
   IF(scalprod.GT.0) switch=1 !else is set to 2
   counter(switch,whichdir)=counter(switch,whichdir)+1
@@ -235,6 +243,7 @@ INTEGER                     :: switch, switch2, zcounter, whichdir  ! ?
 REAL                        :: scalprod,dir(3,3), displ1(3,0:N), displ2(3,0:N), displ(3,0:N)  ! ?
 LOGICAL                     :: firstLayer  ! ?
 LOGICAL                     :: dominant  ! ?
+LOGICAL                     :: found     ! ?
 INTEGER                     :: iNode,fNode,nPeriodicSides  ! ?
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A)') ' PERFORMING Z CORRECTION...'
@@ -276,10 +285,17 @@ DO WHILE(ASSOCIATED(Elem))
   dir(1,:)=NORMALIZE(Elem%node(2)%np%x-Elem%node(1)%np%x,3)
   dir(2,:)=NORMALIZE(Elem%node(4)%np%x-Elem%node(1)%np%x,3)
   dir(3,:)=NORMALIZE(Elem%node(5)%np%x-Elem%node(1)%np%x,3)
+  found=.FALSE.
   DO whichdir=1,3
     scalprod=SUM(dir(whichdir,:)*(/0.,0.,1./))
-    IF(ABS(scalprod).GT.0.5) EXIT
+    IF(ABS(scalprod).GT.0.5) THEN
+      found=.TRUE.
+      EXIT
+    END IF
   END DO
+  IF(.NOT.found) THEN
+    STOP "Element with no axis aligned with z direction found, cannot perform z correction!"
+  END IF
   whichdirArr(Elem%ind)=whichdir
   IF(scalprod.GT.0) orientArr(Elem%ind)=1 !else is set to 2
   Elem=>Elem%nexTElem
