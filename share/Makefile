@@ -16,7 +16,7 @@ hdf5: dir
 		echo "= M A K E   H D F 5                                           =";\
 		echo "===============================================================";\
 		if [ ! -f hdf5-$(HDF5_VERSION).tar.bz2 ] ; then \
-		  wget -N http://www.hdfgroup.org/ftp/HDF5/prev-releases/hdf5-$(HDF5_VERSION)/src/hdf5-$(HDF5_VERSION).tar.bz2 ; \
+		  wget -N http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-$(HDF5_VERSION)/src/hdf5-$(HDF5_VERSION).tar.bz2 ; \
 		fi ; \
 		if [ ! -d $(SHARECOMP)/hdf5-$(HDF5_VERSION) ] ; then \
 			cd $(SHARECOMP)/ && tar -xvjf ../hdf5-$(HDF5_VERSION).tar.bz2 1>/dev/null && cd .. ; \
@@ -29,16 +29,16 @@ hdf5: dir
 cgns: dir
 	@# CGNS library (if 64bit needed: set --enable-64bit in configure command and CGNS_INT=64 in Makefile.defs
 	@ if [ -n "$(CGNS_VERSION)" ] && [ ! -f $(CGNS_LIBDIR)/libcgns.a ] ; then \
-#	@ if [ -n "$(CGNS_VERSION)" ] && [ ! -f $(SHARECOMP)/cgnslib_$(CGNS_VERSION)/src/lib/libcgns.a ] ; then \
 		echo "===============================================================";\
 		echo "= M A K E   C G N S                                           =";\
 		echo "===============================================================";\
-		if [ ! -f cgnslib_$(CGNS_VERSION)-$(CGNS_SUBVERSION).tar.gz ] ; then \
-			wget -N http://mesh.dl.sourceforge.net/project/cgns/cgnslib_$(CGNS_VERSION)/Release%20$(CGNS_SUBVERSION)/cgnslib_$(CGNS_VERSION)-$(CGNS_SUBVERSION).tar.gz ; \
+		if [ ! -f v$(CGNS_VERSION).tar.gz ] ; then \
+			wget -N https://github.com/CGNS/CGNS/archive/v$(CGNS_VERSION).tar.gz ; \
 		fi ; \
-		if [ ! -d $(SHARECOMP)/cgnslib_$(CGNS_VERSION) ] ; then \
-			cd $(SHARECOMP) && tar -xvzf ../cgnslib_$(CGNS_VERSION)-$(CGNS_SUBVERSION).tar.gz 1>/dev/null && cd .. ; \
+		if [ ! -d $(SHARECOMP)/CGNS-$(CGNS_VERSION) ] ; then \
+			cd $(SHARECOMP) && tar -xvzf ../v$(CGNS_VERSION).tar.gz 1>/dev/null && cd .. ; \
 		fi ; \
+    sed -i 's/^c/!/g' $(CGNS_DIR)/src/cgnslib_f.h ;\
  		cd $(CGNS_DIR) && FC='$(FC)' ./configure --enable-lfs  $(CGNSF2C) && $(MAKE) ; \
 		echo "===============================================================";\
 		echo "= C G N S   D O N E                                           =";\
@@ -71,9 +71,8 @@ cleanhdf5:
 	fi
 cleancgns:
 	@# CGNS library
-	@ if [ -d $(SHARECOMP)/cgnslib_$(CGNS_VERSION) ] ; then \
-#		cd $(SHARECOMP)/cgnslib_$(CGNS_VERSION)/src && $(MAKE) allclean ; \
-		cd $(CGNS_DIR) && $(MAKE) allclean ; \
+	@ if [ -d $(SHARECOMP)/CGNS-$(CGNS_VERSION) ] ; then \
+		cd $(SHARECOMP)/CGNS-$(CGNS_VERSION)/src && $(MAKE) allclean ; \
 	fi
 cleannr:
 	@# Numerical Recipes

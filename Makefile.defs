@@ -112,11 +112,9 @@ TECBIN_LIBS = -ltecio -lstdc++
 #---------------------------------------------------------------------------------------------------------------------------------#
 # CGNS
 #---------------------------------------------------------------------------------------------------------------------------------#
-#ifeq ($(findstring OLD,$(CGNS_INPUT)),OLD)
-CGNS_VERSION    =3.2.1
-CGNS_SUBVERSION =2
-CGNS_DIR    =../share/$(SHARECOMP)/cgnslib_$(CGNS_VERSION)/src
-CGNS_LIBDIR =../share/$(SHARECOMP)/cgnslib_$(CGNS_VERSION)/src/lib
+CGNS_VERSION=3.2.1
+CGNS_DIR    =../share/$(SHARECOMP)/CGNS-$(CGNS_VERSION)/src
+CGNS_LIBDIR =../share/$(SHARECOMP)/CGNS-$(CGNS_VERSION)/src/lib
 CGNS_LIB    =-L$(CGNS_LIBDIR)
 CGNS_INC    =-I$(CGNS_DIR)
 CGNS_LIBS   =-lcgns
