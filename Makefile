@@ -29,7 +29,7 @@ clean:
 veryclean:
 	cd src   && $(MAKE) veryclean
 	cd tools/yplusestimator && $(MAKE) veryclean
-	rm -f lib/$(PREPROC_LIB)
+	rm -f src/$(PREPROC_LIB)
 	rm -f *~ */*~ */*/*~
 
 cleanshare:

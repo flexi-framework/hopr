@@ -38,7 +38,8 @@ cgns: dir
 		if [ ! -d $(SHARECOMP)/CGNS-$(CGNS_VERSION) ] ; then \
 			cd $(SHARECOMP) && tar -xvzf ../v$(CGNS_VERSION).tar.gz 1>/dev/null && cd .. ; \
 		fi ; \
-    sed -i 's/^c/!/g' $(CGNS_DIR)/src/cgnslib_f.h ;\
+		echo $(CGNS_DIR)/src/cgnslib_f.h.in ; \
+    sed -i s/^c/!/g $(CGNS_DIR)/cgnslib_f.h.in ;\
  		cd $(CGNS_DIR) && FC='$(FC)' ./configure --enable-lfs  $(CGNSF2C) && $(MAKE) ; \
 		echo "===============================================================";\
 		echo "= C G N S   D O N E                                           =";\

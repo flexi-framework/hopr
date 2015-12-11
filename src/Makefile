@@ -17,7 +17,7 @@ all: builddeps
 	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 	@echo ' HOPR COMPILED, NOW LINKING...'
 	@echo '----------------------------------------------------------------------------------------'
-	$(FC) $(FLFLAGS) hopr.o ../lib/$(PREPROC_LIB) -o ../bin/hopr \
+	$(FC) $(FLFLAGS) hopr.o $(PREPROC_LIB) -o ../bin/hopr \
 	$(LIBDIRS) \
 	$(EXTERNAL_LIBS)
 	cp ../bin/hopr ../bin/preproctool
@@ -33,7 +33,7 @@ builddeps:
 	@python ../tools/builddeps/builddeps --source=srcfiles_pp.mk deplist.mk
 
 $(PREPROC_LIB): $(OBJ)
-	$(AR) $(AR_FLAGS) ../lib/$(PREPROC_LIB) $(OBJ)
+	$(AR) $(AR_FLAGS) $(PREPROC_LIB) $(OBJ)
 
 %.o: %.c
 	$(CC) -c $< -o $@
