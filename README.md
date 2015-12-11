@@ -28,45 +28,33 @@ Discontinuous Galerkin, Spectral Element Methods or pFEM,
 in order to retain their accuracy if the computational domain
 includes curved boundaries.
 
-The software has been developed by the 
-[**Numerics Research Group (NRG)**](https://www.iag.uni-stuttgart.de/nrg)
-lead by Prof. Claus-Dieter Munz at the Institute of Aerodynamics and 
-Gasdynamics at the University of Stuttgart, Germany.
+HOPR has been developed by the [**Numerics Research Group (NRG)**][nrg]
+lead by Prof. Claus-Dieter Munz at the Institute of Aerodynamics
+and Gasdynamics at the University of Stuttgart, Germany.
 
-If you use HOPR for your publications, please cite it by the
-```
-Florian Hindenlang, Thomas Bolemann and Claus-Dieter Munz
-Mesh Curving Techniques for High Order Discontinuous Galerkin Simulations
-IDIHOM: Industrialization of High-Order Methods-A Top-Down Approach
-In collection, p.133-152, 2015, Springer
-```
-or by the following Bibtex
+This is a scientific project. If you use HOPR for publications or
+presentations in science, please support the project by citing
+our publications given in [REFERENCE.md](REFERENCE.md).
 
-    @incollection{HOPR,
-    title = {Mesh Curving Techniques for High Order Discontinuous Galerkin Simulations},
-    author = {F. Hindenlang and T. Bolemann and C-D. Munz},
-    year = {2015},
-    date = {2015-01-01},
-    booktitle = {IDIHOM: Industrialization of High-Order Methods-A Top-Down Approach},
-    pages = {133--152},
-    publisher = {Springer}
-    }
+## Installation / Documentation
 
+For installation instruction see [Install.md](INSTALL.md).
 
-## Documentation
-
-See the full documentation including usage instructions and tutorials
-for HOPR [here](http://www.hopr-project.org/).
+See the full documentation including usage instructions and
+turorial for HOPR [here][hopr].
  
-In case you have question regarding HOPR, want to report bugs or
-contributing to the project you can use the mailing list
+In case you have question regarding HOPR, want to report bugs
+or contribute to the project you can use the mailing list
 <hopr-project@listserv.uni-stuttgart.de>.
-You can also subscribe to the mailing list
-[here](https://listserv.uni-stuttgart.de/mailman/listinfo/hopr-project).
+You can also subscribe to the mailing list [here][list].
 
 ## License
 HOPR is Copyright (C) 2015, Prof. Claus-Dieter Munz and is 
 released under the terms of the
-GNU General Public License v3.0. For the license terms see
-the included license file.
+GNU General Public License v3.0. For the full license terms see
+the included license file [LICENSE](LICENSE).
 
+
+[nrg]:  https://nrg.iag.uni-stuttgart.de/
+[hopr]: http://www.hopr-project.org/
+[list]: https://listserv.uni-stuttgart.de/mailman/listinfo/hopr-project
