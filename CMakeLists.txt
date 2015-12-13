@@ -17,39 +17,12 @@ STRING(SUBSTRING ${CMAKE_ROOT} 4 6 CMAKEHOST)
 STRING(COMPARE EQUAL ${CMAKEHOST} "hornet" ONHORNET)
 STRING(COMPARE EQUAL ${CMAKEHOST} "nehalem" ONNEHALEM)
 IF (ONHORNET OR ONNEHALEM)
-  ADD_DEFINITIONS(-DLUSTRE -DHLRS)
+  ADD_DEFINITIONS(-DLUSTRE)
 ENDIF()
 STRING(COMPARE EQUAL ${CMAKEHOST} "juqueen" ONJUQUEEN)
 IF (ONJUQUEEN)
   ADD_DEFINITIONS(-DGPFS)
 ENDIF()
-
-# =========================================================================
-# USERBLOCK + Preproc_flags
-# =========================================================================
-
-# A function to get all user defined variables with a specified prefix
-#function (getListOfVarsStartingWith _prefix _varResult)
-    #get_cmake_property(_vars CACHE_VARIABLES)
-    #string (REGEX MATCHALL "(^|;)${_prefix}[A-Za-z0-9_]*" _matchedVars "${_vars}")
-    #set (${_varResult} ${_matchedVars} PARENT_SCOPE)
-#endfunction()
-
-#SET(configuration ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/configuration.cmake)
-#FILE(WRITE ${configuration} "")
-#GETLISTOFVARSSTARTINGWITH("HOPR_" hoprVars)
-#FOREACH (_var IN LISTS hoprVars)
-   #GET_PROPERTY(currentHelpString CACHE "${_var}" PROPERTY HELPSTRING)
-   #SET(boolian (${${_var}} STREQUAL "ON" OR ${${_var}} STREQUAL "OFF")) 
-   #IF(${boolian})
-      #FILE(APPEND ${configuration} "OPTION(${_var} \"${currentHelpString}\" ${${_var}})\n")
-   #ELSE()
-      #IF(${_var})
-         #STRING(REPLACE "\\" "\\\\" ${_var} ${${_var}})
-      #ENDIF()
-      #FILE(APPEND ${configuration} "SET(${_var} \"${${_var}}\" CACHE STRING \"${currentHelpString}\")\n")
-   #ENDIF()
-#ENDFOREACH()
 
 # =========================================================================
 # HOPR sources & targets
@@ -64,9 +37,9 @@ FILE(GLOB_RECURSE hoprC ./src/sfc/*.c)
 
 # define hopr library 
 ADD_LIBRARY(hoprlibF90 STATIC ${hoprF90})
-ADD_LIBRARY(hoprlibC STATIC ${hoprC})
 SET_TARGET_PROPERTIES(hoprlibF90 PROPERTIES LINKER_LANGUAGE Fortran)
 TARGET_LINK_LIBRARIES(hoprlibF90 ${LINK_LIBS})
+ADD_LIBRARY(hoprlibC STATIC ${hoprC})
 SET_TARGET_PROPERTIES(hoprlibC PROPERTIES LINKER_LANGUAGE C)
 TARGET_LINK_LIBRARIES(hoprlibC ${LINK_LIBS})
 
@@ -93,7 +66,6 @@ IF (Fortran_COMPILER_NAME MATCHES "gfortran.*")
   # gfortran
   # set compiler
   SET (HOPR_COMPILERNAME "GNU")
-  ADD_DEFINITIONS(-DGNU)
   IF (HOPR_MPI)
      SET (CMAKE_Fortran_COMPILER mpif90)
      SET (CMAKE_CXX_COMPILER mpicc)
@@ -109,7 +81,6 @@ ELSEIF (Fortran_COMPILER_NAME MATCHES "ifort.*")
   # ifort
   # set compiler
   SET (HOPR_COMPILERNAME "INTEL")
-  ADD_DEFINITIONS(-DINTEL)
   IF (HOPR_MPI)
      SET (CMAKE_Fortran_COMPILER mpif90)
      SET (CMAKE_CXX_COMPILER mpicc)
@@ -137,8 +108,8 @@ IF(HOPR_MPI)
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${MPI_INCLUDE_PATH}")
   SET (LINK_LIBS ${LINK_LIBS} ${MPI_LIBRARIES})
   TARGET_LINK_LIBRARIES(hoprlibF90 ${MPI_Fortran_LIBRARIES})
-  TARGET_LINK_LIBRARIES(hoprlibC ${MPI_C_LIBRARIES})
-  TARGET_LINK_LIBRARIES(hopr    ${MPI_Fortran_LIBRARIES})
+  TARGET_LINK_LIBRARIES(hoprlibC   ${MPI_C_LIBRARIES})
+  TARGET_LINK_LIBRARIES(hopr       ${MPI_Fortran_LIBRARIES})
   MESSAGE(STATUS "Building HOPR with MPI")
 ENDIF()
 
@@ -162,10 +133,14 @@ ENDIF()
 # CGNS library
 # =========================================================================
 SET(HOPR_CGNSVERSION "3.2.1" CACHE STRING "CGNS version")
-SET(HOPR_CGNSDIR "${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/CGNS-${HOPR_CGNSVERSION}" CACHE STRING "Directory of cgns-library")
-MESSAGE(STATUS "CGNS include dir: " ${HOPR_CGNSDIR}/src)
-INCLUDE_DIRECTORIES (${HOPR_CGNSDIR}/src)
-FIND_LIBRARY(HOPR_CGNSLIB cgns ${HOPR_CGNSDIR}/src/lib)
+FIND_PATH(HOPR_CGNS_INCLUDE_DIR cgnslib.h
+    {CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/CGNS-${HOPR_CGNSVERSION}/src/.
+    /usr/local/include
+    /usr/include
+    )
+INCLUDE_DIRECTORIES (${HOPR_CGNS_INCLUDE_DIR})
+MESSAGE(STATUS "CGNS include dir: " ${HOPR_CGNS_INCLUDE_DIR})
+FIND_LIBRARY(HOPR_CGNSLIB cgns {CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/CGNS-${HOPR_CGNSVERSION}/src/lib)
 TARGET_LINK_LIBRARIES(hopr ${HOPR_CGNSLIB})
 
 # =========================================================================
