@@ -482,12 +482,14 @@ OPEN(UNIT   = unit_in,                  &
      ACCESS = 'SEQUENTIAL',         &
      IOSTAT = os                    )
 IF(os.NE.0) THEN  ! File Error
-  CALL abort(__STAMP__,'ERROR: cannot open star file: '//trim(FileName),999,999.)
+  CALL abort(__STAMP__, &
+       'ERROR: cannot open star file: '//trim(FileName),999,999.)
 END IF
 !V4 or V3
 READ(unit_in,*)cdummy
 IF(INDEX(cdummy,'PROSTAR').NE.0)THEN !star V4
-  CALL abort(__STAMP__,'ERROR: star file of version V4, not implemented jet!',999,999.)
+  CALL abort(__STAMP__, &
+       'ERROR: star file of version V4, not implemented jet!',999,999.)
 ELSE  !star V3
   REWIND(unit_in)
 END IF

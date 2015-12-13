@@ -33,7 +33,10 @@
 #elif PGI
 #define NO_ISNAN
 #endif
-#define __STAMP__ __FILE__,__LINE__,__DATE__,__TIME__
+#ifndef __FILENAME__ 
+#define __FILENAME__ __FILE__
+#endif
+#define __STAMP__ __FILENAME__,__LINE__,__DATE__,__TIME__
 
 #define SDEALLOCATE(A) IF(ASSOCIATED(A)) DEALLOCATE(A)
 #define ERRWRITE(a,b) WRITE(UNIT_errFile,b)
