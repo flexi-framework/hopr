@@ -1,7 +1,7 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.11)
 PROJECT(Hopr)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
-ENABLE_LANGUAGE(Fortran C)
+ENABLE_LANGUAGE(C Fortran)
 
 # =========================================================================
 # Options
@@ -29,27 +29,27 @@ ENDIF()
 # =========================================================================
 
 # A function to get all user defined variables with a specified prefix
-function (getListOfVarsStartingWith _prefix _varResult)
-    get_cmake_property(_vars CACHE_VARIABLES)
-    string (REGEX MATCHALL "(^|;)${_prefix}[A-Za-z0-9_]*" _matchedVars "${_vars}")
-    set (${_varResult} ${_matchedVars} PARENT_SCOPE)
-endfunction()
+#function (getListOfVarsStartingWith _prefix _varResult)
+    #get_cmake_property(_vars CACHE_VARIABLES)
+    #string (REGEX MATCHALL "(^|;)${_prefix}[A-Za-z0-9_]*" _matchedVars "${_vars}")
+    #set (${_varResult} ${_matchedVars} PARENT_SCOPE)
+#endfunction()
 
-SET(configuration ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/configuration.cmake)
-FILE(WRITE ${configuration} "")
-GETLISTOFVARSSTARTINGWITH("HOPR_" hoprVars)
-FOREACH (_var IN LISTS hoprVars)
-   GET_PROPERTY(currentHelpString CACHE "${_var}" PROPERTY HELPSTRING)
-   SET(boolian (${${_var}} STREQUAL "ON" OR ${${_var}} STREQUAL "OFF")) 
-   IF(${boolian})
-      FILE(APPEND ${configuration} "OPTION(${_var} \"${currentHelpString}\" ${${_var}})\n")
-   ELSE()
-      IF(${_var})
-         STRING(REPLACE "\\" "\\\\" ${_var} ${${_var}})
-      ENDIF()
-      FILE(APPEND ${configuration} "SET(${_var} \"${${_var}}\" CACHE STRING \"${currentHelpString}\")\n")
-   ENDIF()
-ENDFOREACH()
+#SET(configuration ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/configuration.cmake)
+#FILE(WRITE ${configuration} "")
+#GETLISTOFVARSSTARTINGWITH("HOPR_" hoprVars)
+#FOREACH (_var IN LISTS hoprVars)
+   #GET_PROPERTY(currentHelpString CACHE "${_var}" PROPERTY HELPSTRING)
+   #SET(boolian (${${_var}} STREQUAL "ON" OR ${${_var}} STREQUAL "OFF")) 
+   #IF(${boolian})
+      #FILE(APPEND ${configuration} "OPTION(${_var} \"${currentHelpString}\" ${${_var}})\n")
+   #ELSE()
+      #IF(${_var})
+         #STRING(REPLACE "\\" "\\\\" ${_var} ${${_var}})
+      #ENDIF()
+      #FILE(APPEND ${configuration} "SET(${_var} \"${${_var}}\" CACHE STRING \"${currentHelpString}\")\n")
+   #ENDIF()
+#ENDFOREACH()
 
 # =========================================================================
 # HOPR sources & targets
@@ -60,16 +60,19 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # collect all F90 files needed for hoprlib
 FILE(GLOB_RECURSE hoprF90 ./src/basis/*.f90 ./src/mesh/*.f90 ./src/output/*.f90 ./src/readin/*.f90 ./src/search/*.f90 ./src/sfc/*.f90 globals.f90 headers.f90 io_hdf5.f90 sortingtools.f90)
-FILE(GLOB_RECURSE hoprC ./sfc/*.c)
+FILE(GLOB_RECURSE hoprC ./src/sfc/*.c)
 
 # define hopr library 
-ADD_LIBRARY(hoprlib STATIC ${hoprF90} ${hoprC})
-SET_TARGET_PROPERTIES(hoprlib PROPERTIES LINKER_LANGUAGE Fortran)
-TARGET_LINK_LIBRARIES(hoprlib ${LINK_LIBS})
+ADD_LIBRARY(hoprlibF90 STATIC ${hoprF90})
+ADD_LIBRARY(hoprlibC STATIC ${hoprC})
+SET_TARGET_PROPERTIES(hoprlibF90 PROPERTIES LINKER_LANGUAGE Fortran)
+TARGET_LINK_LIBRARIES(hoprlibF90 ${LINK_LIBS})
+SET_TARGET_PROPERTIES(hoprlibC PROPERTIES LINKER_LANGUAGE C)
+TARGET_LINK_LIBRARIES(hoprlibC ${LINK_LIBS})
 
 # define hopr executable
 ADD_EXECUTABLE(hopr ./src/hopr.f90)
-TARGET_LINK_LIBRARIES(hopr hoprlib) 
+TARGET_LINK_LIBRARIES(hopr hoprlibF90 hoprlibC) 
 
 
 # =========================================================================
@@ -96,15 +99,12 @@ IF (Fortran_COMPILER_NAME MATCHES "gfortran.*")
      SET (CMAKE_CXX_COMPILER mpicc)
   ENDIF()
   # set Flags
-  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -xf95-cpp-input -fdefault-real-8 -fdefault-double-8 -fbackslash -DGNU")
+  SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-double-8 -fbackslash -DGNU")
   SET (CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native  -finline-functions")
   SET (CMAKE_Fortran_FLAGS_DEBUG   "-g -O0 -ggdb3 -fbounds-check -finit-real=nan -fbacktrace  -Wall")
-  SET (CMAKE_CXX_FLAGS             "${CMAKE_CXX_FLAGS} -std=c++0x -lm")
-  SET (CMAKE_CXX_FLAGS_RELEASE     "-O2 $(INSTRUCTION) -fbacktrace  -Wall -Wextra")
-  SET (CMAKE_CXX_FLAGS_DEBUG       "-O0 -ggdb3 -funwind-tables")
   # add flags only for compiling not linking!
-  #SET_TARGET_PROPERTIES(hoprlib PROPERTIES COMPILE_FLAGS "-xf95-cpp-input")
-  #SET_TARGET_PROPERTIES(hopr PROPERTIES COMPILE_FLAGS "-xf95-cpp-input")
+  SET_TARGET_PROPERTIES(hoprlibF90 PROPERTIES COMPILE_FLAGS "-xf95-cpp-input")
+  SET_TARGET_PROPERTIES(hopr PROPERTIES COMPILE_FLAGS "-xf95-cpp-input")
 ELSEIF (Fortran_COMPILER_NAME MATCHES "ifort.*")
   # ifort
   # set compiler
@@ -118,11 +118,8 @@ ELSEIF (Fortran_COMPILER_NAME MATCHES "ifort.*")
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -DINTEL")
   SET (CMAKE_Fortran_FLAGS_RELEASE "-O2 $(INSTRUCTION) -vec-report0 -no-prec-div")
   SET (CMAKE_Fortran_FLAGS_DEBUG   "-g -O0 -fpe0 -traceback -check all,noarg_temp_created,noformat,nooutput_conversion,pointer,uninit")
-  #SET (CMAKE_CXX_FLAGS             "${CMAKE_CXX_FLAGS} std=c++0x -lm")
-  #SET (CMAKE_CXX_FLAGS_RELEASE     "-O2 $(INSTRUCTION) -fbacktrace  -Wall -Wextra")
-  #SET (CMAKE_CXX_FLAGS_DEBUG       "-O0 -ggdb3 -funwind-tables")
   # add flags only for compiling not linking!
-  SET_TARGET_PROPERTIES(hoprlib PROPERTIES COMPILE_FLAGS "-fpp -assume bscc")
+  SET_TARGET_PROPERTIES(hoprlibF90 PROPERTIES COMPILE_FLAGS "-fpp -assume bscc")
   SET_TARGET_PROPERTIES(hopr PROPERTIES COMPILE_FLAGS "-fpp -assume bscc")
 ELSE()
    MESSAGE(ERROR "Unknown compiler")
@@ -139,7 +136,8 @@ IF(HOPR_MPI)
   ADD_DEFINITIONS(-DMPI)
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${MPI_INCLUDE_PATH}")
   SET (LINK_LIBS ${LINK_LIBS} ${MPI_LIBRARIES})
-  TARGET_LINK_LIBRARIES(hoprlib ${MPI_Fortran_LIBRARIES})
+  TARGET_LINK_LIBRARIES(hoprlibF90 ${MPI_Fortran_LIBRARIES})
+  TARGET_LINK_LIBRARIES(hoprlibC ${MPI_C_LIBRARIES})
   TARGET_LINK_LIBRARIES(hopr    ${MPI_Fortran_LIBRARIES})
   MESSAGE(STATUS "Building HOPR with MPI")
 ENDIF()
@@ -183,5 +181,5 @@ IF(NOT LAPACK_lapack_LIBRARY)
    FIND_PACKAGE(LAPACK)
 ENDIF()
 TARGET_LINK_LIBRARIES(hopr ${LAPACK_lapack_LIBRARY}) 
-TARGET_LINK_LIBRARIES(hoprlib ${LAPACK_lapack_LIBRARY}) 
+TARGET_LINK_LIBRARIES(hoprlibF90 ${LAPACK_lapack_LIBRARY}) 
 
