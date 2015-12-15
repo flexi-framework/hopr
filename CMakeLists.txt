@@ -69,6 +69,7 @@ IF (Fortran_COMPILER_NAME MATCHES "gfortran.*")
   SET (HOPR_COMPILERNAME "GNU")
   IF (HOPR_MPI)
      SET (CMAKE_Fortran_COMPILER mpif90)
+     SET (CMAKE_C_COMPILER mpicc)
      SET (CMAKE_CXX_COMPILER mpicc)
   ENDIF()
   # set Flags
@@ -84,6 +85,7 @@ ELSEIF (Fortran_COMPILER_NAME MATCHES "ifort.*")
   SET (HOPR_COMPILERNAME "INTEL")
   IF (HOPR_MPI)
      SET (CMAKE_Fortran_COMPILER mpif90)
+     SET (CMAKE_C_COMPILER mpicc)
      SET (CMAKE_CXX_COMPILER mpicc)
   ENDIF()
   # set Flags
@@ -118,8 +120,14 @@ ENDIF()
 # HDF5 library
 # =========================================================================
 #HDF5
-OPTION(HOPR_BUILDHDF5 "Compile and build hdf5 library" OFF)
+#OPTION(HOPR_BUILDHDF5 "Compile and build hdf5 library" OFF)
 SET(HOPR_HDF5DIR ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/hdf5)
+FIND_PACKAGE (HDF5 NAMES hdf5 QUIET)
+IF (NOT(HDF5_FOUND))
+  OPTION(HOPR_BUILDHDF5 "Compile and build hdf5 library" ON)
+ELSE()
+  OPTION(HOPR_BUILDHDF5 "Compile and build hdf5 library" OFF)
+ENDIF()
 IF (HOPR_BUILDHDF5)
   IF (EXISTS "${HOPR_HDF5DIR}/build/lib/libhdf5.a")
   ELSE()
@@ -127,7 +135,7 @@ IF (HOPR_BUILDHDF5)
     ExternalProject_Add(hdf5
     URL http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8.14/src/hdf5-1.8.14.tar.bz2
     PREFIX ${HOPR_HDF5DIR}
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${HOPR_HDF5DIR}/build -DHDF5_BUILD_FORTRAN=ON -DHDF5_ENABLE_PARALLEL=${HOPR_MPI}
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${HOPR_HDF5DIR}/build -DHDF5_BUILD_FORTRAN=ON -DHDF5_ENABLE_PARALLEL=${HOPR_MPI} -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_INSTALL_PREFIX=${HOPR_HDF5DIR}/build
     )
   ENDIF()
   SET(HDF5_DIR  ${HOPR_HDF5DIR}/build/lib)
@@ -153,29 +161,29 @@ ENDIF()
 # =========================================================================
 SET(HOPR_CGNSVERSION "3.2.1" CACHE STRING "CGNS version")
 SET(HOPR_CGNSDIR ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/cgns)
+find_package(CGNS QUIET)
+IF (NOT(CGNS_FOUND))
+  OPTION(HOPR_BUILDCGNS "Compile and build cgns library" ON)
+ELSE()
+  OPTION(HOPR_BUILDCGNS "Compile and build cgns library" OFF)
+ENDIF()
+
 IF (HOPR_BUILDCGNS)
-  IF (EXISTS "${HOPR_CGNSDIR}/build/lib/libcgns.a")
-  ELSE()
+  IF (NOT(EXISTS "${HOPR_CGNSDIR}/build/lib/libcgns.a"))
     include(ExternalProject)
     ExternalProject_Add(cgns
     URL https://github.com/CGNS/CGNS/archive/v${HOPR_CGNSVERSION}.tar.gz
     PATCH_COMMAND sed -i s/^c/!/g ${HOPR_CGNSDIR}/src/cgns/src/cgnslib_f.h.in
     PREFIX ${HOPR_CGNSDIR}
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${HOPR_CGNSDIR}/build -DCGNS_ENABLE_FORTRAN=ON
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${HOPR_CGNSDIR}/build -DCGNS_ENABLE_FORTRAN=ON -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_INSTALL_PREFIX=${HOPR_CGNSDIR}/build
     )
   ENDIF()
   INCLUDE_DIRECTORIES(${HOPR_CGNSDIR}/build/include)
   TARGET_LINK_LIBRARIES(hopr ${HOPR_CGNSDIR}/build/lib/libcgns.a)
 ELSE()
-  FIND_PATH(HOPR_CGNS_INCLUDE_DIR cgnslib.h
-      ${HOPR_CGNSDIR}/build/lib/.
-      /usr/local/include
-      /usr/include
-      )
-  INCLUDE_DIRECTORIES (${HOPR_CGNS_INCLUDE_DIR})
-  MESSAGE(STATUS "CGNS include dir: " ${HOPR_CGNS_INCLUDE_DIR})
-  FIND_LIBRARY(HOPR_CGNSLIB cgns ${HOPR_CGNSDIR}/build/lib/)
-  TARGET_LINK_LIBRARIES(hopr ${HOPR_CGNSLIB})
+  INCLUDE_DIRECTORIES (${CGNS_INCLUDE_DIR})
+  MESSAGE(STATUS "CGNS include dir: " ${CGNS_INCLUDE_DIR})
+  TARGET_LINK_LIBRARIES(hopr ${CGNS_LIBRARIES})
 ENDIF()
 
 # =========================================================================
