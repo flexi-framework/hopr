@@ -46,6 +46,7 @@ TARGET_LINK_LIBRARIES(hoprlibC ${LINK_LIBS})
 # define hopr executable
 ADD_EXECUTABLE(hopr ./src/hopr.f90)
 TARGET_LINK_LIBRARIES(hopr hoprlibF90 hoprlibC) 
+ADD_DEPENDENCIES(hopr hdf5 cgns)
 
 
 # =========================================================================
@@ -119,23 +120,29 @@ ENDIF()
 #HDF5
 OPTION(HOPR_BUILDHDF5 "Compile and build hdf5 library" OFF)
 IF (HOPR_BUILDHDF5)
-  include(ExternalProject)
-  ExternalProject_Add(hdf5
-  URL http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8.14/src/hdf5-1.8.14.tar.bz2
-  PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/hdf5
-  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/hdf5 -DHDF5_BUILD_FORTRAN=ON 
-  )
-  SET(HDF5_DIR ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/hdf5/share/cmake/hdf5)  
+  IF (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/hdf5/build/lib/libhdf5.a")
+  ELSE()
+    include(ExternalProject)
+    ExternalProject_Add(hdf5
+    URL http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8.14/src/hdf5-1.8.14.tar.bz2
+    PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/hdf5
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/hdf5/build -DHDF5_BUILD_FORTRAN=ON -DHDF5_ENABLE_PARALLEL=${HOPR_MPI}
+    )
+  ENDIF()
+  SET(HDF5_DIR  ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/hdf5/build/lib)
+  SET(HDF5_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/hdf5/build/include)
+  MESSAGE(STATUS "HDF5 include dir: " ${HDF5_INCLUDE_DIR})
+  INCLUDE_DIRECTORIES (${HDF5_INCLUDE_DIR})
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${HDF5_INCLUDE_DIR}")
+  TARGET_LINK_LIBRARIES(hopr ${HDF5_DIR}/libhdf5_fortran.a ${HDF5_DIR}/libhdf5_f90cstub.a ${HDF5_DIR}/libhdf5.a -ldl -lz)
+ELSE()
+  FIND_PACKAGE (HDF5 NAMES hdf5)
+  LIST(GET HDF5_INCLUDE_DIR 0 HDF5_INCLUDE_DIR)
+  MESSAGE(STATUS "HDF5 include dir: " ${HDF5_INCLUDE_DIR})
+  INCLUDE_DIRECTORIES (${HDF5_INCLUDE_DIR})
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${HDF5_INCLUDE_DIR}")
+  TARGET_LINK_LIBRARIES(hopr ${HDF5_LIBRARIES})
 ENDIF()
-
-FIND_PACKAGE (HDF5 NAMES hdf5)
-LIST(GET HDF5_INCLUDE_DIR 0 HDF5_INCLUDE_DIR)
-MESSAGE(STATUS "HDF5 include dir: " ${HDF5_INCLUDE_DIR})
-INCLUDE_DIRECTORIES (${HDF5_INCLUDE_DIR})
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${HDF5_INCLUDE_DIR}")
-TARGET_LINK_LIBRARIES(hopr ${HDF5_LIBRARIES})
-SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DH5TOOLSDIR=\"\\\"${HDF5_INCLUDE_DIR}/../bin/\\\"\"")
-MESSAGE(STATUS "Building HOPR with parallel HDF5 (HyperSlab)")
 IF (HOPR_HDF5F90)
   ADD_DEFINITIONS(-DHDF5_F90)
 ENDIF()
@@ -144,15 +151,30 @@ ENDIF()
 # CGNS library
 # =========================================================================
 SET(HOPR_CGNSVERSION "3.2.1" CACHE STRING "CGNS version")
-FIND_PATH(HOPR_CGNS_INCLUDE_DIR cgnslib.h
-    {CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/CGNS-${HOPR_CGNSVERSION}/src/.
-    /usr/local/include
-    /usr/include
+IF (HOPR_BUILDCGNS)
+  IF (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/cgns/build/lib/libcgns.a")
+  ELSE()
+    include(ExternalProject)
+    ExternalProject_Add(cgns
+    URL https://github.com/CGNS/CGNS/archive/v${HOPR_CGNSVERSION}.tar.gz
+    PATCH_COMMAND sed -i s/^c/!/g ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/cgns/src/cgns/src/cgnslib_f.h.in
+    PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/cgns
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/cgns/build -DCGNS_ENABLE_FORTRAN=ON
     )
-INCLUDE_DIRECTORIES (${HOPR_CGNS_INCLUDE_DIR})
-MESSAGE(STATUS "CGNS include dir: " ${HOPR_CGNS_INCLUDE_DIR})
-FIND_LIBRARY(HOPR_CGNSLIB cgns {CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/CGNS-${HOPR_CGNSVERSION}/src/lib)
-TARGET_LINK_LIBRARIES(hopr ${HOPR_CGNSLIB})
+  ENDIF()
+  INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/cgns/build/include)
+  TARGET_LINK_LIBRARIES(hopr ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/cgns/build/lib/libcgns.a)
+ELSE()
+  FIND_PATH(HOPR_CGNS_INCLUDE_DIR cgnslib.h
+      {CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/cgns/build/lib/.
+      /usr/local/include
+      /usr/include
+      )
+  INCLUDE_DIRECTORIES (${HOPR_CGNS_INCLUDE_DIR})
+  MESSAGE(STATUS "CGNS include dir: " ${HOPR_CGNS_INCLUDE_DIR})
+  FIND_LIBRARY(HOPR_CGNSLIB cgns {CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/CGNS-${HOPR_CGNSVERSION}/src/lib)
+  TARGET_LINK_LIBRARIES(hopr ${HOPR_CGNSLIB})
+ENDIF()
 
 # =========================================================================
 # RECIPES library
