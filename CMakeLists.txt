@@ -117,6 +117,17 @@ ENDIF()
 # HDF5 library
 # =========================================================================
 #HDF5
+OPTION(HOPR_BUILDHDF5 "Compile and build hdf5 library" OFF)
+IF (HOPR_BUILDHDF5)
+  include(ExternalProject)
+  ExternalProject_Add(hdf5
+  URL http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8.14/src/hdf5-1.8.14.tar.bz2
+  PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/hdf5
+  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/hdf5 -DHDF5_BUILD_FORTRAN=ON 
+  )
+  SET(HDF5_DIR ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/hdf5/share/cmake/hdf5)  
+ENDIF()
+
 FIND_PACKAGE (HDF5 NAMES hdf5)
 LIST(GET HDF5_INCLUDE_DIR 0 HDF5_INCLUDE_DIR)
 MESSAGE(STATUS "HDF5 include dir: " ${HDF5_INCLUDE_DIR})
