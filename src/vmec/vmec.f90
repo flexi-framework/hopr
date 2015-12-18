@@ -119,6 +119,8 @@ FUNCTION MapToVMEC(xcyl) RESULT(xvmec)
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
+USE MOD_VMEC_Mappings, ONLY: Rmnc, Zmns,phi,xm,xn,nFluxVMEC,mn_mode
+USE MOD_VMEC_Mappings, ONLY: CosTransFullMesh,SinTransFullMesh 
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -129,29 +131,56 @@ REAL, INTENT(IN)  :: xcyl(3) ! x,y,z coordinates in a cylinder of size r=0,1, z=
 REAL              :: xvmec(3) ! mapped x,y,z coordinates with vmec data
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-REAL  :: s  ! radial coordinate [0,1]
-REAL  :: phi  ! poloidal angle [0,2pi]
-REAL  :: theta ! toroidal angle [0,2pi]
-REAL  :: R,Z   
+REAL    :: phi_p  ! flux coordinate [0,1] (use radial distance of point position)
+REAL    :: theta  ! poloidal angle [0,2pi]
+REAL    :: zeta ! toroidal angle [0,2pi]
+REAL    :: R,Z   
+REAL    :: r1,r2,z1,z2,frac   
+REAL    :: phimin,phimax   
+REAL    :: phinorm(nFluxVMEC)   
+INTEGER :: s1,s2
 !===================================================================================================================================
-s     = SQRT(xcyl(1)**2+xcyl(2)**2)
-phi   = MERGE(ASIN(xcyl(1))/s,0.,(s.GT.0))
-theta = 2*Pi*xcyl(3) 
+phi_p  = SQRT(xcyl(1)**2+xcyl(2)**2)
+theta   = ATAN2(xcyl(2),xcyl(1))
+zeta   = 2*Pi*xcyl(3) 
+
+
+phinorm=(phi-phi(1))/phi(nFluxVMEC-1)
+
+phi_p=phi_p**2
+
+!! look for the nearest supporting point
+s1=1
+DO s1 = 1, nFluxVMEC
+  IF (phi_p < phinorm(s1)) EXIT
+END DO
+s2=MIN(s1+1,nFluxVMEC)
+
+IF(s1.NE.s2)THEN
+  r1 = CosTransFullMesh(mn_mode, Rmnc(:, s1), xm(:), xn(:), theta, zeta)
+  r2 = CosTransFullMesh(mn_mode, Rmnc(:, s2), xm(:), xn(:), theta, zeta)
+  z1 = SinTransFullMesh(mn_mode, Zmns(:, s1), xm(:), xn(:), theta, zeta)
+  z2 = SinTransFullMesh(mn_mode, Zmns(:, s2), xm(:), xn(:), theta, zeta)
+  frac=(phi_p-phinorm(s1))/(phinorm(s2)-phinorm(s1))
+  R=r1+frac*(r2-r1)
+  Z=z1+frac*(z2-z1)
+ELSE
+  R = CosTransFullMesh(mn_mode, Rmnc(:, s2), xm(:), xn(:), theta, zeta)
+  Z = SinTransFullMesh(mn_mode, Zmns(:, s2), xm(:), xn(:), theta, zeta)
+END IF !s1/=s2
 
 !test circular torus
 !R=xcyl(1)+10.
 !Z=xcyl(2)
 
 !test deformed torus
-R=(0.5+0.2*SIN(theta))*xcyl(1)
-Z=-SIN(3*theta)*R+COS(3*theta)*xcyl(2)
-R=10+COS(3*theta)*R+SIN(3*theta)*xcyl(2)
+!R=(0.5+0.2*SIN(zeta))*xcyl(1)
+!Z=-SIN(3*zeta)*R+COS(3*zeta)*xcyl(2)
+!R=10+COS(3*zeta)*R+SIN(3*zeta)*xcyl(2)
 
-
-xvmec(1)= R*COS(theta)
-xvmec(2)=-R*SIN(theta)
+xvmec(1)= R*COS(zeta)
+xvmec(2)=-R*SIN(zeta)
 xvmec(3)=Z
-
 
 END FUNCTION MapToVmec 
 
