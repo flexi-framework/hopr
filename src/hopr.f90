@@ -32,6 +32,7 @@ USE MOD_Mesh,        ONLY:InitMesh,FillMesh
 USE MOD_Output,      ONLY:InitOutput
 USE MOD_ReadInTools, ONLY:IgnoredStrings
 USE MOD_Search,      ONLY:InitSearch
+USE MOD_VMEC,        ONLY:InitVMEC
 #ifdef _OPENMP
 USE omp_lib
 #endif
@@ -78,6 +79,7 @@ CALL InitOutput()
 CALL InitMesh()
 CALL InitBasis()
 CALL InitSearch()
+CALL InitVMEC()
 CALL IgnoredStrings()
 ! Now build mesh!
 CALL FillMesh()

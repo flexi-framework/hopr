@@ -47,3 +47,6 @@ sfc/hilbert.c
 sfc/spacefillingcurve.f90
 sfc/sortijk.f90
 sortingtools.f90
+vmec/vmec.f90
+vmec/vmec_vars.f90
+vmec/vmec_mappings.f90

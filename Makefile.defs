@@ -16,11 +16,11 @@
 #                      NEHALEM   (HLRS Nehalem cluster)
 #                      CRAY      (HLRS Cray cluster)
 #=================================================================================================================================#
-COMPILER=GNU
+COMPILER=GNU_MPI
 MACHINE=AUTO  # AUTO, CRAY, NEHALEM or leave empty
 CGNS_INT=32
 BLAS_LAPACK=T
-BUILD_HDF5=T
+BUILD_HDF5=
 
 #=================================================================================================================================#
 # GET MACHINE ENVIRONMENT 
@@ -108,6 +108,14 @@ HDF5_INC  = -I$(HDF5_BASE)/include/
 TECLIB_VERSION = 12.0
 TECBIN_LIB = -L../share/$(SHARECOMP)/tecio-$(TECLIB_VERSION)
 TECBIN_LIBS = -ltecio -lstdc++
+
+#---------------------------------------------------------------------------------------------------------------------------------#
+# NETCDF LIBRARY
+#---------------------------------------------------------------------------------------------------------------------------------#
+NETCDF_DIR = /usr
+NETCDF_INC = -I$(NETCDF_DIR)/include
+NETCDF_LIB = -L$(NETCDF_DIR)/lib
+NETCDF_LIBS = -Wl,-rpath,$(NETCDF_DIR)/lib -lnetcdff -lnetcdf 
 
 #---------------------------------------------------------------------------------------------------------------------------------#
 # CGNS
@@ -273,9 +281,9 @@ endif
 #---------------------------------------------------------------------------------------------------------------------------------#
 # Define libs
 #---------------------------------------------------------------------------------------------------------------------------------#
-EXTERNAL_LIBS = $(HDF5_LIBS) $(SZ_LIBS) $(CGNS_LIBS) $(BLAS_LAPACK_LIBS)
-LIBDIRS       = $(HDF5_LIB)  $(SZ_LIB)  $(CGNS_LIB)  $(BLAS_LAPACK_LIB) $(OMP_LIB)
-INCDIRS       = $(HDF5_INC)  $(SZ_INC)  $(CGNS_INC)  $(BLAS_LAPACK_INC) 
+EXTERNAL_LIBS = $(HDF5_LIBS) $(SZ_LIBS) $(CGNS_LIBS) $(BLAS_LAPACK_LIBS) $(NETCDF_LIBS)
+LIBDIRS       = $(HDF5_LIB)  $(SZ_LIB)  $(CGNS_LIB)  $(BLAS_LAPACK_LIB) $(OMP_LIB) $(NETCDF_LIB)
+INCDIRS       = $(HDF5_INC)  $(SZ_INC)  $(CGNS_INC)  $(BLAS_LAPACK_INC) $(NETCDF_INC)
  
 PREPROC_LIB   = libpreproc.a
 

@@ -111,6 +111,8 @@ FUNCTION PostDeformFunc(X) RESULT(xout)
 USE MOD_Globals
 USE MOD_Mesh_Vars,ONLY:MeshPostDeform,PostDeform_R0,PostDeform_Rtorus 
 USE MOD_Mesh_Vars,ONLY:PostDeform_sq,PostDeform_Lz
+USE MOD_VMEC_Vars,ONLY:useVMEC
+USE MOD_VMEC,ONLY:MapToVMEC
 !MODULE OUTPUT VARIABLES
 ! MODULES
 ! IMPLICIT VARIABLE HANDLING
@@ -274,6 +276,9 @@ CASE(2) ! 3D box, x,y in [-1,1]^3, to Sphere with radius PostDeform_R0
   xout(1:3)=PostDeform_R0/SQRT(3.)*(x(1:3)+dx(1:3))
      
 END SELECT
+IF(useVMEC)THEN
+  xout = MapToVMEC(xout)
+END IF
 
 END FUNCTION PostDeformFunc
 
