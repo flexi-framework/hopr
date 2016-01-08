@@ -47,9 +47,24 @@ TARGET_LINK_LIBRARIES(hoprlibC ${LINK_LIBS})
 # define hopr executable
 ADD_EXECUTABLE(hopr ./src/hopr.f90)
 TARGET_LINK_LIBRARIES(hopr hoprlibF90 hoprlibC) 
-#ADD_DEPENDENCIES(hopr hdf5 cgns)
+ADD_DEPENDENCIES(hopr hdf5 cgns)
 INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/hopr DESTINATION bin)
 INSTALL(FILES  ${CMAKE_CURRENT_BINARY_DIR}/configuration.cmake DESTINATION bin)
+
+# =========================================================================
+# Additional tools for hopr
+# =========================================================================
+# Y+-Estimator
+OPTION(HOPR_BUILDYPLUSESTIMATOR "Compile and build Y+-Estimator" OFF)
+IF (HOPR_BUILDYPLUSESTIMATOR)
+  ADD_EXECUTABLE(yplusestimator ./tools/yplusestimator/yplusestimator.f90)
+  TARGET_LINK_LIBRARIES(yplusestimator hoprlibF90)
+  SET_TARGET_PROPERTIES(yplusestimator PROPERTIES LINKER_LANGUAGE Fortran)
+  INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/yplusestimator DESTINATION bin)
+  ADD_DEPENDENCIES(yplusestimator hoprlibF90)
+ENDIF()
+
+
 
 # =========================================================================
 # FLAGS
