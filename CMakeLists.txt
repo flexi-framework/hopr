@@ -1,6 +1,7 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.11)
+cmake_policy (SET CMP0046 OLD)
 PROJECT(Hopr)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 ENABLE_LANGUAGE(C Fortran)
 
 # =========================================================================
@@ -46,8 +47,8 @@ TARGET_LINK_LIBRARIES(hoprlibC ${LINK_LIBS})
 # define hopr executable
 ADD_EXECUTABLE(hopr ./src/hopr.f90)
 TARGET_LINK_LIBRARIES(hopr hoprlibF90 hoprlibC) 
-ADD_DEPENDENCIES(hopr hdf5 cgns)
-
+#ADD_DEPENDENCIES(hopr hdf5 cgns)
+INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/hopr DESTINATION bin)
 
 # =========================================================================
 # FLAGS
@@ -74,11 +75,11 @@ IF (Fortran_COMPILER_NAME MATCHES "gfortran.*")
   ENDIF()
   # set Flags
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-double-8 -fbackslash -DGNU")
-  SET (CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native  -finline-functions")
-  SET (CMAKE_Fortran_FLAGS_DEBUG   "-g -O0 -ggdb3 -fbounds-check -finit-real=nan -fbacktrace  -Wall")
+  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3 -march=native  -finline-functions")
+  SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -ggdb3 -fbounds-check -finit-real=nan -fbacktrace  -Wall")
   # add flags only for compiling not linking!
   SET_TARGET_PROPERTIES(hoprlibF90 PROPERTIES COMPILE_FLAGS "-xf95-cpp-input")
-  SET_TARGET_PROPERTIES(hopr PROPERTIES COMPILE_FLAGS "-xf95-cpp-input")
+  SET_TARGET_PROPERTIES(hopr       PROPERTIES COMPILE_FLAGS "-xf95-cpp-input")
 ELSEIF (Fortran_COMPILER_NAME MATCHES "ifort.*")
   # ifort
   # set compiler
@@ -90,15 +91,15 @@ ELSEIF (Fortran_COMPILER_NAME MATCHES "ifort.*")
   ENDIF()
   # set Flags
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -DINTEL")
-  SET (CMAKE_Fortran_FLAGS_RELEASE "-O2 $(INSTRUCTION) -vec-report0 -no-prec-div")
-  SET (CMAKE_Fortran_FLAGS_DEBUG   "-g -O0 -fpe0 -traceback -check all,noarg_temp_created,noformat,nooutput_conversion,pointer,uninit")
-  SET (CMAKE_C_FLAGS_RELEASE "-O2 -xHost -ip")
-  SET (CMAKE_C_FLAGS_DEBUG "-g")
-  SET (CMAKE_CXX_FLAGS_RELEASE "-O2 -xHost -ip")
-  SET (CMAKE_CXX_FLAGS_DEBUG "-g")
+  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O2 $(INSTRUCTION) -vec-report0 -no-prec-div")
+  SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check all,noarg_temp_created,noformat,nooutput_conversion,pointer,uninit")
+  SET (CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS} -O2 -xHost -ip")
+  SET (CMAKE_C_FLAGS_DEBUG     "${CMAKE_C_FLAGS} -g")
+  SET (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O2 -xHost -ip")
+  SET (CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS} -g")
   # add flags only for compiling not linking!
   SET_TARGET_PROPERTIES(hoprlibF90 PROPERTIES COMPILE_FLAGS "-fpp -assume bscc")
-  SET_TARGET_PROPERTIES(hopr PROPERTIES COMPILE_FLAGS "-fpp -assume bscc")
+  SET_TARGET_PROPERTIES(hopr       PROPERTIES COMPILE_FLAGS "-fpp -assume bscc")
 ELSE()
    MESSAGE(ERROR "Unknown compiler")
 ENDIF()
@@ -134,28 +135,32 @@ ELSE()
 ENDIF()
 IF (HOPR_BUILDHDF5)
   SET(HOPR_HDF5VERSION 1.8.16 CACHE STRING "Sets the version of the hdf5 library")
-  IF (EXISTS "${HOPR_HDF5DIR}/build/lib/libhdf5.a")
+  IF ("${CMAKE_VERSION}" VERSION_GREATER 3.2.0)
+    IF (EXISTS "${HOPR_HDF5DIR}/build/lib/libhdf5.a")
+    ELSE()
+      include(ExternalProject)
+      ExternalProject_Add(hdf5
+        URL http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-${HOPR_HDF5VERSION}/src/hdf5-${HOPR_HDF5VERSION}.tar.bz2
+        PREFIX ${HOPR_HDF5DIR}
+        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${HOPR_HDF5DIR}/build -DHDF5_BUILD_CPP_LIB=OFF -DHDF5_BUILD_FORTRAN=ON -DHDF5_ENABLE_PARALLEL=${HOPR_MPI} -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=OFF -DHDF5_BUILD_EXAMPLES=OFF -DHDF5_BUILD_TOOLS=OFF -DHDF5_BUILD_HL_LIB=OFF -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS_RELEASE} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS_RELEASE} -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${HOPR_HDF5DIR}/build
+      )
+    ENDIF()
+    SET(HDF5_DIR  ${HOPR_HDF5DIR}/build/lib)
+    SET(HDF5_INCLUDE_DIR ${HOPR_HDF5DIR}/build/include/static)
+    MESSAGE(STATUS "HDF5 include dir: " ${HDF5_INCLUDE_DIR})
+    INCLUDE_DIRECTORIES (${HDF5_INCLUDE_DIR})
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${HDF5_INCLUDE_DIR}")
+    TARGET_LINK_LIBRARIES(hopr ${HDF5_DIR}/libhdf5_fortran.a ${HDF5_DIR}/libhdf5_f90cstub.a ${HDF5_DIR}/libhdf5.a -ldl -lz)
   ELSE()
-    include(ExternalProject)
-    ExternalProject_Add(hdf5
-      URL http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-${HOPR_HDF5VERSION}/src/hdf5-${HOPR_HDF5VERSION}.tar.bz2
-      PREFIX ${HOPR_HDF5DIR}
-      CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${HOPR_HDF5DIR}/build -DHDF5_BUILD_FORTRAN=ON -DHDF5_ENABLE_PARALLEL=${HOPR_MPI} -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS_RELEASE} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS_RELEASE} -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${HOPR_HDF5DIR}/build
-    )
+    #use configure script for hdf5 (too old cmake for hdf5 configuration)
   ENDIF()
-  SET(HDF5_DIR  ${HOPR_HDF5DIR}/build/lib)
-  SET(HDF5_INCLUDE_DIR ${HOPR_HDF5DIR}/build/include/static)
-  MESSAGE(STATUS "HDF5 include dir: " ${HDF5_INCLUDE_DIR})
-  INCLUDE_DIRECTORIES (${HDF5_INCLUDE_DIR})
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${HDF5_INCLUDE_DIR}")
-  TARGET_LINK_LIBRARIES(hopr ${HDF5_DIR}/libhdf5_fortran.a ${HDF5_DIR}/libhdf5_f90cstub.a ${HDF5_DIR}/libhdf5.a -ldl -lz)
 ELSE()
-  FIND_PACKAGE (HDF5 NAMES hdf5)
+  FIND_PACKAGE (HDF5 NAMES hdf5 COMPONENTS Fortran static)
   LIST(GET HDF5_INCLUDE_DIR 0 HDF5_INCLUDE_DIR)
-  MESSAGE(STATUS "HDF5 include dir: " ${HDF5_INCLUDE_DIR})
-  INCLUDE_DIRECTORIES (${HDF5_INCLUDE_DIR})
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${HDF5_INCLUDE_DIR}")
-  TARGET_LINK_LIBRARIES(hopr ${HDF5_LIBRARIES})
+  MESSAGE(STATUS "HDF5 include dir: " ${HDF5_INCLUDE_DIR_FORTRAN})
+  INCLUDE_DIRECTORIES (${HDF5_INCLUDE_DIR_FORTRAN})
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${HDF5_INCLUDE_DIR_FORTRAN}")
+  TARGET_LINK_LIBRARIES(hopr ${HDF5_FORTRAN_STATIC_LIBRARY} ${HDF5_LIBRARIES})
 ENDIF()
 IF (HOPR_HDF5F90)
   ADD_DEFINITIONS(-DHDF5_F90)
