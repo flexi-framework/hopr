@@ -49,6 +49,7 @@ ADD_EXECUTABLE(hopr ./src/hopr.f90)
 TARGET_LINK_LIBRARIES(hopr hoprlibF90 hoprlibC) 
 #ADD_DEPENDENCIES(hopr hdf5 cgns)
 INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/hopr DESTINATION bin)
+INSTALL(FILES  ${CMAKE_CURRENT_BINARY_DIR}/configuration.cmake DESTINATION bin)
 
 # =========================================================================
 # FLAGS
@@ -211,3 +212,29 @@ ENDIF()
 TARGET_LINK_LIBRARIES(hopr ${LAPACK_lapack_LIBRARY}) 
 TARGET_LINK_LIBRARIES(hoprlibF90 ${LAPACK_lapack_LIBRARY}) 
 
+# =========================================================================
+# store configuration
+# =========================================================================
+# A function to get all user defined variables with a specified prefix
+function (getListOfVarsStartingWith _prefix _varResult)
+    get_cmake_property(_vars CACHE_VARIABLES)
+    string (REGEX MATCHALL "(^|;)${_prefix}[A-Za-z0-9_]*" _matchedVars "${_vars}")
+    set (${_varResult} ${_matchedVars} PARENT_SCOPE)
+endfunction()
+
+# A function to get all user defined variables with a specified prefix
+SET(configuration ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/configuration.cmake)
+FILE(WRITE ${configuration} "")
+GETLISTOFVARSSTARTINGWITH("HOPR_" hoprVars)
+FOREACH (_var IN LISTS hoprVars)
+   GET_PROPERTY(currentHelpString CACHE "${_var}" PROPERTY HELPSTRING)
+   SET(boolian (${${_var}} STREQUAL "ON" OR ${${_var}} STREQUAL "OFF")) 
+   IF(${boolian})
+      FILE(APPEND ${configuration} "OPTION(${_var} \"${currentHelpString}\" ${${_var}})\n")
+   ELSE()
+      IF(${_var})
+         STRING(REPLACE "\\" "\\\\" ${_var} ${${_var}})
+      ENDIF()
+      FILE(APPEND ${configuration} "SET(${_var} \"${${_var}}\" CACHE STRING \"${currentHelpString}\")\n")
+   ENDIF()
+ENDFOREACH()
