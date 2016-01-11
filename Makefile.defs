@@ -16,11 +16,11 @@
 #                      NEHALEM   (HLRS Nehalem cluster)
 #                      CRAY      (HLRS Cray cluster)
 #=================================================================================================================================#
-COMPILER=GNU
+COMPILER=GNU_MPI
 MACHINE=AUTO  # AUTO, CRAY, NEHALEM or leave empty
 CGNS_INT=32
 BLAS_LAPACK=T
-BUILD_HDF5=T
+BUILD_HDF5=
 
 #=================================================================================================================================#
 # GET MACHINE ENVIRONMENT 
@@ -78,6 +78,10 @@ endif
 ifneq ($(wildcard $(HDF5_BASE)/share/cmake/hdf5/FindHDF5.cmake), )
   HDF5_LIBS  = -lhdf5_fortran -lhdf5_f90cstub -lhdf5
 endif
+#HDF5 Version 1.8.15
+ifneq ($(wildcard $(HDF5_BASE)/share/cmake/FindHDF5.cmake), )
+  HDF5_LIBS  = -lhdf5_fortran -lhdf5_f90cstub -lhdf5
+endif
 
 # HDF5 requires DL lib and Zlib
 HDF5_LIBS += -ldl -lz
@@ -100,7 +104,7 @@ ifeq ($(findstring HYDRA,$(MACHINE)),HYDRA)
 endif
 
 HDF5_LIB  = -L$(HDF5_BASE)/lib/
-HDF5_INC  = -I$(HDF5_BASE)/include/
+HDF5_INC  = -I$(HDF5_BASE)/include
 
 #---------------------------------------------------------------------------------------------------------------------------------#
 # Tecplot Binary
