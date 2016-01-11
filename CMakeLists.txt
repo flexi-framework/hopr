@@ -1,7 +1,10 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.11)
 cmake_policy (SET CMP0046 OLD)
 PROJECT(Hopr)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
+SET(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
+SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
 ENABLE_LANGUAGE(C Fortran)
 
 # =========================================================================
@@ -30,7 +33,8 @@ ENDIF()
 # =========================================================================
 
 # include hopr.h 
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src)
+FILE(COPY ${CMAKE_CURRENT_SOURCE_DIR}/src/defines.f90 DESTINATION ${CMAKE_Fortran_MODULE_DIRECTORY})
+INCLUDE_DIRECTORIES(${CMAKE_Fortran_MODULE_DIRECTORY})
 
 # collect all F90 files needed for hoprlib
 FILE(GLOB_RECURSE hoprF90 ./src/basis/*.f90 ./src/mesh/*.f90 ./src/output/*.f90 ./src/readin/*.f90 ./src/search/*.f90 ./src/sfc/*.f90 globals.f90 headers.f90 io_hdf5.f90 sortingtools.f90)
@@ -48,8 +52,8 @@ TARGET_LINK_LIBRARIES(hoprlibC ${LINK_LIBS})
 ADD_EXECUTABLE(hopr ./src/hopr.f90)
 TARGET_LINK_LIBRARIES(hopr hoprlibF90 hoprlibC) 
 ADD_DEPENDENCIES(hopr hdf5 cgns)
-INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/hopr DESTINATION bin)
-INSTALL(FILES  ${CMAKE_CURRENT_BINARY_DIR}/configuration.cmake DESTINATION bin)
+INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/hopr DESTINATION bin)
+INSTALL(FILES  ${CMAKE_CURRENT_BINARY_DIR}/bin/configuration.cmake DESTINATION bin)
 
 # =========================================================================
 # Additional tools for hopr
@@ -60,7 +64,7 @@ IF (HOPR_BUILDYPLUSESTIMATOR)
   ADD_EXECUTABLE(yplusestimator ./tools/yplusestimator/yplusestimator.f90)
   TARGET_LINK_LIBRARIES(yplusestimator hoprlibF90)
   SET_TARGET_PROPERTIES(yplusestimator PROPERTIES LINKER_LANGUAGE Fortran)
-  INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/yplusestimator DESTINATION bin)
+  INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/yplusestimator DESTINATION bin)
   ADD_DEPENDENCIES(yplusestimator hoprlibF90)
 ENDIF()
 
