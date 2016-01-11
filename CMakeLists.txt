@@ -1,5 +1,7 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.11)
-cmake_policy (SET CMP0046 OLD)
+IF ("${CMAKE_VERSION}" VERSION_GREATER 3.0.0)
+  cmake_policy (SET CMP0046 OLD)
+ENDIF()
 PROJECT(Hopr)
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 SET(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
@@ -176,6 +178,22 @@ IF (HOPR_BUILDHDF5)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${HDF5_INCLUDE_DIR}")
     TARGET_LINK_LIBRARIES(hopr ${HDF5_DIR}/libhdf5_fortran.a ${HDF5_DIR}/libhdf5_f90cstub.a ${HDF5_DIR}/libhdf5.a -ldl -lz)
   ELSE()
+    IF (EXISTS "${HOPR_HDF5DIR}/lib/libhdf5.a")
+    ELSE()
+      include(ExternalProject)
+      ExternalProject_Add(hdf5
+        URL http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-${HOPR_HDF5VERSION}/src/hdf5-${HOPR_HDF5VERSION}.tar.bz2
+        PREFIX ${HOPR_HDF5DIR}
+        CONFIGURE_COMMAND FC=${CMAKE_FORTRAN_COMPULER} CC=${CMAKE_C_COMPILER} ${HOPR_HDF5DIR}/src/hdf5/configure --prefix=${HOPR_HDF5DIR} --enable-fortran --disable-shared
+        BUILD_COMMAND ${MAKE}
+      )
+    ENDIF()
+    SET(HDF5_DIR  ${HOPR_HDF5DIR}/lib)
+    SET(HDF5_INCLUDE_DIR ${HOPR_HDF5DIR}/include)
+    MESSAGE(STATUS "HDF5 include dir: " ${HDF5_INCLUDE_DIR})
+    INCLUDE_DIRECTORIES (${HDF5_INCLUDE_DIR})
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${HDF5_INCLUDE_DIR}")
+    TARGET_LINK_LIBRARIES(hopr ${HDF5_DIR}/libhdf5_fortran.a ${HDF5_DIR}/libhdf5.a -ldl -lz)
     #use configure script for hdf5 (too old cmake for hdf5 configuration)
   ENDIF()
 ELSE()
