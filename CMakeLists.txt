@@ -7,7 +7,6 @@ SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 SET(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
 SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
-ENABLE_LANGUAGE(C Fortran)
 
 # =========================================================================
 # Options
@@ -16,6 +15,7 @@ OPTION(HOPR_MPI "Compile SINGLE or MPI version" ON)
 OPTION(HOPR_HDF5F90 "enable old hdf5 interface" OFF)
 SET(HOPR_CGNS_INT "32" CACHE STRING "integer type in CGNS lib")
 ADD_DEFINITIONS(-DPP_CGNS_INT=${HOPR_CGNS_INT})
+ENABLE_LANGUAGE(C CXX Fortran)
 # =========================================================================
 # Machine environements
 # =========================================================================
@@ -70,14 +70,13 @@ IF (HOPR_BUILDYPLUSESTIMATOR)
   ADD_DEPENDENCIES(yplusestimator hoprlibF90)
 ENDIF()
 
-
-
 # =========================================================================
 # FLAGS
 # =========================================================================
 
 # append relative filename-macro for __FILENAME__ in Stamp of abort function (see globals.f90)
 SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -D__FILENAME__='\"$(subst ${CMAKE_SOURCE_DIR}/,,$(abspath $<))\"'")
+
 
 # =========================================================================
 # COMPILER STUFF
@@ -86,7 +85,7 @@ SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -D__FILENAME__='\"$(subst ${CMAK
 # FFLAGS depend on the compiler
 GET_FILENAME_COMPONENT (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 
-IF (Fortran_COMPILER_NAME MATCHES "gfortran.*")
+IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   # gfortran
   # set compiler
   SET (HOPR_COMPILERNAME "GNU")
@@ -102,7 +101,7 @@ IF (Fortran_COMPILER_NAME MATCHES "gfortran.*")
   # add flags only for compiling not linking!
   SET_TARGET_PROPERTIES(hoprlibF90 PROPERTIES COMPILE_FLAGS "-xf95-cpp-input")
   SET_TARGET_PROPERTIES(hopr       PROPERTIES COMPILE_FLAGS "-xf95-cpp-input")
-ELSEIF (Fortran_COMPILER_NAME MATCHES "ifort.*")
+ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   # ifort
   # set compiler
   SET (HOPR_COMPILERNAME "INTEL")
