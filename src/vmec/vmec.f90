@@ -69,6 +69,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 CHARACTER(LEN = 256) :: dataFile
 INTEGER              :: ioError
+INTEGER              :: iMode,iEven,iOdd
 
   NAMELIST / input / outDir, intPointsU, intPointsV, mapEuterpe, useArcTan,&
        useRho, gyroperp, rGridPoints, zGridPoints, nPhiCuts, startCut, endCut,&
@@ -109,6 +110,26 @@ IF(useVMEC)THEN
   !! read VMEC 2000 output (netcdf)
   CALL ReadVmecOutput(dataFile)
 
+  mn_mEven=0
+  DO iMode=1,mn_mode
+    IF(MOD(xm(iMode),2.).EQ.0.) mn_mEven=mn_mEven+1
+  END DO ! i=1,mn_mode
+
+  mn_mOdd=mn_mode-mn_mEven
+  ALLOCATE(mn_mapOdd(mn_mOdd),mn_mapEven(mn_mEven))
+  iEven=0
+  iOdd=0
+  DO iMode=1,mn_mode
+    IF(MOD(xm(iMode),2.).EQ.0.) THEN
+      iEven=iEven+1
+      mn_mapEven(iEven)=iMode
+    ELSE
+      iOdd=iOdd+1
+      mn_mapOdd(iOdd)=iMode
+    END IF !even
+  END DO ! i=1,mn_mode
+  WRITE(UNIT_stdOut,*)'   Total Number of mn-modes:',mn_mode
+  WRITE(UNIT_stdOut,*)'   Number of even(m) and odd(m) mn-modes:',mn_mEven,mn_mOdd
 END IF !useVMEC
 
 WRITE(UNIT_stdOut,'(A)')'... DONE'
@@ -121,6 +142,7 @@ FUNCTION MapToVMEC(xcyl) RESULT(xvmec)
 USE MOD_Globals
 USE MOD_VMEC_Mappings, ONLY: Rmnc, Zmns,phi,xm,xn,nFluxVMEC,mn_mode
 USE MOD_VMEC_Mappings, ONLY: CosTransFullMesh,SinTransFullMesh 
+USE MOD_VMEC_Vars, ONLY: mn_mEven,mn_mOdd,mn_mapOdd,mn_mapEven
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -135,7 +157,8 @@ REAL    :: phi_p  ! flux coordinate [0,1] (use radial distance of point position
 REAL    :: theta  ! poloidal angle [0,2pi]
 REAL    :: zeta ! toroidal angle [0,2pi]
 REAL    :: R,Z   
-REAL    :: r1,r2,z1,z2,frac   
+REAL    :: r1e,r2e,z1e,z2e
+REAL    :: r1o,r2o,z1o,z2o,frac,w1,w2 
 REAL    :: phimin,phimax   
 REAL    :: phinorm(nFluxVMEC)   
 INTEGER :: s1,s2
@@ -157,14 +180,25 @@ END DO
 s2=MIN(s1+1,nFluxVMEC)
 
 IF(s1.NE.s2)THEN
-  r1 = CosTransFullMesh(mn_mode, Rmnc(:, s1), xm(:), xn(:), theta, zeta)
-  r2 = CosTransFullMesh(mn_mode, Rmnc(:, s2), xm(:), xn(:), theta, zeta)
-  z1 = SinTransFullMesh(mn_mode, Zmns(:, s1), xm(:), xn(:), theta, zeta)
-  z2 = SinTransFullMesh(mn_mode, Zmns(:, s2), xm(:), xn(:), theta, zeta)
+  !evaluate only modes with m= even
+  r1e = CosTransFullMesh(mn_mEven, Rmnc(mn_mapEven, s1), xm(mn_mapEven), xn(mn_mapEven), theta, zeta)
+  r2e = CosTransFullMesh(mn_mEven, Rmnc(mn_mapEven, s2), xm(mn_mapEven), xn(mn_mapEven), theta, zeta)
+  z1e = SinTransFullMesh(mn_mEven, Zmns(mn_mapEven, s1), xm(mn_mapEven), xn(mn_mapEven), theta, zeta)
+  z2e = SinTransFullMesh(mn_mEven, Zmns(mn_mapEven, s2), xm(mn_mapEven), xn(mn_mapEven), theta, zeta)
+  !evaluate only modes with m= odd
+  r1o = CosTransFullMesh(mn_mOdd , Rmnc(mn_mapOdd , s1), xm(mn_mapOdd ), xn(mn_mapOdd ), theta, zeta)
+  r2o = CosTransFullMesh(mn_mOdd , Rmnc(mn_mapOdd , s2), xm(mn_mapOdd ), xn(mn_mapOdd ), theta, zeta)
+  z1o = SinTransFullMesh(mn_mOdd , Zmns(mn_mapOdd , s1), xm(mn_mapOdd ), xn(mn_mapOdd ), theta, zeta)
+  z2o = SinTransFullMesh(mn_mOdd , Zmns(mn_mapOdd , s2), xm(mn_mapOdd ), xn(mn_mapOdd ), theta, zeta)
+  !interpolation factor
   frac=(phi_p-phinorm(s1))/(phinorm(s2)-phinorm(s1))
-  R=r1+frac*(r2-r1)
-  Z=z1+frac*(z2-z1)
+  ! interpolation of odd modes with weighting sqrt(phi) * ((1-frac) * r1/sqrt(phi_1) + frac* r2/sqrt(phi_2))
+  w1=SQRT(phi_p/phinorm(s1))
+  w2=SQRT(phi_p/phinorm(s2))
+  R=(1.-frac)*(r1e+w1*r1o) + frac*(r2e+w2*r2o)
+  Z=(1.-frac)*(z1e+w1*z1o) + frac*(z2e+w2*z2o)
 ELSE
+  !weighting with sqrt(s) cancels, evaluate all modes at s2.
   R = CosTransFullMesh(mn_mode, Rmnc(:, s2), xm(:), xn(:), theta, zeta)
   Z = SinTransFullMesh(mn_mode, Zmns(:, s2), xm(:), xn(:), theta, zeta)
 END IF !s1/=s2
