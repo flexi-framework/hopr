@@ -103,6 +103,9 @@ IF(useVMEC)THEN
   !! read VMEC 2000 output (netcdf)
   CALL ReadVmecOutput(dataFile)
 
+  ALLOCATE(phinorm(nFluxVMEC))
+  phinorm=(phi-phi(1))/phi(nFluxVMEC-1)
+
   !find even and odd m-modes, to seperately evalute them
   mn_mEven=0
   DO iMode=1,mn_mode
@@ -134,9 +137,9 @@ FUNCTION MapToVMEC(xcyl) RESULT(xvmec)
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
-USE MOD_VMEC_Mappings, ONLY: Rmnc, Zmns,phi,xm,xn,nFluxVMEC,mn_mode
-USE MOD_VMEC_Mappings, ONLY: CosTransFullMesh,SinTransFullMesh 
-USE MOD_VMEC_Vars, ONLY: mn_mEven,mn_mOdd,mn_mapOdd,mn_mapEven
+USE MOD_VMEC_Mappings, ONLY: mn_mode,xm,xn,Rmnc, Zmns,lUmnc,lVmnc
+USE MOD_VMEC_Mappings, ONLY: nFluxVMEC,phi,phipf,iotas
+USE MOD_VMEC_Vars,     ONLY: phinorm,mn_mEven,mn_mOdd,mn_mapOdd,mn_mapEven
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -147,24 +150,25 @@ REAL, INTENT(IN)  :: xcyl(3) ! x,y,z coordinates in a cylinder of size r=0,1, z=
 REAL              :: xvmec(3) ! mapped x,y,z coordinates with vmec data
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+INTEGER :: s1,s2
+REAL    :: CosMN(mn_mode),SinMN(mn_mode)
 REAL    :: phi_p  ! flux coordinate [0,1] (use radial distance of point position)
 REAL    :: theta  ! poloidal angle [0,2pi]
 REAL    :: zeta ! toroidal angle [0,2pi]
 REAL    :: R,Z   
-REAL    :: r1e,r2e,z1e,z2e
-REAL    :: r1o,r2o,z1o,z2o,frac,w1,w2 
+REAL    :: f1,f2,w1,w2 
 REAL    :: phimin,phimax   
-REAL    :: phinorm(nFluxVMEC)   
-INTEGER :: s1,s2
+REAL    :: phipf_int,iotas_int
+REAL    :: Btheta,Bzeta
 !===================================================================================================================================
-phi_p  = SQRT(xcyl(1)**2+xcyl(2)**2)
+phi_p  = SQRT(xcyl(1)**2+xcyl(2)**2) 
 theta   = ATAN2(xcyl(2),xcyl(1))
 zeta   = 2*Pi*xcyl(3) 
 
+CosMN  = COS(xm(:) * theta - xn(:) * zeta)
+SinMN  = SIN(xm(:) * theta - xn(:) * zeta)
 
-phinorm=(phi-phi(1))/phi(nFluxVMEC-1)
-
-phi_p=phi_p**2
+phi_p=phi_p**2 ! use scaling of radius to phi evaluation variable
 
 !! look for the nearest supporting point
 s1=1
@@ -174,27 +178,33 @@ END DO
 s2=MIN(s1+1,nFluxVMEC)
 
 IF(s1.NE.s2)THEN
-  !evaluate only modes with m= even
-  r1e = CosTransFullMesh(mn_mEven, Rmnc(mn_mapEven, s1), xm(mn_mapEven), xn(mn_mapEven), theta, zeta)
-  r2e = CosTransFullMesh(mn_mEven, Rmnc(mn_mapEven, s2), xm(mn_mapEven), xn(mn_mapEven), theta, zeta)
-  z1e = SinTransFullMesh(mn_mEven, Zmns(mn_mapEven, s1), xm(mn_mapEven), xn(mn_mapEven), theta, zeta)
-  z2e = SinTransFullMesh(mn_mEven, Zmns(mn_mapEven, s2), xm(mn_mapEven), xn(mn_mapEven), theta, zeta)
-  !evaluate only modes with m= odd
-  r1o = CosTransFullMesh(mn_mOdd , Rmnc(mn_mapOdd , s1), xm(mn_mapOdd ), xn(mn_mapOdd ), theta, zeta)
-  r2o = CosTransFullMesh(mn_mOdd , Rmnc(mn_mapOdd , s2), xm(mn_mapOdd ), xn(mn_mapOdd ), theta, zeta)
-  z1o = SinTransFullMesh(mn_mOdd , Zmns(mn_mapOdd , s1), xm(mn_mapOdd ), xn(mn_mapOdd ), theta, zeta)
-  z2o = SinTransFullMesh(mn_mOdd , Zmns(mn_mapOdd , s2), xm(mn_mapOdd ), xn(mn_mapOdd ), theta, zeta)
   !interpolation factor
-  frac=(phi_p-phinorm(s1))/(phinorm(s2)-phinorm(s1))
+  f2=(phi_p-phinorm(s1))/(phinorm(s2)-phinorm(s1))
+  f1=1.-f2 
   ! interpolation of odd modes with weighting sqrt(phi) * ((1-frac) * r1/sqrt(phi_1) + frac* r2/sqrt(phi_2))
   w1=SQRT(phi_p/phinorm(s1))
   w2=SQRT(phi_p/phinorm(s2))
-  R=(1.-frac)*(r1e+w1*r1o) + frac*(r2e+w2*r2o)
-  Z=(1.-frac)*(z1e+w1*z1o) + frac*(z2e+w2*z2o)
+
+  R=InterpolateData(f1,f2,w1,w2,CosMN,Rmnc(:,s1),Rmnc(:,s2))
+
+  Z=InterpolateData(f1,f2,w1,w2,SinMN,Zmns(:,s1),Zmns(:,s2))
+
+  !compute magnetic field: 
+  ! B^s     = 0 
+  ! B^theta = dphi/ds*(iota-dlambda/dzeta)  : phipf*(iotas -  (lVmnc) ) (iotas & lmns are overwritten to full mesh)
+  ! B^zeta = dphi/ds*(1+dlambda/dtheta)     : phipf*(1+ (lUmnc) )
+  phipf_int = f1*phipf(s1)+f2*phipf(s2)
+  iotas_int = f1*iotas(s1)+f2*iotas(s2) 
+
+  Btheta = phipf_int*(iotas_int - InterpolateData(f1,f2,w1,w2,CosMN,lVmnc(:,s1),lVmnc(:,s2)))
+
+  Bzeta  = phipf_int*(1.        + InterpolateData(f1,f2,w1,w2,CosMN,lUmnc(:,s1),lUmnc(:,s2)))
 ELSE
   !weighting with sqrt(s) cancels, evaluate all modes at s2.
-  R = CosTransFullMesh(mn_mode, Rmnc(:, s2), xm(:), xn(:), theta, zeta)
-  Z = SinTransFullMesh(mn_mode, Zmns(:, s2), xm(:), xn(:), theta, zeta)
+  R = SUM(Rmnc(:, s2)*CosMN(:))
+  Z = SUM(Zmns(:, s2)*SinMN(:))
+  Btheta = phipf(s2)*(iotas(s2) - SUM(lVmnc(:, s2)*CosMN(:)))
+  Bzeta  = phipf(s2)*(1.        + SUM(lUmnc(:, s2)*CosMN(:)))
 END IF !s1/=s2
 
 !test circular torus
@@ -208,9 +218,40 @@ END IF !s1/=s2
 
 xvmec(1)= R*COS(zeta)
 xvmec(2)=-R*SIN(zeta)
-xvmec(3)=Z
+xvmec(3)= Z
 
 END FUNCTION MapToVmec 
 
+
+FUNCTION InterpolateData(f1,f2,w1,w2,trig_mn,Xmn_s1,Xmn_s2)
+!===================================================================================================================================
+! MODULES
+USE MOD_Globals
+USE MOD_VMEC_Mappings, ONLY: xm,xn,mn_mode
+USE MOD_VMEC_Vars, ONLY: mn_mEven,mn_mOdd,mn_mapOdd,mn_mapEven
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+REAL, INTENT(IN)  :: f1,f2,w1,w2
+REAL, INTENT(IN)  :: trig_mn(mn_mode) ! sin or cos evaluated at theta,zeta
+REAL, INTENT(IN)  :: Xmn_s1( mn_mode) ! variable in fourier space to interpolate
+REAL, INTENT(IN)  :: Xmn_s2( mn_mode) ! variable in fourier space to interpolate
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+REAL              :: InterpolateData
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL              :: val1e,val2e,val1o,val2o
+!===================================================================================================================================
+  !evaluate only modes with m= even
+  val1e = SUM(trig_mn(mn_mapEven)*xmn_s1(mn_mapEven))
+  val2e = SUM(trig_mn(mn_mapEven)*xmn_s2(mn_mapEven))
+  !evaluate only modes with m= odd
+  val1o = SUM(trig_mn(mn_mapOdd)*xmn_s1(mn_mapOdd))
+  val2o = SUM(trig_mn(mn_mapOdd)*xmn_s2(mn_mapOdd))
+
+  InterpolateData=f1*(val1e+w1*val1o) + f2*(val2e+w2*val2o)
+END FUNCTION InterpolateData
 
 END MODULE MOD_VMEC
