@@ -34,18 +34,6 @@ MODULE MOD_VMEC_Mappings
 !> MPI error
   INTEGER :: ierr
 
-!> write mapping for Euterpe (default: .TRUE.)
-  LOGICAL :: mapEuterpe = .TRUE.
-
-!> use sqrt(s) as radial coordinate (default: .FALSE.)
-  LOGICAL :: useRho = .FALSE.
-
-!> write values for interpolation using arcus tangens
-  LOGICAL :: useArcTan = .FALSE.
-
-!> write data for perpendicular gyro ring
-  LOGICAL :: gyroperp = .FALSE.
-
 !> maximal number of iteration for GMRES
   INTEGER, PARAMETER :: itSolMaxIter = 800
 
@@ -61,91 +49,11 @@ MODULE MOD_VMEC_Mappings
 !> number of integration points in v direction
   INTEGER :: intPointsV = 128
 
-!> use secant method instead of newton method
-  LOGICAL :: useSecant = .FALSE.
-
-!> convergence criterion for the Newton method
-  REAL(KIND = hp) :: newtonEps = 1E-8_hp
-
-!> maximum number of newton iterations
-  INTEGER :: newtonMax = 100
-
-!> maximal number of recursions in FindInterSection
-!> per recursion relaxation is changed by factor of relax
-  INTEGER :: maxRec = 50
-
-!> number of grid points in R direction
-  INTEGER :: rGridPoints = 51
-
-!> number of grid points in z direction
-  INTEGER :: zGridPoints = 51
-
-!> number of flux surfaces to store
-  INTEGER :: nFlux = -1
-
-!> last extrapolated "flux" surface
-  REAL(KIND = hp) :: lastExtS = 1.1_hp
-
-!> number of flux surfaces outside of s = 1
-  INTEGER :: nExtraFlux = -1
-
-!> number of theta values to store
-  INTEGER :: nTheta = 128
-
-!> number of points in u direction for searching ray starting point
-  INTEGER :: nPointsU = 512
-
 !> number of grid points in u direction
-  INTEGER :: nu = 100
+!  INTEGER :: nu = 100
 
 !> number of grid points in v direction
-  INTEGER :: nv = 100
-
-!> number of interpolation points for theta grid (default: 200)
-  INTEGER :: nThetaInt = 200
-
-!> number of interpolation points for phi grid (default: 200)
-  INTEGER :: nPhiInt = 200
-
-!> number of phi cuts
-  INTEGER :: nPhiCuts = 64
-
-!> starting cut
-  INTEGER :: startCut = -1
-
-!> ending cut
-  INTEGER :: endCut = -1
-
-!> number geometrical angles for mapping from geometrical angle to PEST angle
-!> theta
-  INTEGER :: nGeomAngle = 360
-
-!> relaxation factor
-  REAL(KIND = hp) :: relax = .97_hp
-
-!> distance until values is extrapolated (with respect to s = 1 flux surface)
-  REAL(KIND = hp) :: constFac = 2.5_hp
-
-!> number of inner flux surfaces for mapping near the center
-  INTEGER :: nInnerS
-
-!> number of angles per flux surfaces for mapping near the center
-  INTEGER :: nInTheta = 400
-
-!> flux surface label until which "polar"-like coordinates will be calculated
-  REAL(KIND = hp) :: inSVal = .1
-
-!> grid boundary low r
-  REAL(KIND = hp) :: lowBR
-
-!> grid boundary high r
-  REAL(KIND = hp) :: highBR
-
-!> grid boundary low z
-  REAL(KIND = hp) :: lowBZ
-
-!> grid boundary high z
-  REAL(KIND = hp) :: highBZ
+!  INTEGER :: nv = 100
 
 !> major radius of the device
   REAL(KIND = hp) :: rMajor
@@ -250,13 +158,13 @@ MODULE MOD_VMEC_Mappings
 
   !! B^u, B^v (cosine components (read on half mesh, interpolated on full
   !! mesh))
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: bsupumnc, bsupvmnc
+!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: bsupumnc, bsupvmnc
 
   !! dlambda/du, dlambda/dv (cosine components on full mesh)
   REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: lUmnc, lVmnc
 
   !! dkappa/du, dkappa/dv (cosine components on full mesh)
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: kUmnc, kVmnc
+!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: kUmnc, kVmnc
 
   !! dlambda/du2, dlambda/(du dv), dlambda/dv2 (sine components on full mesh)
   REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: lU2mns, lUVmns, lV2mns
@@ -282,12 +190,12 @@ MODULE MOD_VMEC_Mappings
   REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: d2RdV2mnc, d2ZdV2mns
 
   !! fourier components of grad s
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: gradSRmnc, gradSPmns
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: gradSZmns
+!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: gradSRmnc, gradSPmns
+!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: gradSZmns
 
-  !! fourier components of grad theta
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: gradTRmns, gradTPmnc
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: gradTZmnc
+!  !! fourier components of grad theta
+!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: gradTRmns, gradTPmnc
+!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: gradTZmnc
 
   !! fourier components of |B|
   REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: absBmnc
@@ -302,7 +210,7 @@ MODULE MOD_VMEC_Mappings
   REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: dBdSsmnc
 
   !! fourier components of b
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: bRmns, bZmnc, bPmnc
+!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: bRmns, bZmnc, bPmnc
 
   !! fourier components of dB/du, dB/dv
   REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: dBdUmns, dBdVmns
@@ -311,28 +219,25 @@ MODULE MOD_VMEC_Mappings
   REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: dBdUsmns, dBdVsmns
 
   !! fourier components of grad B
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: gradBRmnc, gradBPmns
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: gradBZmns
+!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: gradBRmnc, gradBPmns
+!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: gradBZmns
 
   !! fourier components of b x grad B / |B|
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: bgradBRmns, bgradBPmnc
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: bgradBZmnc
+!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: bgradBRmns, bgradBPmnc
+!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: bgradBZmnc
 
   !! fourier components of div b
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: divBmns
+!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: divBmns
 
   !! fourier components of rot B parallel
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: rotBparAbsmnc
+!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: rotBparAbsmnc
 
   !! fourier components of rot B perpendicular
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: rotBperpRmns, rotBperpPmnc
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: rotBperpZmnc
-
-  !! r and z mesh
-  REAL(KIND = hp), DIMENSION(:), ALLOCATABLE :: rMesh, zMesh
+!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: rotBperpRmns, rotBperpPmnc
+!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: rotBperpZmnc
 
   !! poloidal and toroidal current
-  REAL(KIND = hp), DIMENSION(:), ALLOCATABLE :: iPol, jTor
+!  REAL(KIND = hp), DIMENSION(:), ALLOCATABLE :: iPol, jTor
 
   !! precomputed cosinus and sinus values
   REAL(KIND = hp), DIMENSION(:, :, :), ALLOCATABLE :: vCos, vSin, vCosN, vSinN
@@ -340,8 +245,6 @@ MODULE MOD_VMEC_Mappings
   !! precomputed integration points
   REAL(KIND = hp), DIMENSION(:), ALLOCATABLE :: uIv, vJv
 
-!> output directory
-  CHARACTER(LEN = 255) :: outDir = "."
 
 !> show debug output
   LOGICAL :: debug = .FALSE.
@@ -360,12 +263,6 @@ MODULE MOD_VMEC_Mappings
 
 !> use last value or linear extrapolation for s > 1
   LOGICAL :: useLastVal = .FALSE.
-
-!> use constant theta path instead of inter-/extrapolate along a line
-  LOGICAL :: useConstTheta = .FALSE.
-
-!> use squared flux surface coordinate
-  LOGICAL :: useSquared = .TRUE.
 
 !> error intervals
   REAL(KIND = hp), DIMENSION(2) :: errInt = (/.05_hp, .95_hp/)
@@ -410,8 +307,8 @@ CONTAINS
     ALLOCATE(lUmnc(mn_mode, stInd:radius), lVmnc(mn_mode, stInd:radius),&
          stat = aStat)
     aError = aError + aStat
-    ALLOCATE(kUmnc(mn_mode, radius), kVmnc(mn_mode, radius), stat = aStat)
-    aError = aError + aStat
+!    ALLOCATE(kUmnc(mn_mode, radius), kVmnc(mn_mode, radius), stat = aStat)
+!    aError = aError + aStat
     ALLOCATE(lU2mns(mn_mode, radius), lV2mns(mn_mode, radius), stat = aStat)
     aError = aError + aStat
     ALLOCATE(lUVmns(mn_mode, radius), stat = aStat)
@@ -447,15 +344,15 @@ CONTAINS
     ALLOCATE(dRdVmns(mn_mode, stInd:radius), dZdVmnc(mn_mode, stInd:radius),&
          stat = aStat)
     aError = aError + aStat
-    ALLOCATE(gradSRmnc(mn_mode, radius), gradTRmns(mn_mode, radius), stat =&
-         aStat)
-    aError = aError + aStat
-    ALLOCATE(gradSPmns(mn_mode, radius), gradTPmnc(mn_mode, radius), stat =&
-         aStat)
-    aError = aError + aStat
-    ALLOCATE(gradSZmns(mn_mode, radius), gradTZmnc(mn_mode, radius), stat =&
-         aStat)
-    aError = aError + aStat
+!    ALLOCATE(gradSRmnc(mn_mode, radius), gradTRmns(mn_mode, radius), stat =&
+!         aStat)
+!    aError = aError + aStat
+!    ALLOCATE(gradSPmns(mn_mode, radius), gradTPmnc(mn_mode, radius), stat =&
+!         aStat)
+!    aError = aError + aStat
+!    ALLOCATE(gradSZmns(mn_mode, radius), gradTZmnc(mn_mode, radius), stat =&
+!         aStat)
+!    aError = aError + aStat
     ALLOCATE(argA(mn_mode, 2), argA_nyq(mn_mode_nyq, 2), stat = aStat)
     aError = aError + aStat
     ALLOCATE(absBmnc(mn_mode_nyq, radius), stat = aStat)
@@ -466,12 +363,12 @@ CONTAINS
     aError = aError + aStat
     ALLOCATE(dBdSsmnc(mn_mode_nyq, radius), stat = aStat)
     aError = aError + aStat
-    ALLOCATE(bRmns(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(bZmnc(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(bPmnc(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
+!    ALLOCATE(bRmns(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(bZmnc(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(bPmnc(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
     ALLOCATE(dBdUmns(mn_mode_nyq, radius), stat = aStat)
     aError = aError + aStat
     ALLOCATE(dBdVmns(mn_mode_nyq, radius), stat = aStat)
@@ -480,36 +377,34 @@ CONTAINS
     aError = aError + aStat
     ALLOCATE(dBdVsmns(mn_mode_nyq, radius), stat = aStat)
     aError = aError + aStat
-    ALLOCATE(gradBRmnc(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(gradBZmns(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(gradBPmns(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(bgradBRmns(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(bgradBZmnc(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(bgradBPmnc(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(divBmns(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(rotBparAbsmnc(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(rotBperpRmns(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(rotBperpZmnc(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(rotBperpPmnc(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(rMesh(0:(rGridPoints+1)), zMesh(0:(zGridPoints+1)), stat = aStat)
-    aError = aError + aStat
+!    ALLOCATE(gradBRmnc(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(gradBZmns(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(gradBPmns(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(bgradBRmns(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(bgradBZmnc(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(bgradBPmnc(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(divBmns(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(rotBparAbsmnc(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(rotBperpRmns(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(rotBperpZmnc(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(rotBperpPmnc(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
     ALLOCATE(sVal(stInd:radius), theta(radius), sValVMEC(nFluxVMEC), stat = aStat)
     aError = aError + aStat
     ALLOCATE(axisM(nAxis), axisN(nAxis), stat = aStat)
     aError = aError + aStat
-    ALLOCATE(iPol(radius), jTor(radius), stat = aStat)
-    aError = aError + aStat
+!    ALLOCATE(iPol(radius), jTor(radius), stat = aStat)
+!    aError = aError + aStat
     ALLOCATE(vCos(mn_mode, intPointsU, intPointsV), stat = aStat)
     aError = aError + aStat
     ALLOCATE(vSin(mn_mode, intPointsU, intPointsV), stat = aStat)
@@ -612,29 +507,6 @@ CONTAINS
 
     !! calculate number of flux surfaces
     nFluxVMEC = radius
-    IF (mapEuterpe) THEN
-      IF (lastExtS < 1) THEN
-        nExtraFlux = 0
-        lastExtS = 1
-      ELSE
-        IF (nExtraFlux < 0) THEN
-          IF (useSquared) THEN
-            nExtraFlux = INT((SQRT(lastExtS) - 1) * (nFluxVMEC - 1)) + 1
-          ELSE
-            nExtraFlux = INT((lastExtS - 1) * (nFluxVMEC - 1)) + 1
-          END IF
-          lastExtS = 1 + REAL(nExtraFlux, hp) / REAL(nFluxVMEC - 1, hp)
-        END IF
-      END IF
-      radius = nFluxVMEC + nExtraFlux
-      !! calculate real number of flux surfaces for the inner "polar"-like
-      !! coordinate system using squared distances
-      nInnerS = INT(SQRT(inSVal) * nFluxVMEC) + 1
-      !! set starting index of arrays for polar grid
-      !! we need extra flux surfaces if linear distances of the flux surfaces
-      !! are used
-      IF (.NOT.(useSquared)) stInd = -nInnerS
-    END IF
 
     !! allocate memory for fourier arrays
     aError = 0
@@ -668,10 +540,10 @@ CONTAINS
     aError = aError + aStat
     ALLOCATE(bmnc(mn_mode_nyq, radius), stat = aStat)
     aError = aError + aStat
-    ALLOCATE(bsupumnc(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(bsupvmnc(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
+!    ALLOCATE(bsupumnc(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(bsupvmnc(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
 
     IF (aError /= 0) THEN
       PRINT *, "Allocation failure in subroutine ReadVmecOutput!"
@@ -747,14 +619,14 @@ CONTAINS
     ioError = NF_INQ_VARID(ncid, "bmnc", id)
     ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
          mn_mode_nyq, nFluxVMEC /), bmnc(:, :))
-    !! read B^u_mn
-    ioError = NF_INQ_VARID(ncid, "bsupumnc", id)
-    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
-         mn_mode_nyq, nFluxVMEC /), bsupumnc(:, :))
-    !! read B^v_mn
-    ioError = NF_INQ_VARID(ncid, "bsupvmnc", id)
-    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
-         mn_mode_nyq, nFluxVMEC /), bsupvmnc(:, :))
+!    !! read B^u_mn
+!    ioError = NF_INQ_VARID(ncid, "bsupumnc", id)
+!    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
+!         mn_mode_nyq, nFluxVMEC /), bsupumnc(:, :))
+!    !! read B^v_mn
+!    ioError = NF_INQ_VARID(ncid, "bsupvmnc", id)
+!    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
+!         mn_mode_nyq, nFluxVMEC /), bsupvmnc(:, :))
 
     IF (ioError /= 0) THEN
       PRINT *, " Cannot read variables from ", TRIM(fileName), "!"
@@ -782,20 +654,6 @@ CONTAINS
       sVal(curS) = REAL(curS - 1, hp) / REAL(nFluxVMEC - 1, hp)
       sValVMEC(curS) = sVal(curS)
     END DO
-
-    IF (mapEuterpe) THEN
-      DO curS = 1, nExtraFlux
-        sVal(curS + nFluxVMEC) = 1 + REAL(curS, hp) *&
-             (lastExtS - 1) / REAL(nExtraFlux, hp)
-      END DO
-      !! calculate extra flux surfaces if linear distances of flux surfaces
-      !! are used
-      IF (.NOT.(useSquared)) THEN
-        DO curS = 1, nInnerS
-          sVal(-curS) = REAL(curS - 1, hp) / REAL(nFluxVMEC - 1, hp)
-        END DO
-      END IF
-    END IF
 
     !! precompute integration points
     DO i = 1, intPointsU
@@ -833,8 +691,8 @@ CONTAINS
     CALL HalfMeshToFullMesh2D(mn_mode, nFluxVMEC, lmns(:, 1:nFluxVMEC))
     CALL HalfMeshToFullMesh2D(mn_mode_nyq, nFluxVMEC, gmnc(:, 1:nFluxVMEC))
     CALL HalfMeshToFullMesh2D(mn_mode_nyq, nFluxVMEC, bmnc(:, :nFluxVMEC))
-    CALL HalfMeshToFullMesh2D(mn_mode_nyq, nFluxVMEC, bsupumnc(:, :nFluxVMEC))
-    CALL HalfMeshToFullMesh2D(mn_mode_nyq, nFluxVMEC, bsupvmnc(:, :nFluxVMEC))
+!    CALL HalfMeshToFullMesh2D(mn_mode_nyq, nFluxVMEC, bsupumnc(:, :nFluxVMEC))
+!    CALL HalfMeshToFullMesh2D(mn_mode_nyq, nFluxVMEC, bsupvmnc(:, :nFluxVMEC))
 
     !! write original R, z values for test purpose
     IF (debug .AND. (me_rank == 0)) THEN
@@ -973,15 +831,6 @@ CONTAINS
       lV2mns(:, curS) = xn(:) * lVmnc(:, curS)
     END DO
 
-    IF (mapEuterpe .AND. .NOT.(useSquared)) THEN
-    !! calculate first and second partial derivatives of lambda
-      DO curS = stInd, -1
-        !! dlambda/du
-        lUmnc(:, curS) = xm(:) * lmns(:, curS)
-        !! dlambda/dv
-        lVmnc(:, curS) = -xn(:) * lmns(:, curS)
-      END DO
-    END IF
     
     !! recompute magnetic field
     IF (corVMEC) THEN
@@ -1065,1575 +914,7 @@ CONTAINS
 
   END SUBROUTINE PreCalcData
 
-! ----------------------------------------------------------------------
-!> store mapping for Euterpe
-! ----------------------------------------------------------------------
 
-  SUBROUTINE EuterpeMapping
-
-    REAL(KIND = hp), DIMENSION(rGridPoints, zGridPoints, radius) :: thRZ
-    REAL(KIND = hp), DIMENSION(:, :, :), ALLOCATABLE :: mapRZ
-    REAL(KIND = hp), DIMENSION(0:(rGridPoints+1), 0:(zGridPoints+1)) :: bRZ
-    REAL(KIND = hp), DIMENSION(0:(rGridPoints+1), 0:(zGridPoints+1)) :: bRRZ
-    REAL(KIND = hp), DIMENSION(0:(rGridPoints+1), 0:(zGridPoints+1)) :: bZRZ
-    INTEGER, DIMENSION(rGridPoints, zGridPoints) :: minSV, minThV
-    REAL(KIND = hp), DIMENSION(3) :: gradS, gradT, gradU
-    REAL(KIND = hp), DIMENSION(3) :: gradB, bgradB
-    REAL(KIND = hp), DIMENSION(3) :: rotBs, rotB, rotBPerp
-    REAL(KIND = hp), DIMENSION(radius) :: dAxis, dRdUV, dRdVV, dZdUV, dZdVV
-    REAL(KIND = hp), DIMENSION(radius) :: gradSRV, gradSZV, gradSPV, gradTRV
-    REAL(KIND = hp), DIMENSION(radius) :: gradTZV, gradTPV
-    REAL(KIND = hp), DIMENSION(radius) :: sqrtGV
-    REAL(KIND = hp), DIMENSION(radius) :: rotBparAbsV
-    REAL(KIND = hp), DIMENSION(radius) :: dbRdPV, dbZdPV
-    REAL(KIND = hp), DIMENSION(radius) :: absBV, dPresdSV
-    REAL(KIND = hp), DIMENSION(radius) :: theta, bUV, bVV, lambda, theta2
-    REAL(KIND = hp), DIMENSION(radius) :: gB3V, bRV, bZV, thetaSC
-    REAL(KIND = hp), DIMENSION(radius) :: lineR, lineZ, minDV
-    REAL(KIND = hp), DIMENSION(mn_mode) :: argV, xnv, sinV, cosV
-    REAL(KIND = hp), DIMENSION(mn_mode_nyq) :: argVn, xnvn, sinVn, cosVn
-    REAL(KIND = hp), DIMENSION(8) :: pMin
-    INTEGER, DIMENSION(radius) :: minTV
-    CHARACTER(LEN = 255) :: outName
-    REAL(KIND = hp) :: h, r, z, rS, zS, rAxis, zAxis, rzS
-    REAL(KIND = hp) :: rzTheta, cylPhi, dist, dLambdadU, dLambdadV
-    REAL(KIND = hp) :: d2LambdadU2, d2LambdadUdV, d2LambdadV2
-    REAL(KIND = hp) :: d2LambdadUdS, d2LambdadVdS
-    REAL(KIND = hp) :: dRdS, d2RdUdS, d2RdVdS
-    REAL(KIND = hp) :: dRdU, d2RdU2, d2RdUdV, dRdV, d2RdV2
-    REAL(KIND = hp) :: dZdS, d2ZdUdS, d2ZdVdS
-    REAL(KIND = hp) :: dZdU, d2ZdU2, d2ZdUdV, dZdV, d2ZdV2
-    REAL(KIND = hp) :: gradSR, gradSZ, gradSP, gradTR, gradTZ, gradTP
-    REAL(KIND = hp) :: absB, bU, bV, bR, bP, bZ
-    REAL(KIND = hp) :: dBdSs, dBdS, dBdUs, dBdU, dBdVs, dBdV
-    REAL(KIND = hp) :: dbUdSs, dbUdUs, dbUdVs, dbVdSs, dbVdUs, dbVdVs
-    REAL(KIND = hp) :: divB, rotBparAbs
-    REAL(KIND = hp) :: sqrtG, dsqrtGdS, dsqrtGdU, dsqrtGdV
-    REAL(KIND = hp) :: gsu, gsv, guu, guv, gvv, dgsudU, dgsudV, dgsvdU
-    REAL(KIND = hp) :: dgsvdV, dguudS, dguudV, dguvdS, dguvdU, dguvdV, dgvvdS
-    REAL(KIND = hp) :: dgvvdU, diotadS, rho, sRho
-    REAL(KIND = hp) :: gBS, gBU, gBV
-    REAL(KIND = hp) :: dbRdS, dbRdU, dbRdV, dbRdR, dbRdZ, dbRdP
-    REAL(KIND = hp) :: dbZdS, dbZdU, dbZdV, dbZdR, dbZdZ, dbZdP
-    REAL(KIND = hp) :: dMinR, dMaxR, dMinZ, dMaxZ, s, th
-    REAL(KIND = hp) :: phiMinR, phiMaxR, phiMinZ, phiMaxZ
-    REAL(KIND = hp) :: dLambdadS, iota, psi, dPresdS
-    REAL(KIND = hp) :: gB1, gB2, gB3, mDist, rSt, zSt
-    REAL(KIND = hp) :: h1, h2, r1, r2, z1, z2, h1m, h2m
-    REAL(KIND = hp) :: s_tor
-    REAL(KIND = hp), DIMENSION(radius) :: f_pol
-    INTEGER :: i, j, k, l, m, curS, ioError, i0, is, ie, is1, mRad
-    INTEGER :: minS, maxS, minTh, nequ_b, dir
-    LOGICAL :: recalc
-
-    IF (me_rank == 0) THEN
-      WRITE(*, FMT = "(A)") "Calculate physical values ..."
-    END IF
-
-    !! calculate real number of flux surfaces
-    IF ((nFlux < 0) .OR. (nFlux > radius)) nFlux = radius
-
-    IF (me_rank == 0) THEN
-      WRITE(*, "(2(A, I0), A)") "  Generating inner polar grid of size ",&
-           nInnerS, "x", nInTheta, "!"
-    END IF
-
-    !! store iota profile
-    IF (me_rank == 0) THEN
-      WRITE(outName, FMT = '(A, "/iota.equ")') TRIM(outDir)
-      OPEN(1, ACTION = "WRITE", FILE = TRIM(outName), FORM = "UNFORMATTED",&
-           IOSTAT = ioError, POSITION = "REWIND", STATUS = "REPLACE")
-      IF (ioError /= 0) THEN
-        PRINT *, "Could not open output file ", TRIM(outName), "!"
-        CALL EXIT(6)
-      END IF
-      WRITE(1) nFluxVMEC
-      DO curS = 1, nFluxVMEC
-        IF (useRho) THEN
-          WRITE(1) SQRT(sVal(curS)), iotas(curS)
-        ELSE
-          WRITE(1) sVal(curS), iotas(curS)
-        END IF
-      END DO
-      CLOSE(1)
-    END IF
-
-    !! calculate poloidal flux out of iota
-    f_pol(1) = 0
-    DO curS = 2, radius
-      IF (useRho) THEN
-        f_pol(curS) = f_pol(curS-1) + 0.5 * (iotas(curS - 1) + iotas(curS)) *&
-             (SQRT(sVal(curS)) - SQRT(sVal(curS - 1)))
-      ELSE
-        f_pol(curS) = f_pol(curS-1) + 0.5 * (iotas(curS - 1) + iotas(curS)) *&
-             (sVal(curS) - sVal(curS - 1))
-      END IF
-    END DO
-    !! scale back from VMEC to real value of toroidal flux
-    f_pol(:) = f_pol(:) * phipf(:) * REAL(signgs, hp) * TwoPi / REAL(nfp, hp)
-
-    WRITE(outName, FMT = '(A, "/fluxes.equ")') TRIM(outDir)
-    OPEN(1, ACTION = "WRITE", FILE = TRIM(outName), FORM = "UNFORMATTED",&
-         IOSTAT = ioError, POSITION = "REWIND", STATUS = "REPLACE")
-    IF (ioError /= 0) THEN
-      PRINT *, "Could not open output file ", TRIM(outName), "!"
-      STOP
-    END IF
-    !! write number of points
-    WRITE(1) radius
-    !! store poloidal flux
-    DO curS = 1, radius
-      IF (useRho) THEN
-        s_tor = SQRT(sVal(curS))
-      ELSE
-        s_tor = sVal(curS)
-      END IF
-      !! scale back from VMEC to real value of toroidal flux
-      WRITE(1) s_tor, s_tor * phipf(curS) * REAL(signgs, hp) * TwoPi /&
-           REAL(nfp, hp), f_pol(curS)
-    END DO
-    CLOSE(1)
-
-    !! initialize r-z mesh points
-    DO j = 0, rGridPoints + 1
-      !! set R value
-      rMesh(j) = lowBR + (highBR - lowBR) * REAL(j - 1, hp) /&
-           REAL(rGridPoints - 1, hp)
-    END DO
-    DO k = 0, zGridPoints + 1
-      !! set z value
-      zMesh(k) = lowBZ + (highBZ - lowBZ) * REAL(k - 1, hp) /&
-           REAL(zGridPoints - 1, hp)
-    END DO
-
-    !! allocate memory for storing mapping from (s, theta) to (r, z)
-    ALLOCATE(mapRZ(nPointsU, nFlux, 2))
-
-    !! calculate minimal distance of points of the outer most flux surface
-    !! with the selected box and the corresponding phi cut
-    dMinR = highBR - lowBR
-    phiMinR = 0
-    dMaxR = highBR - lowBR
-    phiMaxR = 0
-    dMinZ = highBZ - lowBZ
-    phiMinZ = 0
-    dMaxZ = highBZ - lowBZ
-    phiMaxZ = 0
-
-    !! generate mesh
-    !! phi cuts
-    !! generate only selected cuts
-    DO i = startCut, endCut
-      IF (MODULO(i - startCut, me_size) == me_rank) THEN
-        !! show current cut
-        IF (me_size > 1) THEN
-          PRINT '(I0, A, I0)', i, ' on ', me_rank
-        ELSE
-          PRINT '(I0)', i
-        END IF
-      ELSE
-        CYCLE
-      END IF
-      !! calculate phi angle
-      cylPhi = TwoPi * (i - 1) / nPhiCuts
-
-      !! do correction for configuration with multiple field periods
-      cylPhi = cylPhi / REAL(nfp, hp)
-      xnv(:) = xn(:) * cylPhi
-      xnvn(:) = xn_nyq(:) * cylPhi
-
-      !! calculate rAxis and zAxis from inner flux surface
-      rAxis = 0
-      zAxis = 0
-      DO j = 1, nPointsU
-        th = TwoPi * REAL(j - 1, hp) / REAL(nPointsU - 1, hp)
-        argV(:) = xm(:) * th - xnv(:)
-        sinV(:) = SIN(argV(:))
-        cosV(:) = COS(argV(:))
-        !! calculate axis
-        rAxis = rAxis + SUM(rmnc(:, 1) * cosV(:))
-        zAxis = zAxis + SUM(zmns(:, 1) * sinV(:))
-      END DO
-      rAxis = rAxis / nPointsU
-      zAxis = zAxis / nPointsU
-
-      !! open output file
-      WRITE(outName, FMT = '(A, "/vmec.equ.", I0.4)') TRIM(outDir), i - 1
-      OPEN(1, ACTION = "WRITE", FILE = TRIM(outName), FORM = "UNFORMATTED",&
-           IOSTAT = ioError, POSITION = "REWIND", STATUS = "REPLACE")
-      IF (ioError /= 0) THEN
-        PRINT *, "Could not open output file ", TRIM(outName), "!"
-        CALL EXIT(7)
-      END IF
-      !! write version number
-      WRITE(1) version
-      !! write number of data
-      IF (useArcTan) THEN
-        nequ_b = 29
-      ELSE
-        nequ_b = 27
-      END IF
-      IF (gyroperp) THEN
-        nequ_b = nequ_b + 6
-      END IF
-      WRITE(1) nequ_b
-      !! first write some information about the current run
-      !! boundaries of selected box
-      WRITE(1) lowBR, highBR, lowBZ, highBZ
-      !! basic data
-      WRITE(1) nfp, rGridPoints, zGridPoints, nPhiCuts
-      WRITE(1) nFlux, nTheta
-      WRITE(1) bmnc(1, 1), volume
-      WRITE(1) useRho
-      WRITE(1) useSquared
-      WRITE(1) nInnerS, nInTheta
-
-      IF (debug .AND. (me_rank == 0)) THEN
-        WRITE(outName, FMT = '("fort.", I0, ".16")') i
-        OPEN(116, ACTION = "WRITE", FILE = TRIM(outName), FORM = "FORMATTED",&
-             IOSTAT = ioError, POSITION = "REWIND", STATUS = "REPLACE")
-        IF (ioError /= 0) THEN
-          PRINT *, "Could not open output file ", TRIM(outName), "!"
-          CALL EXIT(8)
-        END IF
-        !! write header
-        WRITE(116, FMT = "(A)") "#s, theta(g), phi, r, z, theta"
-      END IF
-      !! store mesh from PEST coordinates
-      !! flux surfaces
-      DO curS = 1, nFlux
-        s = sVal(curS)
-        !! calculate s for writing
-        IF (useRho) THEN
-          sRho = SQRT(s)
-        ELSE
-          sRho = s
-        END IF
-        !! theta
-        DO j = 1, nTheta
-          th = TwoPi * REAL(j - 1, hp) / REAL(nTheta - 1, hp)
-          theta(:) = th
-          !! calculate fourier arguments
-          argVn(:) = xm_nyq(:) * th - xnvn(:)
-          sinVn(:) = SIN(argVn(:))
-          cosVn(:) = COS(argVn(:))
-          !! R
-          r = IntExtPol3(radius, sVal(1:radius),&
-               ValsOnFluxSurf(radius, mn_mode_nyq,&
-               cylRmnc(:, 1:radius), cosVn(:)), s)
-          !! z
-          z = IntExtPol3(radius, sVal(1:radius),&
-               ValsOnFluxSurf(radius, mn_mode_nyq,&
-               cylZmns(:, 1:radius), sinVn(:)), s)
-          !! write s, theta, phi, r, z
-          WRITE(1) sRho, th, cylPhi, r, z
-          IF (debug .AND. (me_rank == 0)) THEN
-            IF (curS <= nFluxVMEC) THEN
-              WRITE(116, "(6ES13.5)") sRho, th, cylPhi, r, z, SUM(bmnc(:, curS) *&
-                   cosVn(:))
-            ELSE
-              WRITE(116, "(5ES13.5)") sRho, th, cylPhi, r, z
-            END IF
-          END IF
-          !! compute minimal distances
-          IF (curS == nFluxVMEC) THEN
-            !! distance to lowBR
-            IF (r - lowBR < dMinR) THEN
-              dMinR = r - lowBR
-              phiMinR = cylPhi
-            END IF
-            !! distance to highBR
-            IF (highBR - r < dMaxR) THEN
-              dMaxR = highBR - r
-              phiMaxR = cylPhi
-            END IF
-            !! distance to lowBZ
-            IF (z - lowBZ < dMinZ) THEN
-              dMinZ = z - lowBZ
-              phiMinZ = cylPhi
-            END IF
-            !! distance to highBZ
-            IF (highBZ - z < dMaxZ) THEN
-              dMaxZ = highBZ - z
-              phiMaxZ = cylPhi
-            END IF
-          END IF
-        END DO
-      END DO
-      IF (debug) CLOSE(116)
-
-      !! initialize mapping
-      mapRZ(:, :, :) = 0
-      IF (debug .AND. (me_rank == 0)) THEN
-        WRITE(outName, FMT = '("fort.", I0, ".19")') i
-        OPEN(119, ACTION = "WRITE", FILE = TRIM(outName), FORM = "FORMATTED",&
-             IOSTAT = ioError, POSITION = "REWIND", STATUS = "REPLACE")
-        IF (ioError /= 0) THEN
-          PRINT *, "Could not open output file ", TRIM(outName), "!"
-          CALL EXIT(9)
-        END IF
-      END IF
-      !! flux surfaces
-      DO curS = 1, nFlux
-        !! theta
-        DO j = 1, nPointsU
-          th = TwoPi * REAL(j - 1, hp) / REAL(nPointsU - 1, hp)
-          argV(:) = xm(:) * th - xnv(:)
-          sinV(:) = SIN(argV(:))
-          cosV(:) = COS(argV(:))
-          !! store (s,u)->(r,z) mapping
-          mapRZ(j, curS, 1) = SUM(rmnc(:, curS) * cosV(:))
-          mapRZ(j, curS, 2) = SUM(zmns(:, curS) * sinV(:))
-          IF (debug .AND. (me_rank == 0)) THEN
-            WRITE(119, FMT = "(2ES12.4)") mapRZ(j, curS, :)
-          END IF
-        END DO
-        IF (debug .AND. (me_rank == 0)) WRITE(119, FMT = *)
-      END DO
-      IF (debug .AND. (me_rank == 0)) CLOSE(119)
-
-      !! set output name
-      IF (debug .AND. (me_rank == 0)) THEN
-        WRITE(outName, FMT = '("fort.", I0, ".17")') i
-        OPEN(117, ACTION = "WRITE", FILE = TRIM(outName), FORM = "FORMATTED",&
-             IOSTAT = ioError, POSITION = "REWIND", STATUS = "REPLACE")
-        IF (ioError /= 0) THEN
-          PRINT *, "Could not open output file ", TRIM(outName), "!"
-          CALL EXIT(10)
-        END IF
-      END IF
-
-      !! precalc absB
-      !! R
-      DO j = 0, rGridPoints + 1
-        rS = rMesh(j)
-        !! z
-        DO k = 0, zGridPoints + 1
-          zS = zMesh(k)
-
-          !! get points on the flux surfaces along a ray from the center
-          !! through the selected point
-          CALL CalcRay(rS, zS)
-
-          !! store theta for performance reasons
-          IF ((j > 0) .AND. (j <= rGridPoints) .AND.&
-               (k > 0) .AND. (k <= zGridPoints)) THEN
-            thRZ(j, k, :) = theta(:)
-            !! store nearest point
-            minSV(j, k) = minS
-            minThV(j, k) = minTh
-          END IF
-
-          !! interpolate |B|, b_R, b_z along ray
-          CALL IntAlongRay(bRZ(j, k), bRRZ(j, k), bZRZ(j, k))
-
-          IF (debug .AND. (me_rank == 0)) THEN
-            WRITE(117, FMT = "(I6, 5ES12.4)") i, rS, zS, bRZ(j, k),&
-                 bRRZ(j, k), bZRZ(j, k)
-          END IF
-        END DO
-      END DO
-      IF (debug .AND. (me_rank == 0)) CLOSE(117)
-
-      IF (debug .AND. (me_rank == 0)) THEN
-        WRITE(outName, FMT = '("fort.", I0, ".13")') i
-        OPEN(113, ACTION = "WRITE", FILE = TRIM(outName), FORM = "FORMATTED",&
-             IOSTAT = ioError, POSITION = "REWIND", STATUS = "REPLACE")
-        IF (ioError /= 0) THEN
-          PRINT *, "Could not open output file ", TRIM(outName), "!"
-          CALL EXIT(11)
-        END IF
-      END IF
-
-      IF (debug .AND. (me_rank == 0)) THEN
-        WRITE(outName, FMT = '("fort.", I0, ".14")') i
-        OPEN(114, ACTION = "WRITE", FILE = TRIM(outName), FORM = "FORMATTED",&
-             IOSTAT = ioError, POSITION = "REWIND", STATUS = "REPLACE")
-        IF (ioError /= 0) THEN
-          PRINT *, "Could not open output file ", TRIM(outName), "!"
-          CALL EXIT(12)
-        END IF
-        !! write header
-        IF (useArcTan) THEN
-          WRITE(114, FMT = "(A)") "#rS, zS, cylPhi, rzS, rzTheta, absB, bR, bZ,&
-               & bP, sqrtG, gradSR, gradSZ, gradSP, gradTR, gradTZ, gradTP,&
-               & bgradBR, bgradBZ, bgradBP, divB, rotBparAbs, rotBperpR,&
-               & rotBperpZ, rotBperpP, gradBR, gradBZ, gradBP, sinRZTheta,&
-               & cosRZTheta, dbRdR, dbRdZ, dbRdP, dbZdR, dbZdZ, dbZdP"
-        ELSE
-          WRITE(114, FMT = "(A)") "#rS, zS, cylPhi, rzS, rzTheta, absB, bR, bZ,&
-               & bP, sqrtG, gradSR, gradSZ, gradSP, gradTR, gradTZ, gradTP,&
-               & bgradBR, bgradBZ, bgradBP, divB, rotBparAbs, rotBperpR,&
-               & rotBperpZ, rotBperpP, gradBR, gradBZ, gradBP, dbRdS, dbRdU,&
-               & dbRdV, dbZdS, dbZdU, dbZdV"
-        END IF
-        WRITE(outName, FMT = '("fort.", I0, ".141")') i
-        OPEN(1141, ACTION = "WRITE", FILE = TRIM(outName), FORM = "FORMATTED",&
-             IOSTAT = ioError, POSITION = "REWIND", STATUS = "REPLACE")
-        IF (ioError /= 0) THEN
-          PRINT *, "Could not open output file ", TRIM(outName), "!"
-          CALL EXIT(12)
-        END IF
-        !! write header
-        WRITE(1141, FMT = "(A)") "#r, z, s, theta, gradTR, gradTZ, gradTP, rho^2"
-      END IF
-
-      !! generate grid for inner torus using polar-like coordinates
-      !! use geometric theta
-      !! define direction in arrays
-      dir = -1
-      IF (useSquared) dir = 1
-      DO j = 1, nInTheta
-        th = TwoPi * REAL(j - 1, hp) / REAL(nInTheta - 1, hp)
-        thetaSC(:nInnerS) = th
-        CALL FindInterSectionRZNewton(MIN(dir, dir * nInnerS), MAX(dir, dir *&
-             nInnerS), rAxis, zAxis, COS(th), SIN(th), cylPhi,&
-             thetaSC(:nInnerS), loopUp = (dir == 1))
-        !! calculate lambda
-        DO curS = 1, nInnerS
-          lambda(curS) = SinTransFullMesh(mn_mode, lmns(:, dir * curS),&
-               xm(:), xn(:), thetaSC(curS), cylPhi)
-        END DO
-        !! inner flux surfaces
-        DO curS = 1, nInnerS
-          !! calculate s for writing
-          IF (useRho) THEN
-            sRho = SQRT(sVal(dir * curS))
-          ELSE
-            sRho = sVal(dir * curS)
-          END IF
-          !! get interpolated values
-          CALL GetInterpolatesPolar(dir * curS, thetaSC(curS))
-          !! calculate rho^2
-          rho = (r - rAxis) * (r - rAxis) + (z - zAxis) * (z - zAxis)
-          !! scale gradT for better interpolation in euterpe
-          IF (useRho) THEN
-            sqrtG = 2 * sRho * sqrtG / dLambdadU
-            gradS(:) = gradS(:) / (2 * sRho)
-          END IF
-          gradT(:) = gradT(:) * rho
-          gradS(:) = gradS(:) * rho
-          !! write only neccessary data
-          WRITE(1) r, z, sRho, MODULO(thetaSC(curS) + lambda(curS), TwoPi),&
-               gradS(:), gradT(:), sqrtG, SQRT(rho)
-          !! check if write data for inner polar grid
-          IF (debug .AND. (me_rank == 0)) THEN
-            WRITE(1141, FMT = "(12ES18.10)") r, z, sRho,&
-                 MODULO(thetaSC(curS) + lambda(curS), TwoPi), gradS(:),&
-                 gradT(:), sqrtG, SQRT(rho)
-          END IF
-        END DO
-        IF (debug .AND. (me_rank == 0)) THEN
-          WRITE(1141, FMT = *)
-        END IF
-      END DO
-      IF (debug .AND. (me_rank == 0)) THEN
-        CLOSE(1141)
-      END IF
-
-      !! R
-      DO j = 1, rGridPoints
-        rS = rMesh(j)
-        !! z
-        DO k = 1, zGridPoints
-          zS = zMesh(k)
-          !! use precalculated theta values
-          theta(:) = thRZ(j, k, :)
-          !! ray starting point
-          minS = minSV(j, k)
-          minTh = minThV(j, k)
-          rSt = mapRZ(minTh, minS, 1)
-          zSt = mapRZ(minTh, minS, 2)
-          !! distance to the ray starting point
-          dist = SQRT((rS - rSt)**2 + (zS - zSt)**2)
-
-          !! set inner distance to 0
-          dAxis(minS) = 0
-          !! set inner lambda to 0
-          lambda(minS) = 0
-          i0 = minS
-          mRad = minS + 10
-          !! calculate distance of cutting points to the magnetic axis
-          DO curS = minS + 1, minS + 10
-            dAxis(curS) = DistanceToPoint(curS, theta(curS), cylPhi, rSt, zSt)
-            lambda(curS) = SinTransFullMesh(mn_mode, lmns(:, curS), xm(:),&
-                 xn(:), theta(curS), cylPhi)
-            !! search position if grid point
-            IF (dist > dAxis(curS)) i0 = curS
-            !! check if calculated theta values are consistent with the
-            !! distance to the magnetic axis
-            IF (curS > minS) THEN
-              !! check strict monotonic behaviour
-              IF (dAxis(curS) < dAxis(curS - 1)) THEN
-                mRad = curS - 1
-                PRINT "(A, I0, A, I0, A, F0.3, A, F0.3)",&
-                     "Maximal number of used flux surfaces is set to ",&
-                     mRad - minS, " instead of ", 10, " for r=", rS,&
-                     " and z=", zS
-                is = MAX(minS + 1, i0 - 3)
-                ie = MIN(minS + 10, i0 + 3)
-                PRINT "(A, I0, A, I0, A, 10ES11.3)", "theta(", is, ":", ie,&
-                     ")= ", theta(is:ie)
-                PRINT "(A, I0, A, I0, A, 10ES11.3)", "dist(", is, ":", curS,&
-                     ")= ", dAxis(is:curS)
-                EXIT
-              END IF
-            END IF
-          END DO
-          !! interpolate or extrapolate the data along the line
-          !! calculate only nearest neighbouring points along the line
-          is = MAX(minS + 1, i0 - 3)
-          ie = MIN(mRad, i0 + 3)
-          !! help indexes
-          is1 = MAX(3, is)
-          !! maximal inter- or extrapolated distance of a point
-          mDist = constFac * DistanceToPoint(mRad, theta(mRad), cylPhi, rSt,&
-               zSt)
-          !! interpolate along constant theta
-          IF (useConstTheta .AND. (dist > dAxis(minS + 1)) .AND.&
-               (dist < mDist)) THEN
-            !! interpolate or extrapolate theta along the line
-            th = IntExtPol3(ie - is + 1, dAxis(is:ie), theta(is:ie),&
-                 dist)
-            lineR(minS) = rSt
-            lineZ(minS) = zSt
-            recalc = .TRUE.
-            mRad = minS + 10
-            !! recalculate distance along constant theta path
-            DO curS = minS + 1, minS + 10
-              lambda(curS) = SinTransFullMesh(mn_mode, lmns(:, curS), xm(:),&
-                   xn(:), th, cylPhi)
-              lineR(curS) = CosTransFullMeshF(mn_mode, rmnc(:, curS), xm(:),&
-                   xn(:), th, cylPhi, recalc)
-              lineZ(curS) = SinTransFullMeshF(mn_mode, zmns(:, curS), xm(:),&
-                   xn(:), th, cylPhi, recalc)
-              recalc = .FALSE.
-              dAxis(curS) = dAxis(curS - 1) + SQRT((lineR(curS) -&
-                   lineR(curS - 1))**2 + (lineZ(curS) - lineZ(curS - 1))**2)
-            END DO
-            !! maximal inter- or extrapolated distance of a point
-            mDist = constFac * dAxis(minS + 10)
-            dist = dAxis(i0 - 1) + SQRT((rS - lineR(i0 - 1))**2 + (zS -&
-                 lineZ(i0 - 1))**2)
-          END IF
-          !! s coordinate
-          IF (dist < dAxis(minS + 1)) THEN
-            !! linear interpolation
-            rzS = dist * (sVal(minS + 1) - sVal(minS)) / dAxis(minS + 1) +&
-                 sVal(minS)
-          ELSE
-            rzS = IntExtPol3(ie - is + 1, dAxis(is:ie), sVal(is:ie), dist)
-          END IF
-          IF (rzS < 0) THEN
-            PRINT "(A, ES12.4, 3(A, F0.3))", "adjust ", rzS, " to 0 at ", rS,&
-                 ",", zS, ",", cylPhi
-            rzS = 0
-          END IF
-          !! set all values to constant values along the line outside a
-          !! specific region
-          dist = MIN(dist, mDist)
-
-          !! theta coordinate
-          rzTheta = MODULO(IntExtPol3(ie - is + 1, dAxis(is:ie),&
-               theta(is:ie) + lambda(is:ie), dist), TwoPi)
-
-          !! calculate values along the line
-          DO curS = is, ie
-            !! calculate s for writing
-            IF (useRho) THEN
-              sRho = SQRT(sVal(curS))
-              !! get the interpolated values
-              CALL GetInterpolates(curS, SQRT(rzS), theta(curS))
-            ELSE
-              sRho = sVal(curS)
-              !! get the interpolated values
-              CALL GetInterpolates(curS, rzS, theta(curS))
-            END IF
-
-            !! store values
-            !! R component of grad s
-            gradSRV(curS) = gradS(1)
-            !! z component of grad s
-            gradSZV(curS) = gradS(2)
-            !! phi component of grad s
-            gradSPV(curS) = gradS(3)
-            !! R component of grad theta
-            gradTRV(curS) = gradT(1) * sVal(curS)
-            !! z component of grad theta
-            gradTZV(curS) = gradT(2) * sVal(curS)
-            !! phi component of grad theta
-            gradTPV(curS) = gradT(3) * sVal(curS)
-            !! |B|
-            absBV(curS) = absB
-            !! sqrtG
-            sqrtGV(curS) = sqrtG / dLambdadU
-            !! |rot B parallel|
-            rotBparAbsV(curS) = rotBparAbs
-            IF (gyroperp) THEN
-              !! db_R/dphi
-              dbRdPV(curS) = dbRdP
-              !! db_z/dphi
-              dbZdPV(curS) = dbZdP
-            END IF
-            !! dpres/ds
-            dPresdSV(curS) = GetRadialDerivative(radius, curS, presf(:))
-            bUV(curS) = bU
-            bVV(curS) = bV
-            dRdUV(curS) = dRdU
-            dRdVV(curS) = dRdV
-            dZdUV(curS) = dZdU
-            dZdVV(curS) = dZdV
-            gB3V(curS) = gBV
-            IF (debug .AND. (me_rank == 0) .AND. (curS == i0)) THEN
-              IF (gyroperp) THEN
-                WRITE(113, FMT = "(21ES13.5)") r, z, cylPhi, sRho,&
-                     theta(curS) + lambda(curS), h, absB, dBdS, dBdU, dRdS,&
-                     dRdU, dZdS, dZdU, gBS, gBU, gBV, dbRdP, dbZdP, bR, bZ,&
-                     rotBparAbs
-              ELSE
-                WRITE(113, FMT = "(23ES13.5)") r, z, cylPhi, sRho,&
-                     theta(curS) + lambda(curS), h, absB, dBdS, dBdU, dRdS,&
-                     dRdU, dZdS, dZdU, gBS, gBU, gBV, bR, bZ, bP, rotBparAbs,&
-                     rotB(:)
-              END IF
-            END IF
-          END DO
-
-          !! interpolate all values
-          !! |B|
-          absB = IntExtPol3(ie - is + 1, dAxis(is:ie), absBV(is:ie), dist)
-          !! consistency check for |B|
-          IF (absB < 0) THEN
-            PRINT "(A, 3ES12.4, A)", "|B| less than zero at ", rS, zS,&
-                 cylPhi, "!!"
-          END IF
-          !! sqrtG
-          sqrtG = IntExtPol3(ie - is + 1, dAxis(is:ie), sqrtGV(is:ie), dist)
-          !! R component of grad s
-          gradSR = IntExtPol3(ie - is + 1, dAxis(is:ie), gradSRV(is:ie), dist)
-          !! z component of grad s
-          gradSZ = IntExtPol3(ie - is + 1, dAxis(is:ie), gradSZV(is:ie), dist)
-          !! phi component of grad s
-          gradSP = IntExtPol3(ie - is + 1, dAxis(is:ie), gradSPV(is:ie), dist)
-          !! R component of grad theta
-          gradTR = IntExtPol3(ie - is + 1, dAxis(is:ie), gradTRV(is:ie),&
-               dist) / rzS
-          !! z component of grad theta
-          gradTZ = IntExtPol3(ie - is + 1, dAxis(is:ie), gradTZV(is:ie),&
-               dist) / rzS
-          !! phi component of grad theta
-          gradTP = IntExtPol3(ie - is + 1, dAxis(is:ie), gradTPV(is:ie),&
-               dist) / rzS
-
-          bU = IntExtPol3(ie - is + 1, dAxis(is:ie), bUV(is:ie), dist)
-          bV = IntExtPol3(ie - is + 1, dAxis(is:ie), bVV(is:ie), dist)
-
-          dRdU = IntExtPol3(ie - is + 1, dAxis(is:ie), dRdUV(is:ie), dist)
-          dRdV = IntExtPol3(ie - is + 1, dAxis(is:ie), dRdVV(is:ie), dist)
-          dZdU = IntExtPol3(ie - is + 1, dAxis(is:ie), dZdUV(is:ie), dist)
-          dZdV = IntExtPol3(ie - is + 1, dAxis(is:ie), dZdVV(is:ie), dist)
-
-          !! calculate B_R = dR/du * B^u + dR/dv * B^v
-          bR = (bU * dRdU + bV * dRdV) / absB
-          !! calculate B_z = dz/du * B^u + dz/dv * B^v
-          bZ = (bU * dZdU + bV * dZdV) / absB
-          !! calculate B_phi
-          bP = SQRT(1._hp - bR * bR - bZ * bZ) * SIGN(1._hp, bV * rS)
-
-          !! use precalculated magnetic field for the derivative of B
-          gB1 = .125_hp * REAL(rGridPoints - 1, hp) * (bRZ(j + 1, k + 1) -&
-               bRZ(j - 1, k + 1) + 2 * (bRZ(j + 1, k) - bRZ(j - 1, k)) +&
-               bRZ(j + 1, k - 1) - bRZ(j - 1, k - 1)) / (highBR - lowBR)
-          gB2 = .125_hp * REAL(zGridPoints - 1, hp) * (bRZ(j + 1, k + 1) -&
-               bRZ(j + 1, k - 1) + 2 * (bRZ(j, k + 1) - bRZ(j, k - 1)) +&
-               bRZ(j - 1, k + 1) - bRZ(j - 1, k - 1)) / (highBZ - lowBZ)
-          gB3 = IntExtPol3(ie - is1 + 1, dAxis(is1:ie), gB3V(is1:ie), dist)
-          gradB(1) = gB1
-          gradB(2) = gB2
-          gradB(3) = gB3
-          !! calculate b x grad B / |B|
-          bgradB(:) = CrossL((/bR, bZ, bP/), gradB(:)) / absB
-          !! calculate divergence of B
-          divB = -DOT_PRODUCT((/bR, bZ, bP/), gradB(:)) / absB
-          !! |rot B parallel|
-          rotBparAbs = IntExtPol3(ie - is + 1, dAxis(is:ie),&
-               rotBparAbsV(is:ie), dist)
-          IF (gyroperp) THEN
-            !! use precalculated magnetic field for the derivative of b_R
-            dbRdR = .125_hp * REAL(rGridPoints - 1, hp) * (bRRZ(j + 1, k + 1) -&
-                 bRRZ(j - 1, k + 1) + 2 * (bRRZ(j + 1, k) - bRRZ(j - 1, k)) +&
-                 bRRZ(j + 1, k - 1) - bRRZ(j - 1, k - 1)) / (highBR - lowBR)
-            dbRdZ = .125_hp * REAL(zGridPoints - 1, hp) * (bRRZ(j + 1, k + 1) -&
-                 bRRZ(j + 1, k - 1) + 2 * (bRRZ(j, k + 1) - bRRZ(j, k - 1)) +&
-                 bRRZ(j - 1, k + 1) - bRRZ(j - 1, k - 1)) / (highBZ - lowBZ)
-            !! db_R/dphi
-            dbRdP = IntExtPol3(ie - is + 1, dAxis(is:ie), dbRdPV(is:ie), dist)
-            !! use precalculated magnetic field for the derivative of b_Z
-            dbZdR = .125_hp * REAL(rGridPoints - 1, hp) * (bZRZ(j + 1, k + 1) -&
-                 bZRZ(j - 1, k + 1) + 2 * (bZRZ(j + 1, k) - bZRZ(j - 1, k)) +&
-                 bZRZ(j + 1, k - 1) - bZRZ(j - 1, k - 1)) / (highBR - lowBR)
-            dbZdZ = .125_hp * REAL(zGridPoints - 1, hp) * (bZRZ(j + 1, k + 1) -&
-                 bZRZ(j + 1, k - 1) + 2 * (bZRZ(j, k + 1) - bZRZ(j, k - 1)) +&
-                 bZRZ(j - 1, k + 1) - bZRZ(j - 1, k - 1)) / (highBZ - lowBZ)
-            !! db_z/dphi
-            dbZdP = IntExtPol3(ie - is + 1, dAxis(is:ie), dbZdPV(is:ie), dist)
-          END IF
-          !! dpres/ds
-          dPresdS = IntExtPol3(ie - is + 1, dAxis(is:ie), dPresdSV(is:ie),&
-               dist)
-          !! calc rotB perpendicular from pressure gradient because it is
-          !! stable over the whole domain
-          !! rotBperp = mu0 (b x (\nabla s)) p' / |B|
-          rotBPerp(:) = mu0 * CrossL((/bR, bZ, bP/),&
-               (/gradSR, gradSZ, gradSP / rS/)) * dPresdS / absB
-
-          !! scale only s dependent data for representating them in rho
-          IF (useRho) THEN
-            rzS = SQRT(rzS)
-            sqrtG = 2 * rzS * sqrtG
-            IF (rzS > 1E-9) THEN
-              gradSR = gradSR / (2 * rzS)
-              gradSZ = gradSZ / (2 * rzS)
-              gradSP = gradSP / (2 * rzS)
-            ELSE
-              gradSR = 0
-              gradSZ = 0
-              gradSP = 0
-            END IF
-          END IF
-
-          !! write all data
-          IF (useArcTan) THEN
-            !! check if write data for perpendicular gyro ring
-            IF (gyroperp) THEN
-              WRITE(1) rS, zS, cylPhi, rzS, rzTheta, absB, bR, bZ, bP, sqrtG,&
-                   gradSR, gradSZ, gradSP, gradTR, gradTZ, gradTP, bgradB(:),&
-                   divB, rotBparAbs, rotBperp(:), gradB(:), SQRT(rzS) *&
-                   SIN(rzTheta), SQRT(rzS) * COS(rzTheta), dbRdR, dbRdZ,&
-                   dbRdP, dbZdR, dbZdZ, dbZdP
-            ELSE
-              WRITE(1) rS, zS, cylPhi, rzS, rzTheta, absB, bR, bZ, bP, sqrtG,&
-                   gradSR, gradSZ, gradSP, gradTR, gradTZ, gradTP, bgradB(:),&
-                   divB, rotBparAbs, rotBperp(:), gradB(:), SQRT(rzS) *&
-                   SIN(rzTheta), SQRT(rzS) * COS(rzTheta)
-            END IF
-          ELSE
-            !! check if write data for perpendicular gyro ring
-            IF (gyroperp) THEN
-              WRITE(1) rS, zS, cylPhi, rzS, rzTheta, absB, bR, bZ, bP, sqrtG,&
-                   gradSR, gradSZ, gradSP, gradTR, gradTZ, gradTP, bgradB(:),&
-                   divB, rotBparAbs, rotBperp(:), gradB(:), dbRdR, dbRdZ,&
-                   dbRdP, dbZdR, dbZdZ, dbZdP
-            ELSE
-              WRITE(1) rS, zS, cylPhi, rzS, rzTheta, absB, bR, bZ, bP, sqrtG,&
-                   gradSR, gradSZ, gradSP, gradTR, gradTZ, gradTP, bgradB(:),&
-                   divB, rotBparAbs, rotBperp(:), gradB(:)
-            END IF
-          END IF
-          IF (debug .AND. (me_rank == 0)) THEN
-            IF (useArcTan) THEN
-              !! check if write data for perpendicular gyro ring
-              IF (gyroperp) THEN
-                WRITE(114, FMT = "(35ES18.10)") rS, zS, cylPhi, rzS, rzTheta,&
-                     absB, bR, bZ, bP, sqrtG, gradSR, gradSZ, gradSP, gradTR,&
-                     gradTZ, gradTP, bgradB(:), divB, rotBparAbs, rotBperp(:),&
-                     gradB(:), SQRT(rzS) * SIN(rzTheta), SQRT(rzS) *&
-                     COS(rzTheta), dbRdR, dbRdZ, dbRdP, dbZdR, dbZdZ, dbZdP
-              ELSE
-                WRITE(114, FMT = "(29ES18.10)") rS, zS, cylPhi, rzS, rzTheta,&
-                     absB, bR, bZ, bP, sqrtG, gradSR, gradSZ, gradSP, gradTR,&
-                     gradTZ, gradTP, bgradB(:), divB, rotBparAbs, rotBperp(:),&
-                     gradB(:), SQRT(rzS) * SIN(rzTheta), SQRT(rzS) *&
-                     COS(rzTheta)
-              END IF
-            ELSE
-              !! check if write data for perpendicular gyro ring
-              IF (gyroperp) THEN
-                WRITE(114, FMT = "(33ES18.10)") rS, zS, cylPhi, rzS, rzTheta,&
-                     absB, bR, bZ, bP, sqrtG, gradSR, gradSZ, gradSP, gradTR,&
-                     gradTZ, gradTP, bgradB(:), divB, rotBparAbs, rotBperp(:),&
-                     gradB(:), dbRdR, dbRdZ, dbRdP, dbZdR, dbZdZ, dbZdP
-              ELSE
-                WRITE(114, FMT = "(27ES18.10)") rS, zS, cylPhi, rzS, rzTheta,&
-                     absB, bR, bZ, bP, sqrtG, gradSR, gradSZ, gradSP, gradTR,&
-                     gradTZ, gradTP, bgradB(:), divB, rotBparAbs, rotBperp(:),&
-                     gradB(:)
-              END IF
-            END IF
-          END IF
-        END DO
-      END DO
-      IF (debug .AND. (me_rank == 0)) THEN
-        CLOSE(113)
-        CLOSE(114)
-      END IF
-      CLOSE(1)
-    END DO
-
-    pMin(1) = dMinR
-    pMin(2) = phiMinR
-    pMin(3) = dMaxR
-    pMin(4) = phiMaxR
-    pMin(1) = dMinZ
-    pMin(2) = phiMinZ
-    pMin(3) = dMaxZ
-    pMin(4) = phiMaxZ
-
-    IF (me_rank == 0) THEN
-      WRITE(*, *) " done!"
-      PRINT *, "minimal distances to the box boundaries"
-      PRINT '(A, ES11.4, " ( phi =", ES11.4, ")")', "to minR: ", pMin(1:2)
-      PRINT '(A, ES11.4, " ( phi =", ES11.4, ")")', "to maxR: ", pMin(3:4)
-      PRINT '(A, ES11.4, " ( phi =", ES11.4, ")")', "to minZ: ", pMin(5:6)
-      PRINT '(A, ES11.4, " ( phi =", ES11.4, ")")', "to maxZ: ", pMin(7:8)
-    END IF
-
-  CONTAINS
-
-    SUBROUTINE CalcRay(rS, zS)
-
-!> cylinder coordinates
-      REAL(KIND = hp), INTENT(IN) :: rS, zS
-
-      INTEGER :: curS
-
-      !! look for nearest point
-      !! initialization
-      minDV(1) = 1D39
-      minTV(1) = -1
-      minTh = 1
-      !! all points from the (s,u) -> (r,z) mapping
-      DO l = 1, nFlux
-        minDV(l) = (mapRZ(minTh, l, 1) - rS) *&
-             (mapRZ(minTh, l, 1) - rS) + (mapRZ(minTh, l, 2) - zS) *&
-             (mapRZ(minTh, l, 2) - zS)
-        minTV(l) = minTh
-        DO m = 1, nPointsU
-          !! L2-distance to current grid point
-          h1 = (mapRZ(m, l, 1) - rS) * (mapRZ(m, l, 1) - rS)
-          IF (h1 < minDV(l)) THEN
-            h2 = (mapRZ(m, l, 2) - zS) * (mapRZ(m, l, 2) - zS)
-            !! check for minimum
-            IF (h1 + h2 < minDV(l)) THEN
-              !! store minimal position
-              minTV(l) = m
-              minTh = m
-              minDV(l) = h1 + h2
-            END IF
-          END IF
-        END DO
-      END DO
-      !! use 10 points around the nearest point for interpolation
-      minS = MINLOC(minDV(:), 1)
-      minTh = minTV(minS)
-      maxS = MIN(radius, minS + 5)
-      minS = MAX(maxS - 10, 2)
-      !! set the starting point of the ray
-      IF (minS > 3) THEN
-        rSt = mapRZ(minTh, minS, 1)
-        zSt = mapRZ(minTh, minS, 2)
-      ELSE
-        minS = 1
-        maxS = MIN(radius, minS + 10)
-        rSt = rAxis
-        zSt = zAxis
-      END IF
-
-      !! distance to the ray starting point
-      dist = SQRT((rS - rSt)**2 + (zS - zSt)**2)
-      !! look for all cuts of the flux surfaces with a the ray through
-      !! the current grid points for theta
-      DO curS = minS + 1, minS + 10
-        !! search segment of the flux surface which is cutted by the ray
-        m = 0
-        h2m = 1E39_hp
-        !! all points of the approximation of the flux surface
-        DO l = 1, nPointsU - 1
-          !! first point of segment
-          r1 = mapRZ(l, curS, 1)
-          z1 = mapRZ(l, curS, 2)
-          !! second point of segment
-          r2 = mapRZ(l + 1, curS, 1)
-          z2 = mapRZ(l + 1, curS, 2)
-          !! calculate crossing point by
-          !!  (rSt)        (rS - rSt)   (r1)        (r2 - r1)
-          !!  (   ) + h1 * (        ) = (  ) + h2 * (       )
-          !!  (zSt)        (zS - zSt)   (z1)        (z2 - z1)
-          h = (rS - rSt) * (z2 - z1) - (zS - zSt) * (r2 - r1)
-          h1 = (rSt * (z1 - zS) + r1 * (zS - zSt) + rS * (zSt - z1)) / h
-          !! check if crossing point inside the segment and on the
-          !! correct side
-          IF ((h1 >= 0) .AND. (h1 <= 1)) THEN
-            h2 = (rSt * (z1 - z2) + r1 * (z2 - zSt) + r2 * (zSt - z1)) / h
-            IF ((h2 > 0) .AND. (h2 < h2m)) THEN
-              m = l
-              h1m = h1
-              h2m = h2
-            END IF
-          END IF
-        END DO
-        !! calculate approximated value of u
-        h = TwoPi * REAL(m - 1, hp) / REAL(nPointsU - 1, hp)
-        theta(curS) = h + TwoPi * h1m / REAL(nPointsU - 1, hp)
-        !! store a second point if secant method is used
-        IF (useSecant) THEN
-          !! check if the approximated point is a vertex
-          IF ((h1m < .5_hp) .AND. (h1m > 0)) THEN
-            theta2(curS) = h
-          ELSE
-            theta2(curS) = TwoPi * REAL(m, hp) / REAL(nPointsU - 1, hp)
-          END IF
-        END IF
-      END DO
-      IF (useSecant) THEN
-        CALL FindInterSectionRZSec(minS + 1, minS + 10, rSt, zSt, rS - rSt,&
-             zS - zSt, cylPhi, theta(:), theta2(:))
-      ELSE
-        CALL FindInterSectionRZNewton(minS + 1, minS + 10, rSt, zSt,&
-             rS - rSt, zS - zSt, cylPhi, theta(:))
-      END IF
-
-    END SUBROUTINE CalcRay
-
-    SUBROUTINE IntAlongRay(b, bR, bZ)
-
-!> resulting values for |B|, b_R, b_z
-      REAL(KIND = hp), INTENT(out) :: b, bR, bZ
-
-      INTEGER :: curS
-      REAL(KIND = hp) :: iota, psi, sqrtG, dLambdadU, dLambdadV
-      REAL(KIND = hp) :: dRdU, dRdV, dZdU, dZdV, bU, bV
-
-      !! set inner distance to 0
-      dAxis(minS) = 0
-      i0 = minS
-      mRad = minS + 10
-      !! calculate distance of cutting points to the magnetic axis
-      DO curS = minS + 1, minS + 10
-        dAxis(curS) = DistanceToPoint(curS, theta(curS), cylPhi, rSt, zSt)
-        !! search position if grid point
-        IF (dist > dAxis(curS)) i0 = curS
-        !! check if calculated theta values are consistent with the
-        !! distance to the ray starting point
-        IF (curS > minS) THEN
-          !! check strict monotonic behaviour
-          IF (dAxis(curS) < dAxis(curS - 1)) THEN
-            mRad = curS - 1
-            EXIT
-          END IF
-        END IF
-      END DO
-      !! interpolate or extrapolate the data along the line
-      !! calculate only nearest neighbouring points along the line
-      is = MAX(minS + 1, i0 - 3)
-      ie = MIN(mRad, i0 + 3)
-      !! maximal inter- or extrapolated distance of a point
-      mDist = constFac * DistanceToPoint(mRad, theta(mRad), cylPhi, rSt,&
-           zSt)
-      !! interpolate along constant theta
-      IF (useConstTheta .AND. (dist > dAxis(minS + 1)) .AND.&
-           (dist < mDist)) THEN
-        !! interpolate or extrapolate theta along the line
-        theta(:) = IntExtPol3(ie - is + 1, dAxis(is:ie), theta(is:ie),&
-             dist)
-        lineR(minS) = rSt
-        lineZ(minS) = zSt
-        recalc = .TRUE.
-        mRad = minS + 10
-        !! recalculate distance along constant theta path
-        DO curS = minS + 1, minS + 10
-          lineR(curS) = CosTransFullMeshF(mn_mode, rmnc(:, curS), xm(:),&
-               xn(:), theta(1), cylPhi, recalc)
-          lineZ(curS) = SinTransFullMeshF(mn_mode, zmns(:, curS), xm(:),&
-               xn(:), theta(1), cylPhi, recalc)
-          recalc = .FALSE.
-          dAxis(curS) = dAxis(curS - 1) + SQRT((lineR(curS) -&
-               lineR(curS - 1))**2 + (lineZ(curS) - lineZ(curS - 1))**2)
-        END DO
-        !! maximal inter- or extrapolated distance of a point
-        mDist = constFac * dAxis(minS + 10)
-        dist = dAxis(i0 - 1) + SQRT((rS - lineR(i0 - 1))**2 + (zS -&
-             lineZ(i0 - 1))**2)
-      END IF
-
-      !! calculate values along the line
-      DO curS = is, ie
-        argV(:) = xm(:) * theta(curS) - xnv(:)
-        sinV(:) = SIN(argV(:))
-        cosV(:) = COS(argV(:))
-        argVn(:) = xm_nyq(:) * theta(curS) - xnvn(:)
-        cosVn(:) = COS(argVn(:))
-        !! iota
-        iota = iotas(curS)
-        !! psi
-        psi = phipf(curS)
-        !! sqrtG from VMEC data
-        sqrtG = SUM(gmnc(:, curS) * cosVn(:))
-        !! 1 + dlambda/du
-        dLambdadU = 1 + SUM(lUmnc(:, curS) * cosV(:))
-        !! dlambda/dv
-        dLambdadV = SUM(lVmnc(:, curS) * cosV(:))
-        !! dR/du
-        dRdU = SUM(dRdUmns(:, curS) * sinV(:))
-        !! dR/dv
-        dRdV = SUM(dRdVmns(:, curS) * sinV(:))
-        !! dz/du
-        dZdU = SUM(dZdUmnc(:, curS) * cosV(:))
-        !! dz/dv
-        dZdV = SUM(dZdVmnc(:, curS) * cosV(:))
-        IF (corVMEC) THEN
-          !! B^u = (iota - dlambda/dv) * psi / sqrtG
-          bU = (iota - dLambdadV) * psi / sqrtG
-          !! B^v = (1 + dlambda/du) * psi / sqrtG
-          bV = dLambdadU * psi / sqrtG
-        ELSE
-          bU = SUM(bsupumnc(:, curS) * cosVn(:))
-          bV = SUM(bsupvmnc(:, curS) * cosVn(:))
-        END IF
-        !! calculate B_R = dR/du * B^u + dR/dv * B^v
-        bR = bU * dRdU + bV * dRdV
-        !! calculate B_z = dz/du * B^u + dz/dv * B^v
-        bZ = bU * dZdU + bV * dZdV
-        !! |B|
-        absBV(curS) = CosTransFullMesh(mn_mode_nyq, bmnc(:, curS),&
-             xm_nyq(:), xn_nyq(:), theta(curS), cylPhi)
-        !! calculate b_R
-        bRV(curS) = bR / absBV(curS)
-        !! calculate b_z
-        bZV(curS) = bZ / absBV(curS)
-      END DO
-      !! |B|
-      b = IntExtPol3(ie - is + 1, dAxis(is:ie), absBV(is:ie),&
-           MIN(dist, mDist))
-      !! b_R
-      bR = IntExtPol3(ie - is + 1, dAxis(is:ie), bRV(is:ie),&
-           dist)
-      !! b_z
-      bZ = IntExtPol3(ie - is + 1, dAxis(is:ie), bZV(is:ie),&
-           MIN(dist, mDist))
-
-    END SUBROUTINE IntAlongRay
-
-    SUBROUTINE GetInterpolates(curS, rzS, theta)
-
-      !! number of flux surface
-      INTEGER, INTENT(IN) :: curS
-
-      !! s coordinate
-      REAL(KIND = hp), INTENT(IN) :: rzS
-
-      !! value of theta
-      REAL(KIND = hp), INTENT(IN) :: theta
-
-      argV(:) = xm(:) * theta - xnv(:)
-      sinV(:) = SIN(argV(:))
-      cosV(:) = COS(argV(:))
-      argVn(:) = xm_nyq(:) * theta - xnvn(:)
-      sinVn(:) = SIN(argVn(:))
-      cosVn(:) = COS(argVn(:))
-      !! R
-      r = SUM(rmnc(:, curS) * cosV(:))
-      !! z
-      z = SUM(zmns(:, curS) * sinV(:))
-      !! dlambda/ds
-      dLambdadS = GetRadialDerivativeF(radius, curS, mn_mode,&
-           lmns(:, 1:), sinV(:))
-      !! 1 + dlambda/du
-      dLambdadU = 1 + SUM(lUmnc(:, curS) * cosV(:))
-      !! dlambda/dv
-      dLambdadV = SUM(lVmnc(:, curS) * cosV(:))
-      !! d^2lambda / (ds du)
-      d2LambdadUdS = GetRadialDerivativeF(radius, curS, mn_mode,&
-           lUmnc(:, 1:), cosV(:))
-      !! d^2lambda / (ds dv)
-      d2LambdadVdS = GetRadialDerivativeF(radius, curS, mn_mode,&
-           lVmnc(:, 1:), cosV(:))
-      !! d^2lambda / (du^2)
-      d2LambdadU2 = SUM(lU2mns(:, curS) * sinV(:))
-      !! d^2lambda / (du dv)
-      d2LambdadUdV = SUM(lUVmns(:, curS) * sinV(:))
-      !! d^2lambda / (dv^2)
-      d2LambdadV2 = SUM(lV2mns(:, curS) * sinV(:))
-      !! dR/dS, dz/dS and second partial derivates from fourier series if
-      !! available
-      IF (corVMEC) THEN
-        !! dR/ds
-        dRdS = SUM(dRdSmnc(:, curS) * cosV(:))
-        !! d^2R/(du ds)
-        d2RdUdS = SUM(d2RdUdSmns(:, curS) * sinV(:))
-        !! d^2R/(dv ds)
-        d2RdVdS = SUM(d2RdVdSmns(:, curS) * sinV(:))
-        !! dz/ds
-        dZdS = SUM(dZdSmns(:, curS) * sinV(:))
-        !! d^2z/(du ds)
-        d2ZdUdS = SUM(d2ZdUdSmnc(:, curS) * cosV(:))
-        !! d^2z/(dv ds)
-        d2ZdVdS = SUM(d2ZdVdSmnc(:, curS) * cosV(:))
-      ELSE
-        !! dR/ds from VMEC data
-        dRdS = GetRadialDerivativeF(radius, curS, mn_mode,&
-             rmnc(:, 1:), cosV(:))
-        !! d^2R/(du ds)
-        d2RdUdS = GetRadialDerivativeF(radius, curS, mn_mode,&
-             dRdUmns(:, 1:), sinV(:))
-        !! d^2R/(dv ds)
-        d2RdVdS = GetRadialDerivativeF(radius, curS, mn_mode,&
-             dRdVmns(:, 1:), sinV(:))
-        !! dz/ds from VMEC data
-        dZdS = GetRadialDerivativeF(radius, curS, mn_mode,&
-             zmns(:, 1:), sinV(:))
-        !! d^2z/(du ds)
-        d2ZdUdS = GetRadialDerivativeF(radius, curS, mn_mode,&
-             dZdUmnc(:, 1:), cosV(:))
-        !! d^2z/(dv ds)
-        d2ZdVdS = GetRadialDerivativeF(radius, curS, mn_mode,&
-             dZdVmnc(:, 1:), cosV(:))
-      END IF
-      !! dR/du
-      dRdU = SUM(dRdUmns(:, curS) * sinV(:))
-      !! d2R/du2
-      d2RdU2 = SUM(d2RdU2mnc(:, curS) * cosV(:))
-      !! d2R/(du dv)
-      d2RdUdV = SUM(d2RdUdVmnc(:, curS) * cosV(:))
-      !! dR/dv
-      dRdV = SUM(dRdVmns(:, curS) * sinV(:))
-      !! d2R/dv2
-      d2RdV2 = SUM(d2RdV2mnc(:, curS) * cosV(:))
-      !! dz/du
-      dZdU = SUM(dZdUmnc(:, curS) * cosV(:))
-      !! d2z/du2
-      d2ZdU2 = SUM(d2ZdU2mns(:, curS) * sinV(:))
-      !! d2z/(du dv)
-      d2ZdUdV = SUM(d2ZdUdVmns(:, curS) * sinV(:))
-      !! dz/dv
-      dZdV = SUM(dZdVmnc(:, curS) * cosV(:))
-      !! d2z/du2
-      d2ZdV2 = SUM(d2ZdV2mns(:, curS) * sinV(:))
-      !! calculate jacobian and partial derivatives from following
-      !! expression
-      !!             (dR dz   dR dz)
-      !!   sqrtG = R (-- -- - -- --)
-      !!             (du ds   ds du)
-      !! sqrtG
-      h = dRdU * dZdS - dZdU * dRdS
-      !! sqrtG from VMEC data
-      sqrtG = SUM(gmnc(:, curS) * cosVn(:))
-      !! correction of h if curS == 1
-      IF (h == 0.0) h = sqrtG / r
-      !! dsqrtG/ds
-      IF (corVMEC) THEN
-        dsqrtGdS = SUM(dgdSmnc(:, curS) * cosVn(:))
-      ELSE
-        dsqrtGdS = GetRadialDerivativeF(radius, curS,&
-             mn_mode_nyq, gmnc(:, 1:), cosVn(:))
-      END IF
-      !! dsqrtG/du
-      dsqrtGdU = SUM(-xm_nyq(:) * gmnc(:, curS) * sinVn(:))
-      !! dsqrtG/dv
-      dsqrtGdV = SUM(xn_nyq(:) * gmnc(:, curS) * sinVn(:))
-      !! |B|
-      absB = SUM(bmnc(:, curS) * cosVn(:))
-      IF (corVMEC) THEN
-        IF (useScaledB .AND. (rzS <= errInt(1))) THEN
-          dBdSs = SUM(dBdSsmnc(:, curS) * cosVn(:))
-          !! d|B|/ds = d(|Bs|/sqrtG)/ds
-          !!         = (d|Bs|/ds * sqrtG - |Bs| * dsqrtG/ds) / sqrtG^2
-          dBdS = (signgs * dBdSs - absB * dsqrtGdS) / sqrtG
-        ELSE
-          !! dB/ds
-          dBdS = SUM(dBdSmnc(:, curS) * cosVn(:))
-        END IF
-      ELSE
-        dBdS = GetRadialDerivativeF(radius, curS, mn_mode_nyq,&
-             bmnc(:, 1:), cosVn(:))
-      END IF
-
-      !! dB/du
-      dBdU = SUM(dBdUmns(:, curS) * sinVn(:))
-      IF (corVMEC .AND. useScaledB) THEN
-        dBdUs = SUM(dBdUsmns(:, curS) * sinVn(:))
-        !! d|B|/du = d(|Bs|/sqrtG)/du
-        !!         = (d|Bs|/du * sqrtG - |Bs| * dsqrtG/du) / sqrtG^2
-        dBdU = (signgs * dBdUs - dsqrtGdU * absB) / sqrtG
-      END IF
-
-      !! dB/dv
-      dBdV = SUM(dBdVmns(:, curS) * sinVn(:))
-      IF (corVMEC .AND. useScaledB) THEN
-        dBdVs = SUM(dBdVsmns(:, curS) * sinVn(:))
-        !! d|B|/dv = d(|Bs|/sqrtG)/dv
-        !!         = (d|Bs|/dv * sqrtG - |Bs| * dsqrtG/dv) / sqrtG^2
-        dBdV = (signgs * dBdVs - dsqrtGdV * absB) / sqrtG
-      END IF
-
-      !! diota/ds
-      dIotadS = GetRadialDerivative(radius, curS, iotas(1:))
-      !! iota
-      iota = iotas(curS)
-      !! psi
-      psi = phipf(curS)
-
-      !! calculate grad s and grad u from inverse of
-      !!        (dR/ds dR/du dR/dv)
-      !!        (dz/ds dz/du dz/dv)
-      !!        (  0     0     1  )
-      !!
-      !!          (         -dz/du          )
-      !! grad s = (          dR/du          )/(dR/du dz/ds - dz/du dR/ds)
-      !!          (dR/dv dz/du - dR/du dz/dv)
-      gradS(1) = -dZdU / h
-      gradS(2) = dRdU / h
-      gradS(3) = (dRdV * dZdU - dRdU * dZdV) / h
-      !!          (          dz/ds          )
-      !! grad u = (         -dR/ds          )/(dR/du dz/ds - dz/du dR/ds)
-      !!          (dR/ds dz/dv - dR/dv dz/ds)
-      gradU(1) = dZdS / h
-      gradU(2) = -dRdS / h
-      gradU(3) = (dRdS * dZdV - dRdV * dZdS) / h
-      !! calculate grad theta = (1 + dlambda/du) * grad u +
-      !!                   dlambda/ds * grad s + dlambda/dv * grad v
-      gradT(:) = dLambdadU * gradU(:) + dLambdadS * gradS(:)
-      gradT(3) = gradT(3) + dLambdadV
-
-      IF (corVMEC) THEN
-        !! B^u = (iota - dlambda/dv) * psi / sqrtG
-        bU = (iota - dLambdadV) * psi / sqrtG
-        !! B^v = (1 + dlambda/du) * psi / sqrtG
-        bV = dLambdadU * psi / sqrtG
-      ELSE
-        bU = SUM(bsupumnc(:, curS) * cosVn(:))
-        bV = SUM(bsupvmnc(:, curS) * cosVn(:))
-      END IF
-
-      !! calculate B_R = dR/du * B^u + dR/dv * B^v
-      bR = (bU * dRdU + bV * dRdV) / absB
-      !! calculate B_z = dz/du * B^u + dz/dv * B^v
-      bZ = (bU * dZdU + bV * dZdV) / absB
-      !! calculate B_phi
-      !! bP = bV * r
-      !! for consistency we use B_phi = SQRT(|B|^2-B_R^2-B_Z^2) instead of
-      !! the formula B_phi = B^v * R since the later gives slightly
-      !! inconsistent results near the axis
-      bP = SQRT(1._hp - bR * bR - bZ * bZ) * SIGN(1._hp, bV * r)
-
-      !! calculate rot B
-      !! metric
-      !!          dR dR   dz dz
-      !! g_{su} = -- -- + -- --
-      !!          ds du   ds du
-      gsu = dRdS * dRdU + dZdS * dZdU
-      !!          dR dR   dz dz
-      !! g_{sv} = -- -- + -- --
-      !!          ds dv   ds dv
-      gsv = dRdS * dRdV + dZdS * dZdV
-      !!          dR dR   dz dz
-      !! g_{uu} = -- -- + -- --
-      !!          du du   du du
-      guu = dRdU * dRdU + dZdU * dZdU
-      !!          dR dR   dz dz
-      !! g_{uv} = -- -- + -- --
-      !!          du dv   du dv
-      guv = dRdU * dRdV + dZdU * dZdV
-      !!          dR dR   dz dz
-      !! g_{vv} = -- -- + -- -- + r^2
-      !!          dv dv   dv dv
-      gvv = dRdV * dRdV + dZdV * dZdV + r * r
-      !! for consistency one could set g_{vv} with
-      !! gvv = (gsv * gsv * guu - 2 * gsu * gsv * guv + gss * guv * guv +&
-      !!     sqrtG * sqrtG) / (gss * guu - gsu * gsu)
-      !! christoffel symbols
-      !! dg_{su}/du
-      dgsudU = d2RdUdS * dRdU + dRdS * d2RdU2 + d2ZdUdS * dZdU + dZdS *&
-           d2ZdU2
-      !! dg_{su}/dv
-      dgsudV = d2RdVdS * dRdU + dRdS * d2RdUdV + d2ZdVdS * dZdU + dZdS *&
-           d2ZdUdV
-      !! dg_{sv}/du
-      dgsvdU = d2RdUdS * dRdV + dRdS * d2RdUdV + d2ZdUdS * dZdV + dZdS *&
-           d2ZdUdV
-      !! dg_{sv}/dv
-      dgsvdV = d2RdVdS * dRdV + dRdS * d2RdV2 + d2ZdVdS * dZdV + dZdS *&
-           d2ZdV2
-      !! dg_{uu}/ds
-      dguudS = 2 * (dRdU * d2RdUdS + dZdU * d2ZdUdS)
-      !! dg_{uu}/dv
-      dguudV = 2 * (dRdU * d2RdUdV + dZdU * d2ZdUdV)
-      !! dg_{uv}/ds
-      dguvdS = d2RdUdS * dRdV + dRdU * d2RdVdS + d2ZdUdS * dZdV + dZdU *&
-           d2ZdVdS
-      !! dg_{uv}/du
-      dguvdU = d2RdU2 * dRdV + dRdU * d2RdUdV + d2ZdU2 * dZdV + dZdU *&
-           d2ZdUdV
-      !! dg_{uv}/dv
-      dguvdV = d2RdUdV * dRdV + dRdU * d2RdV2 + d2ZdUdV * dZdV + dZdU *&
-           d2ZdV2
-      !! dg_{vv}/ds
-      dgvvdS = 2 * (dRdV * d2RdVdS + dZdV * d2ZdVdS + r * dRdS)
-      !! dg_{vv}/du
-      dgvvdU = 2 * (dRdV * d2RdUdV + dZdV * d2ZdUdV + r * dRdU)
-      !!       (diota   d^2lambda)   (       dLambda) dsqrtG
-      !!       (----- - ---------) - (iota - -------) ------ / sqrtG
-      !! dB^u  ( ds       ds dv  )   (         dv   )   ds
-      !! ---- =----------------------------------------------------- psi
-      !!  ds                        sqrtG
-      !!
-      dbUdSs = (dIotadS - d2LambdadVdS - (iota - dLambdadV) *&
-           dsqrtGdS / sqrtG) * psi
-      !!          d^2lambda   (       dlambda) dsqrtG
-      !!        - --------- - (iota - -------) ------ / sqrtG
-      !! dB^u      du dv      (         dv   )   du
-      !! ---- = --------------------------------------------- psi
-      !!  du                       sqrtG
-      !!
-      dbUdUs = -(d2LambdadUdV + (iota - dLambdadV) * dsqrtGdU&
-           / sqrtG) * psi
-      !!          d^2lambda   (       dlambda) dsqrtG
-      !!        - --------- - (iota - -------) ------ / sqrtG
-      !! dB^u       dv^2      (         dv   )   dv
-      !! ---- = --------------------------------------------- psi
-      !!  dv                       sqrtG
-      !!
-      dbUdVs = -(d2LambdadV2 + (iota - dLambdadV) * dsqrtGdV / sqrtG) *&
-           psi
-      !!       d^2lambda   (    dlambda) dsqrtG
-      !!       --------- - (1 + -------) ------ / sqrtG
-      !! dB^v    ds du     (      du   )   ds
-      !! ---- =---------------------------------------- psi
-      !!  ds                    sqrtG
-      !!
-      dbVdSs = (d2LambdadUdS - dLambdadU * dsqrtGdS / sqrtG) * psi
-      !!        d^2lambda   (    dlambda) dsqrtG
-      !!        --------- - (1 + -------) ------ / sqrtG
-      !! dB^v     du^2      (      du   )   du
-      !! ---- = ---------------------------------------- psi
-      !!  du                    sqrtG
-      !!
-      dbVdUs = (d2LambdadU2 - dLambdadU * dsqrtGdU / sqrtG) * psi
-      !!        d^2lambda   (    dlambda) dsqrtG
-      !!        --------- - (1 + -------) ------ / sqrtG
-      !! dB^v     du dv     (      du   )   dv
-      !! ---- = ---------------------------------------- psi
-      !!  dv                     sqrtG
-      !!
-      dbVdVs = (d2LambdadUdV - dLambdadU * dsqrtGdV / sqrtG) * psi
-      !!               (dB_v   dB_u)
-      !!               (---- - ----)
-      !!               ( du     dv )
-      !!           1   (dB_s   dB_v)
-      !! rot B = ----- (---- - ----)
-      !!         sqrtG ( dv     ds )
-      !!               (dB_u   dB_s)
-      !!               (---- - ----)
-      !!               ( ds     du )
-      !! where
-      !!  B_s = g_{su} B^u + g_{sv} B^v
-      !!  B_u = g_{uu} B^u + g_{uv} B^v
-      !!  B_v = g_{uv} B^u + g_{vv} B^v
-      rotBs(1) = ((dguvdU - dguudV) * bU + (dgvvdU - dguvdV) * bV +&
-           (guv * dbUdUs - guu * dbUdVs + gvv * dbVdUs - guv * dbVdVs) &
-           / sqrtG) / sqrtG
-      rotBs(2) = ((dgsudV - dguvdS) * bU + (dgsvdV - dgvvdS) * bV +&
-           (gsu * dbUdVs - guv * dbUdSs + gsv * dbVdVs - gvv * dbVdSs) &
-           / sqrtG) / sqrtG
-      rotBs(3) = ((dguudS - dgsudU) * bU + (dguvdS - dgsvdU) * bV +&
-           (guu * dbUdSs - gsu * dbUdUs + guv * dbVdSs - gsv * dbVdUs) &
-           / sqrtG) / sqrtG
-      !! convert to cylindrical coordinates
-      rotB(1) = dRdS * rotBs(1) + dRdU * rotBs(2) + dRdV * rotBs(3)
-      rotB(2) = dZdS * rotBs(1) + dZdU * rotBs(2) + dZdV * rotBs(3)
-      rotB(3) = rotBs(3) * r
-      !! get rotB parallel
-      !! |rotBpar| = (b . (\nabla x B))
-      rotBParAbs = DOT_PRODUCT((/bR, bZ, bP/), rotB(:))
-      gBS = (dBdU * dZdS - dBdS * dZdU) / h
-      gBU = (dBdS * dRdU - dBdU * dRdS) / h
-      gBV = ((dBdS * (dRdV * dZdU - dRdU * dZdV) +&
-           dBdU * (dRdS * dZdV - dRdV * dZdS)) / h + dBdV) / r
-
-      IF (gyroperp) THEN
-        !! dB_R   db^u dR   db^v dR       d^2 R       d^2 R
-        !! ---- = ---- -- + ---- -- + b^u ----- + b^v -----
-        !!  ds     ds  du    ds  dv       ds du       ds dv
-        dbRdS = (dbUdSs * dRdU + dbVdSs * dRdV) / sqrtG + bU * d2RdUdS +&
-             bV * d2RdVdS
-        !! db_R   (dB_R       d|b|)
-        !! ---- = (---- - b_R ----) / |b|
-        !!  ds    ( ds         ds )
-        dbRdS = (dbRdS - bR * dBdS) / absB
-
-        !! dB_R   db^u dR   db^v dR       d^2R       d^2 R
-        !! ---- = ---- -- + ---- -- + b^u ---- + b^v -----
-        !!  du     du  du    du  dv       du^2       du dv
-        dbRdU = (dbUdUs * dRdU + dbVdUs * dRdV) / sqrtG + bU * d2RdU2 +&
-             bV * d2RdUdV
-        !! db_R   (dB_R       d|b|)
-        !! ---- = (---- - b_R ----) / |b|
-        !!  du    ( du         du )
-        dbRdU = (dbRdU - bR * dBdU) / absB
-
-        !! dB_R   db^u dR   db^v dR       d^2 R       d^2R
-        !! ---- = ---- -- + ---- -- + b^u ----- + b^v ----
-        !!  dv     dv  du    dv  dv       du dv       dv^2
-        dbRdV = (dbUdVs * dRdU + dbVdVs * dRdV) / sqrtG + bU * d2RdUdV +&
-             bV * d2RdV2
-        !! db_R   (dB_R       d|b|)
-        !! ---- = (---- - b_R ----) / |b|
-        !!  dv    ( dv         dv )
-        dbRdV = (dbRdV - bR * dBdV) / absB
-
-        !! dB_z   db^u dz   db^v dz       d^2 z       d^2 z
-        !! ---- = ---- -- + ---- -- + b^u ----- + b^v -----
-        !!  ds     ds  du    ds  dv       ds du       ds dv
-        dbZdS = (dbUdSs * dZdU + dbVdSs * dZdV) / sqrtG + bU * d2ZdUdS +&
-             bV * d2ZdVdS
-        !! db_z   (dB_z       d|b|)
-        !! ---- = (---- - b_z ----) / |b|
-        !!  ds    ( ds         ds )
-        dbZdS = (dbZdS - bZ * dBdS) / absB
-
-        !! dB_z   db^u dz   db^v dz       d^2z       d^2 z
-        !! ---- = ---- -- + ---- -- + b^u ---- + b^v -----
-        !!  du     du  du    du  dv       du^2       du dv
-        dbZdU = (dbUdUs * dZdU + dbVdUs * dZdV) / sqrtG + bU * d2ZdU2 +&
-             bV * d2ZdUdV
-        !! db_z   (dB_z       d|b|)
-        !! ---- = (---- - b_z ----) / |b|
-        !!  du    ( du         du )
-        dbZdU = (dbZdU - bZ * dBdU) / absB
-
-        !! dB_z   db^u dz   db^v dz       d^2 z       d^2z
-        !! ---- = ---- -- + ---- -- + b^u ----- + b^v ----
-        !!  dv     dv  du    dv  dv       du dv       dv^2
-        dbZdV = (dbUdVs * dZdU + dbVdVs * dZdV) / sqrtG + bU * d2ZdUdV +&
-             bV * d2ZdV2
-        !! db_z   (dB_z       d|b|)
-        !! ---- = (---- - b_z ----) / |b|
-        !!  dv    ( dv         dv )
-        dbZdV = (dbZdV - bZ * dBdV) / absB
-
-        !! db_R   db_R  ds    db_R  du    db_R
-        !! ---- = ---- ---- + ---- ---- + ----
-        !! dphi    ds  dphi    du  dphi    dv
-        dbRdP = dbRdS * gradS(3) + dbRdU * gradU(3) + dbRdV
-        !! db_z   db_z  ds    db_z  du    db_z
-        !! ---- = ---- ---- + ---- ---- + ----
-        !! dphi    ds  dphi    du  dphi    dv
-        dbZdP = dbZdS * gradS(3) + dbZdU * gradU(3) + dbZdV
-      END IF
-
-    END SUBROUTINE GetInterpolates
-
-    SUBROUTINE GetInterpolatesPolar(curS, theta)
-
-      !! number of flux surface
-      INTEGER, INTENT(IN) :: curS
-
-      !! value of theta
-      REAL(KIND = hp), INTENT(IN) :: theta
-
-      argV(:) = xm(:) * theta - xnv(:)
-      sinV(:) = SIN(argV(:))
-      cosV(:) = COS(argV(:))
-      argVn(:) = xm_nyq(:) * theta - xnvn(:)
-      cosVn(:) = COS(argVn(:))
-      !! R
-      r = SUM(rmnc(:, curS) * cosV(:))
-      !! z
-      z = SUM(zmns(:, curS) * sinV(:))
-      !! dlambda/ds
-      dLambdadS = GetRadialDerivativeFPolar(nInnerS, curS, mn_mode,&
-           lmns(:, stInd:(stInd + nInnerS - 1)), sinV(:))
-      !! 1 + dlambda/du
-      dLambdadU = 1 + SUM(lUmnc(:, curS) * cosV(:))
-      !! dlambda/dv
-      dLambdadV = SUM(lVmnc(:, curS) * cosV(:))
-      !! dR/dS, dz/dS
-      IF (corVMEC) THEN
-        !! dR/ds
-        dRdS = SUM(dRdSmnc(:, curS) * cosV(:))
-        !! dz/ds
-        dZdS = SUM(dZdSmns(:, curS) * sinV(:))
-      ELSE
-        !! dR/ds from VMEC data
-        dRdS = dir * GetRadialDerivativeFPolar(nInnerS, dir * curS, mn_mode,&
-             rmnc(:, stInd:(stInd + nInnerS - 1)), cosV(:))
-        !! dz/ds from VMEC data
-        dZdS = dir * GetRadialDerivativeFPolar(nInnerS, dir * curS, mn_mode,&
-             zmns(:, stInd:(stInd + nInnerS - 1)), sinV(:))
-      END IF
-      !! dR/du
-      dRdU = SUM(dRdUmns(:, curS) * sinV(:))
-      !! dR/dv
-      dRdV = SUM(dRdVmns(:, curS) * sinV(:))
-      !! dz/du
-      dZdU = SUM(dZdUmnc(:, curS) * cosV(:))
-      !! dz/dv
-      dZdV = SUM(dZdVmnc(:, curS) * cosV(:))
-      !! calculate jacobian and partial derivatives from following
-      !! expression
-      !!             (dR dz   dR dz)
-      !!   sqrtG = R (-- -- - -- --)
-      !!             (du ds   ds du)
-      !! sqrtG
-      h = dRdU * dZdS - dZdU * dRdS
-      !! sqrtG from VMEC data
-      sqrtG = SUM(gmnc(:, curS) * cosVn(:))
-
-      !! calculate grad s and grad u from inverse of
-      !!        (dR/ds dR/du dR/dv)
-      !!        (dz/ds dz/du dz/dv)
-      !!        (  0     0     1  )
-      !!
-      !!          (         -dz/du          )
-      !! grad s = (          dR/du          )/(dR/du dz/ds - dz/du dR/ds)
-      !!          (dR/dv dz/du - dR/du dz/dv)
-      gradS(1) = -dZdU / h
-      gradS(2) = dRdU / h
-      gradS(3) = (dRdV * dZdU - dRdU * dZdV) / h
-      !!          (          dz/ds          )
-      !! grad u = (         -dR/ds          )/(dR/du dz/ds - dz/du dR/ds)
-      !!          (dR/ds dz/dv - dR/dv dz/ds)
-      gradU(1) = dZdS / h
-      gradU(2) = -dRdS / h
-      gradU(3) = (dRdS * dZdV - dRdV * dZdS) / h
-      !! calculate grad theta = (1 + dlambda/du) * grad u +
-      !!                   dlambda/ds * grad s + dlambda/dv * grad v
-      gradT(:) = dLambdadU * gradU(:) + dLambdadS * gradS(:)
-      gradT(3) = gradT(3) + dLambdadV
-
-    END SUBROUTINE GetInterpolatesPolar
-
-  END SUBROUTINE EuterpeMapping
-
-! ----------------------------------------------------------------------
-!> sort array started from largest value (only indices will be changed)
-! ----------------------------------------------------------------------
-
-  SUBROUTINE Sort(indices, values)
-
-!> index array
-    INTEGER, DIMENSION(:), INTENT(INOUT) :: indices
-
-!> value array
-    REAL(KIND = hp), DIMENSION(:), INTENT(IN) :: values
-
-    INTEGER :: count, i, j
-
-    count = SIZE(indices)
-
-    DO WHILE (count > 1)
-      count = count - 1
-      DO i = 1, count
-        IF (values(indices(i + 1)) - values(indices(i)) > 1E-12_hp) THEN
-          j = indices(i)
-          indices(i) = indices(i + 1)
-          indices(i + 1) = j
-          count = i
-        END IF
-      END DO
-    END DO
-
-  END SUBROUTINE Sort
 
 ! ----------------------------------------------------------------------
 !> Smooth fourier components of r and z from VMEC output using a test
@@ -2895,19 +1176,7 @@ CONTAINS
     END DO
 
     !! set new flux surfaces for better central resolution
-    IF (mapEuterpe) THEN
-      IF (useSquared) THEN
-        sVal(:) = sVal(:) * sVal(:)
-      ELSE
-        sVal(stInd:-1) = sVal(stInd:-1) * sVal(stInd:-1)
-      END IF
-    END IF
     sVal(1) = 1E-9
-    IF (mapEuterpe .AND. .NOT.(useSquared)) sVal(-1) = 1E-9
-    IF (useRho .AND. mapEuterpe) THEN
-      IF (.NOT.(useSquared)) sVal(0) = 0
-      sVal(:) = sVal(:) * sVal(:)
-    END IF
 
     !! calculate new distances to original flux surfaces and store flux label
     j = 1
@@ -2924,22 +1193,6 @@ CONTAINS
       !! store flux label
       map(i) = j
     END DO
-
-    IF (mapEuterpe .AND. .NOT.(useSquared)) THEN
-      j = 1
-      DO i = -1, stInd + 1, -1
-        !! check if last original flux surface is reached and test if inside a
-        !! given original flux surface interval
-        DO WHILE ((-j > stInd + 1) .AND. (ABS((nFluxVMEC - 1) * (sVal(i - 1) -&
-             sValVMEC(j)) - .5) - .5 > 1E-8))
-          j = j + 1
-        END DO
-        !! calculate distance
-        h(i) = (sVal(i - 1) - sValVMEC(j))
-        !! store flux label
-        map(i) = j
-      END DO
-    END IF
 
     !! recalculate test function
     t(:, :, :) = 0
@@ -3034,56 +1287,6 @@ CONTAINS
              xz(i, mc + map(j)) + (6 * h1 + (6 * h2 + h3 * l) * l) * l *&
              xz(i, md + map(j))
       END DO
-      IF (mapEuterpe .AND. (.NOT.(useSquared))) THEN
-        DO j = 0, stInd + 1, -1
-          !! t(s_{j+1})
-          h1 = t(j - 1, asymp(i), 0)
-          !! t'(s_{j+1})
-          h2 = t(j - 1, asymp(i), 1)
-          !! t''(s_{j+1})
-          h3 = t(j - 1, asymp(i), 2)
-          !! h(j) = s_{j+1} - s_j
-          IF (j < 0) THEN
-            l = h(j)
-          ELSE
-            l = sVal(-1)
-          END IF
-          !! r_{j+1} = t(s_{j+1}) * (a_j + b_j * h + c_j * h^2 + d_j * h^3)
-          rmnc(i, j - 1) = h1 * (xr(i, ma + map(j)) + l * (xr(i, mb + map(j)) +&
-               l * (xr(i, mc + map(j)) + l * xr(i, md + map(j)))))
-          !! dr_{j+1}/ds = t'(s_{j+1}) * (a_j + b_j * h + c_j * h^2 + d_j *
-          !!                 h^3) + t(s_{j+1}) * (b_j + 2 * c_j * h + 3 * d_j *
-          !!                 h^2)
-          dRdSmnc(i, j - 1) = h2 * xr(i, ma + map(j)) + (h1 + h2 * l) *&
-               xr(i, mb + map(j)) + l * ((2 * h1 + h2 * l) * xr(i, mc + map(j)) +&
-               l * (3 * h1 + h2 * l) * xr(i, md + map(j)))
-          !! d^2r_{j+1}/ds^2 = t''(s_{j+1}) * (a_j + b_j * h + c_j * h^2 + d_j *
-          !!                     h^3) + 2 * t'(s_{j+1}) * (b_j + 2 * c_j * h +
-          !!                     3 * d_j * h^2) + t(s_{j+1}) * (2 * c_j + 6 *
-          !!                     d_j * h)
-          d2RdS2mnc(i, j - 1) = h3 * xr(i, ma + map(j)) + (2 * h2 + h3 * l) *&
-               xr(i, mb + map(j)) + (2 * h1 + (4 * h2 + h3 * l) * l) *&
-               xr(i, mc + map(j)) + (6 * h1 + (6 * h2 + h3 * l) * l) * l *&
-               xr(i, md + map(j))
-          !! z_{j+1} = t(s_{j+1}) * (a_j + b_j * h + c_j * h^2 + d_j * h^3)
-          zmns(i, j - 1) = h1 * (xz(i, ma + map(j)) + l * (xz(i, mb + map(j)) +&
-               l * (xz(i, mc + map(j)) + l * xz(i, md + map(j)))))
-          !! dz_{j+1}/ds = t'(s_{j+1}) * (a_j + b_j * h + c_j * h^2 + d_j *
-          !!                 h^3) + t(s_{j+1}) * (b_j + 2 * c_j * h + 3 * d_j *
-          !!                 h^2)
-          dZdSmns(i, j - 1) = h2 * xz(i, ma + map(j)) + (h1 + h2 * l) *&
-               xz(i, mb + map(j)) + l * ((2 * h1 + h2 * l) * xz(i, mc + map(j)) +&
-               l * (3 * h1 + h2 * l) * xz(i, md + map(j)))
-          !! d^2z_{j+1}/ds^2 = t''(s_{j+1}) * (a_j + b_j * h + c_j * h^2 + d_j *
-          !!                     h^3) + 2 * t'(s_{j+1}) * (b_j + 2 * c_j * h +
-          !!                     3 * d_j * h^2) + t(s_{j+1}) * (2 * c_j + 6 *
-          !!                     d_j * h)
-          d2ZdS2mns(i, j - 1) = h3 * xz(i, ma + map(j)) + (2 * h2 + h3 * l) *&
-               xz(i, mb + map(j)) + (2 * h1 + (4 * h2 + h3 * l) * l) *&
-               xz(i, mc + map(j)) + (6 * h1 + (6 * h2 + h3 * l) * l) * l *&
-               xz(i, md + map(j))
-        END DO
-      END IF
     END DO
     
     !! write interpolated R, z values for test purpose
@@ -4142,42 +2345,6 @@ CONTAINS
 
   END FUNCTION CosTransFullMesh
 
-! ----------------------------------------------------------------------
-!> calculate cosine transform at all flux surfaces for given theta
-!> and phi
-! ----------------------------------------------------------------------
-
-  FUNCTION CosValsOnFluxSurf(n, u, count, fmn, indU, indV, v) RESULT(fVal)
-
-!> number of flux surfaces
-    INTEGER, INTENT(IN) :: n
-
-!> u values on surfaces
-    REAL(KIND = hp), DIMENSION(n), INTENT(IN) :: u
-
-!> number of fourier elements
-    INTEGER, INTENT(IN) :: count
-
-!> cosine fourier elements
-    REAL(KIND = hp), DIMENSION(count, n), INTENT(IN) :: fmn
-
-!> indices for u and v
-    REAL(KIND = hp), DIMENSION(count), INTENT(IN) :: indU, indV
-
-!> selected v cut
-    REAL(KIND = hp), INTENT(IN) :: v
-
-!> resulting function values
-    REAL(KIND = hp), DIMENSION(n) :: fVal
-
-    INTEGER :: curS
-
-    DO curS = 1, n
-      fVal(curS) = CosTransFullMesh(count, fmn(:, curS), indU, indV,&
-           u(curS), v)
-    END DO
-
-  END FUNCTION CosValsOnFluxSurf
 
 ! ----------------------------------------------------------------------
 !> calculate backward sine fourier transform with reusing cosine
@@ -4270,71 +2437,7 @@ CONTAINS
 
   END FUNCTION SinTransFullMesh
 
-! ----------------------------------------------------------------------
-!> calculate sine transform at all flux surfaces for given theta and phi
-! ----------------------------------------------------------------------
 
-  FUNCTION SinValsOnFluxSurf(n, u, count, fmn, indU, indV, v) RESULT(fVal)
-
-!> number of flux surfaces
-    INTEGER, INTENT(IN) :: n
-
-!> u values on surfaces
-    REAL(KIND = hp), DIMENSION(n), INTENT(IN) :: u
-
-!> number of fourier elements
-    INTEGER, INTENT(IN) :: count
-
-!> cosine fourier elements
-    REAL(KIND = hp), DIMENSION(count, n), INTENT(IN) :: fmn
-
-!> indices for u and v
-    REAL(KIND = hp), DIMENSION(count), INTENT(IN) :: indU, indV
-
-!> selected v cut
-    REAL(KIND = hp), INTENT(IN) :: v
-
-!> resulting function values
-    REAL(KIND = hp), DIMENSION(n) :: fVal
-
-    INTEGER :: curS
-
-    DO curS = 1, n
-      fVal(curS) = SinTransFullMesh(count, fmn(:, curS), indU, indV,&
-           u(curS), v)
-    END DO
-
-  END FUNCTION SinValsOnFluxSurf
-
-! ----------------------------------------------------------------------
-!> calculate (co)sine transform at all flux surfaces for given theta
-!> and phi
-! ----------------------------------------------------------------------
-
-  FUNCTION ValsOnFluxSurf(n, count, fmn, v) RESULT(fVal)
-
-!> number of flux surfaces
-    INTEGER, INTENT(IN) :: n
-
-!> number of fourier elements
-    INTEGER, INTENT(IN) :: count
-
-!> cosine fourier elements
-    REAL(KIND = hp), DIMENSION(count, n), INTENT(IN) :: fmn
-
-!> indices for u and v
-    REAL(KIND = hp), DIMENSION(count), INTENT(IN) :: v
-
-!> resulting function values
-    REAL(KIND = hp), DIMENSION(n) :: fVal
-
-    INTEGER :: curS
-
-    DO curS = 1, n
-      fVal(curS) = SUM(fmn(:, curS) * v(:))
-    END DO
-
-  END FUNCTION ValsOnFluxSurf
 
 ! ----------------------------------------------------------------------
 !> Lagrange interpolation/extrapolation
@@ -4485,461 +2588,8 @@ CONTAINS
 
   END FUNCTION IntExtPol3
 
-! ----------------------------------------------------------------------
-!> look for intersection of flux surface and connection line between axis
-!> and selected point
-!> use theorem on intersecting lines with a secant method
-! ----------------------------------------------------------------------
 
-  SUBROUTINE FindInterSectionRZSec(minS, maxS, rAxis, zAxis, delR, delZ, phi,&
-       theta, theta2, loopUp)
 
-!> starting flux surface
-    INTEGER, INTENT(IN) :: minS
-
-!> last flux surface
-    INTEGER, INTENT(IN) :: maxS
-
-!> coordinates of the axis
-    REAL(KIND = hp), INTENT(IN) :: rAxis, zAxis
-
-!> selected point
-!> distance to axis
-    REAL(KIND = hp), INTENT(IN) :: delR, delZ
-    
-!> phi coordinate
-    REAL(KIND = hp), INTENT(IN) :: phi
-
-!> starting angle and resulting angle theta
-    REAL(KIND = hp), DIMENSION(:), INTENT(INOUT) :: theta
-
-!> second start angle for secant method
-    REAL(KIND = hp), DIMENSION(:), INTENT(IN) :: theta2
-
-!> direction of do loop
-    LOGICAL, INTENT(IN), OPTIONAL :: loopUp
-
-
-    REAL(KIND = hp), DIMENSION(mn_mode) :: xnv, argV
-    REAL(KIND = hp), DIMENSION(3) :: h
-    REAL(KIND = hp) :: th, f, delta, cR, cZ
-    REAL(KIND = hp) :: initTh, th2, f2, cR2, cZ2, thN
-    INTEGER :: curS, curIt, startS, endS, dir
-    LOGICAL :: loopDir
-
-    !! find solution for theta with a given phi for every flux surfaces with
-    !! theorem on intersecting lines
-    !!
-    !! z - zAxis   SinTransFullMeshF(zmns) - zAxis
-    !! --------- = -------------------------------
-    !! r - rAxis   CosTransFullMeshF(rmnc) - rAxis
-    !!
-    !! with the secant method for
-    !!
-    !! f(theta) = (z - zAxis) * CosTransFullMeshF(rmnc) -
-    !!             (r - rAxis) * SinTransFullMeshF(zmns) +
-    !!             (r - rAxis) * zAxis - (z - zAxis) * rAxis
-
-    loopDir = .TRUE.
-    IF (PRESENT(loopUp)) loopDir = loopUp
-
-    IF (loopDir) THEN
-      startS = minS
-      endS = maxS
-      dir = 1
-    ELSE
-      startS = maxS
-      endS = minS
-      dir = -1
-    END IF
-
-    !! store theta independent part of fourier coefficients
-    xnv(:) = xn(:) * phi
-
-    delta = delR * zAxis - delZ * rAxis
-
-    !! loop over all flux surfaces
-    DO curS = startS, endS, dir
-      !! actual theta
-      th = theta(curS)
-      initTh = th
-      th2 = theta2(curS)
-      !! check if angles do not differ to much
-      IF (ABS(th2 - th) > Pi) THEN
-        !! check against last flux surface
-        h(1) = ABS(MODULO(th2, TwoPi) - TwoPi - th)
-        h(2) = ABS(MODULO(th2, TwoPi) - th)
-        h(3) = ABS(MODULO(th2, TwoPi) + TwoPi - th)
-        th2 = MODULO(th2, TwoPi) + (MINLOC(h(:), 1) - 2) * TwoPi
-      END IF
-      curIt = 0
-      !! run until solution fulfil the convergence criterion
-      !! f(theta) = (z - zAxis) * CosTransFullMeshF(rmnc) -
-      !!             (r - rAxis) * SinTransFullMeshF(zmns) +
-      !!             (r - rAxis) * zAxis - (z - zAxis) * rAxis
-      !! argument for the first point
-      argV(:) = xm(:) * th - xnv(:)
-      !! get the point on flux surface
-      cR = SUM(rmnc(:, curS) * COS(argV(:)))
-      cZ = SUM(zmns(:, curS) * SIN(argV(:)))
-      !! function value for the first point
-      f = delZ * cR - delR * cZ + delta
-      !! argument for the second point
-      argV(:) = xm(:) * th2 - xnv(:)
-      !! get the point on flux surface
-      cR2 = SUM(rmnc(:, curS) * COS(argV(:)))
-      cZ2 = SUM(zmns(:, curS) * SIN(argV(:)))
-      !! function value for the second point
-      f2 = delZ * cR2 - delR * cZ2 + delta
-      !! run until convergence or maximum iterations
-      DO WHILE ((ABS(f) > newtonEps) .AND. (curIt <= newtonMax))
-        !! count number of iterations
-        curIt = curIt + 1
-        !! secant step
-        IF (ABS(f - f2) < 1D-18) THEN
-          thN = (th + th2) / 2
-        ELSE
-          thN = th - (th - th2) * f / (f - f2)
-        END IF
-        !! replace second point
-        th2 = th
-        f2 = f
-        !! set new first point
-        th = thN
-        argV(:) = xm(:) * th - xnv(:)
-        !! f(theta) = (z - zAxis) * CosTransFullMeshF(rmnc) -
-        !!             (r - rAxis) * SinTransFullMeshF(zmns) +
-        !!             (r - rAxis) * zAxis - (z - zAxis) * rAxis
-        cR = SUM(rmnc(:, curS) * COS(argV(:)))
-        cZ = SUM(zmns(:, curS) * SIN(argV(:)))
-        f = delZ * cR - delR * cZ + delta
-      END DO
-      !! check if convergence is reached
-      IF (curIt > newtonMax) THEN
-        PRINT '(A, I6, 2ES12.4)', "FindInterSectionRZSec:", curS, rAxis +&
-             delR, zAxis + delZ
-        th = initTh
-      ELSE IF (curS /= startS) THEN
-        th = MODULO(th, TwoPi)
-        !! check if angles do not differ to much
-        IF (ABS(th - theta(curS - dir)) > Pi) THEN
-          !! check against last flux surface
-          h(1) = ABS(MODULO(th, TwoPi) - TwoPi - theta(curS - dir))
-          h(2) = ABS(MODULO(th, TwoPi) - theta(curS - dir))
-          h(3) = ABS(MODULO(th, TwoPi) + TwoPi - theta(curS - dir))
-          th = MODULO(th, TwoPi) + (MINLOC(h(:), 1) - 2) * TwoPi
-        END IF
-      ELSE IF (ABS(th) > Pi) THEN
-        !! start with an angle near zero
-        h(1) = ABS(MODULO(th, TwoPi) - TwoPi)
-        h(2) = ABS(MODULO(th, TwoPi))
-        h(3) = ABS(MODULO(th, TwoPi) + TwoPi)
-        th = MODULO(th, TwoPi) + (MINLOC(h(:), 1) - 2) * TwoPi
-      END IF
-      !! store solution
-      theta(curS) = th
-    END DO
-
-  END SUBROUTINE FindInterSectionRZSec
-
-! ----------------------------------------------------------------------
-!> look for intersection of flux surface and connection line between axis
-!> and selected point
-!> use theorem on intersecting lines with a Newton method
-! ----------------------------------------------------------------------
-
-  SUBROUTINE FindInterSectionRZNewton(minS, maxS, rAxis, zAxis, delR, delZ, phi,&
-       theta, useLast, loopUp)
-
-!> starting flux surface
-    INTEGER, INTENT(IN) :: minS
-
-!> last flux surface
-    INTEGER, INTENT(IN) :: maxS
-
-!> coordinates of the axis
-    REAL(KIND = hp), INTENT(IN) :: rAxis, zAxis
-
-!> selected point
-!> distance to axis
-    REAL(KIND = hp), INTENT(IN) :: delR, delZ
-    
-!> phi coordinate
-    REAL(KIND = hp), INTENT(IN) :: phi
-
-!> resulting angle theta
-    REAL(KIND = hp), DIMENSION(:), INTENT(INOUT) :: theta
-
-!> use theta value from previous flux surface as initial value for theta
-    LOGICAL, INTENT(IN), OPTIONAL :: useLast
-
-!> direction of do loop
-    LOGICAL, INTENT(IN), OPTIONAL :: loopUp
-
-
-    REAL(KIND = hp), DIMENSION(mn_mode) :: xnv, argV, sinV, cosV
-    REAL(KIND = hp), DIMENSION(3) :: h
-    REAL(KIND = hp) :: th, angle, f, fD, delta, newRelax, cR, cZ
-    REAL(KIND = hp) :: initTh
-    INTEGER :: curS, curIt, curRec, startS, endS, dir
-    LOGICAL :: restart, loopDir, useLastVal
-
-    !! find solution for theta with a given phi for every flux surfaces with
-    !! theorem on intersecting lines
-    !!
-    !! z - zAxis   SinTransFullMeshF(zmns) - zAxis
-    !! --------- = -------------------------------
-    !! r - rAxis   CosTransFullMeshF(rmnc) - rAxis
-    !!
-    !! with the newton method for
-    !!
-    !! f(theta) = (z - zAxis) * CosTransFullMeshF(rmnc) -
-    !!             (r - rAxis) * SinTransFullMeshF(zmns) +
-    !!             (r - rAxis) * zAxis - (z - zAxis) * rAxis
-
-    useLastVal = .FALSE.
-    IF (PRESENT(useLast)) useLastVal = useLast
-    loopDir = .TRUE.
-    IF (PRESENT(loopUp)) loopDir = loopUp
-
-    IF (loopDir) THEN
-      startS = minS
-      endS = maxS
-      dir = 1
-    ELSE
-      startS = maxS
-      endS = minS
-      dir = -1
-    END IF
-
-    !! store theta independent part of fourier coefficients
-    xnv(:) = xn(:) * phi
-
-    delta = delR * zAxis - delZ * rAxis
-    !! initialize theta with normal angle
-    angle = MODULO(ATAN2(delZ, delR), TwoPi)
-
-    !! loop over all flux surfaces
-    DO curS = startS, endS, dir
-      !! check if last value should be used
-      IF (useLastVal) THEN
-        IF (curS == startS) THEN
-          initTh = theta(ABS(curS))
-        ELSE
-          initTh = theta(ABS(curS - dir))
-        END IF
-      ELSE
-        !! original theta
-        initTh = theta(ABS(curS))
-      END IF
-      !! actual theta
-      th = initTh
-      curIt = 0
-      curRec = 1
-      restart = .FALSE.
-      newRelax = 0.8_hp
-      !! run until solution fulfil the convergence criterion
-      !! f(theta) = (z - zAxis) * CosTransFullMeshF(rmnc) -
-      !!             (r - rAxis) * SinTransFullMeshF(zmns) +
-      !!             (r - rAxis) * zAxis - (z - zAxis) * rAxis
-      argV(:) = xm(:) * th - xnv(:)
-      sinV(:) = SIN(argV(:))
-      cosV(:) = COS(argV(:))
-      cR = SUM(rmnc(:, curS) * cosV(:))
-      cZ = SUM(zmns(:, curS) * sinV(:))
-      f = delZ * cR - delR * cZ + delta
-      !! run until convergence or maximum iterations
-      DO WHILE ((ABS(f) > newtonEps) .AND. (curIt <= newtonMax))
-        curIt = curIt + 1
-        !! calculate df/du =
-        !!  (z - zAxis) * SinTransFullMeshF(dRdUmns) -
-        !!   (r - rAxis) * CosTransFullMeshF(dZdUmnc)
-        fD = delZ * SUM(dRdUmns(:, curS) * sinV(:)) - delR *&
-             SUM(dZdUmnc(:, curS) * cosV(:)) + 1E-28_hp
-        !! Newton step
-        th = th - newRelax * f / fD
-        argV(:) = xm(:) * th - xnv(:)
-        sinV(:) = SIN(argV(:))
-        cosV(:) = COS(argV(:))
-        !! check for divergence
-        IF (ABS(th) > 1E2_hp) THEN
-          curIt = newtonMax + 1
-        ELSE
-          !! f(theta) = (z - zAxis) * CosTransFullMeshF(rmnc) -
-          !!             (r - rAxis) * SinTransFullMeshF(zmns) +
-          !!             (r - rAxis) * zAxis - (z - zAxis) * rAxis
-          cR = SUM(rmnc(:, curS) * cosV(:))
-          cZ = SUM(zmns(:, curS) * sinV(:))
-          f = delZ * cR - delR * cZ + delta
-        END IF
-        !! check if convergence is reached
-        IF (curIt > newtonMax) THEN
-          IF (curS /= 1) THEN
-            curRec = curRec + 1
-            IF (curRec <= maxRec) THEN
-              restart = .TRUE.
-            END IF
-          END IF
-        ELSE IF (ABS(f) < newtonEps) THEN
-          !! check if angles on the same side
-          IF (ABS(MODULO(ATAN2(cZ - zAxis, cR - rAxis), TwoPi) -&
-               angle) > 1) THEN
-            curRec = curRec + 1
-            IF (curRec <= maxRec) THEN
-              restart = .TRUE.
-            END IF
-          END IF
-        END IF
-        !! restart Newton iteration with new relaxation
-        IF (restart) THEN
-          curIt = 0
-          th = initTh
-          newRelax = newRelax * relax
-          argV(:) = xm(:) * th - xnv(:)
-          sinV(:) = SIN(argV(:))
-          cosV(:) = COS(argV(:))
-          cR = SUM(rmnc(:, curS) * cosV(:))
-          cZ = SUM(zmns(:, curS) * sinV(:))
-          f = delZ * cR - delR * cZ + delta
-          restart = .FALSE.
-        END IF
-      END DO
-      !! check if convergence is reached
-      IF (curIt > newtonMax) THEN
-        PRINT '(A, I6, 2ES12.4)', "FindInterSectionRZNewton:", curS, rAxis +&
-             delR, zAxis + delZ
-        th = initTh
-      ELSE IF (curS /= startS) THEN
-        th = MODULO(th, TwoPi)
-        !! check if angles do not differ to much
-        IF (ABS(th - theta(ABS(curS - dir))) > Pi) THEN
-          !! check against last flux surface
-          h(1) = ABS(MODULO(th, TwoPi) - TwoPi - theta(ABS(curS - dir)))
-          h(2) = ABS(MODULO(th, TwoPi) - theta(ABS(curS - dir)))
-          h(3) = ABS(MODULO(th, TwoPi) + TwoPi - theta(ABS(curS - dir)))
-          th = MODULO(th, TwoPi) + (MINLOC(h(:), 1) - 2) * TwoPi
-        END IF
-      ELSE IF (ABS(th) > Pi) THEN
-        !! start with an angle near zero
-        h(1) = ABS(MODULO(th, TwoPi) - TwoPi)
-        h(2) = ABS(MODULO(th, TwoPi))
-        h(3) = ABS(MODULO(th, TwoPi) + TwoPi)
-        th = MODULO(th, TwoPi) + (MINLOC(h(:), 1) - 2) * TwoPi
-      END IF
-      !! store solution
-      theta(ABS(curS)) = th
-    END DO
-
-  END SUBROUTINE FindInterSectionRZNewton
-
-! ----------------------------------------------------------------------
-!> fit data to
-!> f(s) = a s^2 + b s + c s^(1/2)
-! ----------------------------------------------------------------------
-
-  SUBROUTINE CalcLinFitFromDerivative(n, x, f, a, b)
-
-!> number of points
-    INTEGER, INTENT(IN) :: n
-
-!> points
-    REAL(KIND = hp), DIMENSION(n), INTENT(IN) :: x
-
-!> function values
-    REAL(KIND = hp), DIMENSION(n), INTENT(IN) :: f
-
-!> fitting parameter (ax+b)
-    REAL(KIND = hp), INTENT(OUT) :: a, b
-
-    REAL(KIND = hp), DIMENSION(n) :: sqrtX
-    REAL(KIND = hp) :: s1, sy, sx12, sx12y, sx, sx32, sx32y, sx2, sx3, d
-
-    sqrtX(:) = SQRT(x(:))
-    s1 = REAL(n, hp)
-    sy = SUM(f(:))
-    sx12 = SUM(sqrtX(:))
-    sx12y = SUM(sqrtX(:) * f(:))
-    sx = SUM(x(:))
-    sx32 = SUM(x(:) * sqrtX(:))
-    sx32y = SUM(x(:) * sqrtX(:) * f(:))
-    sx2 = SUM(x(:) * x(:))
-    sx3 = SUM(x(:) * x(:) * x(:))
-    d = sx32 * (sx12 * sx2 - sx * sx32) + sx12 * (sx2 * sx32 -  sx12 * sx3) +&
-         s1 * (sx * sx3 - sx2 * sx2)
-
-    a = 1.5_hp * (sx32 * (sx12 * sx12y - sx * sy) + sx12 *&
-         (sx2 * sy - sx12 * sx32y) + s1 * (sx * sx32y - sx12y * sx2)) / d
-
-    b = 0.5_hp * (sx32 * (sx2 * sy - sx12y * sx32) + sx12 *&
-         (sx32 * sx32y - sx3 * sy) + s1 * (sx12y * sx3 - sx2 * sx32y)) / d
-
-  END SUBROUTINE CalcLinFitFromDerivative
-
-! ----------------------------------------------------------------------
-!> fit data to linear function
-! ----------------------------------------------------------------------
-
-  SUBROUTINE CalcLinFit(n, x, f, a, b)
-
-!> number of points
-    INTEGER, INTENT(IN) :: n
-
-!> points
-    REAL(KIND = hp), DIMENSION(n), INTENT(IN) :: x
-
-!> function values
-    REAL(KIND = hp), DIMENSION(n), INTENT(IN) :: f
-
-!> fitting parameter (ax+b)
-    REAL(KIND = hp), INTENT(OUT) :: a, b
-
-    REAL(KIND = hp) :: sx, sy, sxy, sx2, d
-
-    sx = SUM(x(:))
-    sy = SUM(f(:))
-    sxy = SUM(x(:) * f(:))
-    sx2 = SUM(x(:) * x(:))
-    d = REAL(n, hp) * sx2 - sx * sx
-    a = (REAL(n, hp) * sxy - sx * sy) / d
-    b = (sx2 * sy - sx * sxy) / d
-
-  END SUBROUTINE CalcLinFit
-
-! ----------------------------------------------------------------------
-!> compute "normal" right-handed cross product of two vectors
-! ----------------------------------------------------------------------
-
-  FUNCTION Cross(vec1, vec2) RESULT(res)
-
-!> two vectors
-    REAL(KIND = hp), DIMENSION(3), INTENT(IN) :: vec1, vec2
-
-!> cross product
-    REAL(KIND = hp), DIMENSION(3) :: res
-
-    res(1) = vec1(2) * vec2(3) - vec1(3) * vec2(2)
-    res(2) = vec1(3) * vec2(1) - vec1(1) * vec2(3)
-    res(3) = vec1(1) * vec2(2) - vec1(2) * vec2(1)
-
-  END FUNCTION Cross
-
-! ----------------------------------------------------------------------
-!> compute left-handed cross product of two vectors
-! ----------------------------------------------------------------------
-
-  FUNCTION CrossL(vec1, vec2) RESULT(res)
-
-!> two vectors
-    REAL(KIND = hp), DIMENSION(3), INTENT(IN) :: vec1, vec2
-
-!> cross product
-    REAL(KIND = hp), DIMENSION(3) :: res
-
-    res(1) = vec1(3) * vec2(2) - vec1(2) * vec2(3)
-    res(2) = vec1(1) * vec2(3) - vec1(3) * vec2(1)
-    res(3) = vec1(2) * vec2(1) - vec1(1) * vec2(2)
-
-  END FUNCTION CrossL
 
   SUBROUTINE LUDecompose(n, a, ind)
 

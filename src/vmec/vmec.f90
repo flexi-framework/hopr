@@ -70,14 +70,6 @@ IMPLICIT NONE
 CHARACTER(LEN = 256) :: dataFile
 INTEGER              :: ioError
 INTEGER              :: iMode,iEven,iOdd
-
-  NAMELIST / input / outDir, intPointsU, intPointsV, mapEuterpe, useArcTan,&
-       useRho, gyroperp, rGridPoints, zGridPoints, nPhiCuts, startCut, endCut,&
-       constFac, nFlux, nTheta, lastExtS, nExtraFlux, nInTheta, inSVal,&
-       nPointsU, useConstTheta, nThetaInt, nPhiInt, nu, nv, dataFile, lowBR,&
-       highBR, lowBZ, highBZ, corVMEC, useSquared, useScaledB, useLastVal,&
-       useVar, weight, errInt, errVal, useSecant, newtonMax, maxRec, relax,&
-       debug
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A)')'INIT VMEC INPUT ...'
 useVMEC      = GETLOGICAL('useVMEC','.FALSE.')   ! Use / reconstruct spline boundaries
@@ -85,31 +77,33 @@ IF(useVMEC)THEN
 
   me_rank = 0
   me_size = 1
-  OPEN(1, ACTION = "READ", FILE = "vmec_input", FORM = "FORMATTED",&
-       IOSTAT = ioError, POSITION = "REWIND", STATUS = "OLD")
-  IF (ioError == 0) THEN
-    READ(1, NML = input, IOSTAT = ioError)
-    IF (me_rank == 0) THEN
-      IF (ioError == 0) THEN
-        PRINT "(A)", '  Using "input" for input parameters!'
-      ELSE
-        PRINT "(A)", '  Error while reading input parameters!'
-        CALL EXIT(21)
-      END IF
-    END IF
-    CLOSE(1)
-  ELSE
-    PRINT *, '  Missing input file!'
-    CALL EXIT(22)
-  END IF
+  !VMEC "wout*.nc"  file
+  dataFile=GETSTR("VMECwoutfile")
+  ! use internal remapping of VMEC output 
+  corVMEC =GETLOGICAL("corVMEC",".FALSE.") 
+  ! grid to get fourier modes (default: 128, 128)
+  intPointsU=GETINT("VMEC_intPointsU","128")
+  intPointsV=GETINT("VMEC_intPointsV","128")
+  ! use scaled |B|*sqrtG instead of |B| (default: .FALSE.)
+  useScaledB=GETLOGICAL("VMEC_useScaledB",".FALSE.")
+  ! use last value for extrapolation or linear extrapolation (default: .FALSE.)
+  useLastVal=GETLOGICAL("VMEC_useLastVal",".FALSE.,")
+  ! use error bars for R, z smoothing (default: .TRUE.)
+  useVar =GETLOGICAL("VMEC_useVar", ".TRUE.")
+  ! smoothing weight for R, z smoothing (default: 1.D-3)
+  weight =GETREAL("VMEC_weight","1.0-3")
+  ! error intervals (default: 1.D-1, 9.5D-1)
+  errInt= GETREALARRAY("VMEC_errInt",2,"1.0-1, 9.5-1")
+  ! error bars for intervals (default: 1.D-1, 1.D-3, 1.D-2)
+  errVal=GETREALARRAY("VMEC_errVal",3,"1.0-1,1.0-3,1.0-2")
+  ! debug output (files/messages) (default: .FALSE.)
+  debug = .FALSE.
 
-  !! set default values
-  IF (startCut < 0) startCut = 1
-  IF ((endCut < 0) .OR. (endCut > nPhiCuts)) endCut = nPhiCuts
-
+ 
   !! read VMEC 2000 output (netcdf)
   CALL ReadVmecOutput(dataFile)
 
+  !find even and odd m-modes, to seperately evalute them
   mn_mEven=0
   DO iMode=1,mn_mode
     IF(MOD(xm(iMode),2.).EQ.0.) mn_mEven=mn_mEven+1
