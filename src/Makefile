@@ -29,6 +29,7 @@ all: builddeps
 	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
 builddeps:
+	@echo "Use HDF5 in " $(HDF5_BASE)
 	@echo $(SRC) | sed -e 's/ /\n/g' > srcfiles_pp.mk
 	@python ../tools/builddeps/builddeps --source=srcfiles_pp.mk deplist.mk
 
