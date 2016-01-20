@@ -16,9 +16,10 @@
 #                      NEHALEM   (HLRS Nehalem cluster)
 #                      CRAY      (HLRS Cray cluster)
 #=================================================================================================================================#
-COMPILER=GNU
+COMPILER=GNU_MPI
 MACHINE=AUTO  # AUTO, CRAY, NEHALEM or leave empty
 CGNS_INT=32
+BUILD_CGNS=T
 BLAS_LAPACK=T
 BUILD_HDF5=T
 
@@ -120,11 +121,20 @@ TECBIN_LIBS = -ltecio -lstdc++
 #---------------------------------------------------------------------------------------------------------------------------------#
 # CGNS
 #---------------------------------------------------------------------------------------------------------------------------------#
-CGNS_VERSION=3.2.1
-CGNS_DIR    =../share/$(SHARECOMP)/CGNS-$(CGNS_VERSION)/src
-CGNS_LIBDIR =../share/$(SHARECOMP)/CGNS-$(CGNS_VERSION)/src/lib
+ifneq ($(CGNS_DIR),)
+  ifneq ($(wildcard $(CGNS_DIR)/lib/libcgns.a), )
+    CGNS_LIBDIR =$(CGNS_DIR)/lib
+    CGNS_INCDIR =$(CGNS_DIR)/include
+  endif
+endif
+ifneq ($(BUILD_CGNS),)
+  CGNS_VERSION=3.2.1
+  CGNS_DIR    =../share/$(SHARECOMP)/CGNS-$(CGNS_VERSION)/src
+  CGNS_LIBDIR =../share/$(SHARECOMP)/CGNS-$(CGNS_VERSION)/build/lib
+  CGNS_INCDIR =../share/$(SHARECOMP)/CGNS-$(CGNS_VERSION)/build/include
+endif
 CGNS_LIB    =-L$(CGNS_LIBDIR)
-CGNS_INC    =-I$(CGNS_DIR)
+CGNS_INC    =-I$(CGNS_INCDIR)
 CGNS_LIBS   =-lcgns
 
 #---------------------------------------------------------------------------------------------------------------------------------#
