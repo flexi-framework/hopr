@@ -63,17 +63,15 @@ PREPROC +=-DPP_CGNS_INT=$(CGNS_INT)
 HDF5_LIBS  = -lhdf5_fortran -lhdf5
 
 ifeq ($(MACHINE),)
-  ifeq ($(HDF5_DIR),)
-    BUILD_HDF5=T
-  else
-    HDF5_BASE = $(HDF5_DIR)
-    BUILD_HDF5=
+  ifneq ($(HDF5_DIR),)
+    ifneq ($(wildcard $(HDF5_DIR)/lib/libhdf5.a), )
+      HDF5_BASE = $(HDF5_DIR)
+    endif
   endif
-  ifeq ($(HDF5_ROOT),)
-    BUILD_HDF5=T
-  else
-    HDF5_BASE = $(HDF5_ROOT)
-    BUILD_HDF5=
+  ifneq ($(HDF5_ROOT),)
+    ifneq ($(wildcard $(HDF5_ROOT)/lib/libhdf5.a), )
+      HDF5_BASE = $(HDF5_ROOT)
+    endif
   endif
   ifneq ($(BUILD_HDF5),)
     HDF5_VERSION = 1.8.14
