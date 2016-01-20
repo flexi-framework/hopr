@@ -16,11 +16,11 @@
 #                      NEHALEM   (HLRS Nehalem cluster)
 #                      CRAY      (HLRS Cray cluster)
 #=================================================================================================================================#
-COMPILER=GNU
+COMPILER=GNU_MPI
 MACHINE=AUTO  # AUTO, CRAY, NEHALEM or leave empty
 CGNS_INT=32
 BLAS_LAPACK=T
-BUILD_HDF5=T
+BUILD_HDF5=
 
 #=================================================================================================================================#
 # GET MACHINE ENVIRONMENT 
@@ -67,6 +67,13 @@ ifeq ($(MACHINE),)
     BUILD_HDF5=T
   else
     HDF5_BASE = $(HDF5_DIR)
+    BUILD_HDF5=
+  endif
+  ifeq ($(HDF5_ROOT),)
+    BUILD_HDF5=T
+  else
+    HDF5_BASE = $(HDF5_ROOT)
+    BUILD_HDF5=
   endif
   ifneq ($(BUILD_HDF5),)
     HDF5_VERSION = 1.8.14
@@ -74,8 +81,11 @@ ifeq ($(MACHINE),)
   endif
 endif
 
-#check for hdf5 compiled with CMake
+#check for hdf5 compiled with CMake (check for characteristic FindHDF5.cmake)
 ifneq ($(wildcard $(HDF5_BASE)/share/cmake/hdf5/FindHDF5.cmake), )
+  HDF5_LIBS  = -lhdf5_fortran -lhdf5_f90cstub -lhdf5
+endif
+ifneq ($(wildcard $(HDF5_BASE)/share/cmake/FindHDF5.cmake), )
   HDF5_LIBS  = -lhdf5_fortran -lhdf5_f90cstub -lhdf5
 endif
 
