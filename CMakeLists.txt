@@ -11,22 +11,29 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
 # =========================================================================
 # Options
 # =========================================================================
+include(ExternalProject)
+
 OPTION(HOPR_MPI "Compile SINGLE or MPI version" ON)
 OPTION(HOPR_HDF5F90 "enable old hdf5 interface" OFF)
 SET(HOPR_CGNS_INT "32" CACHE STRING "integer type in CGNS lib")
 ADD_DEFINITIONS(-DPP_CGNS_INT=${HOPR_CGNS_INT})
 ENABLE_LANGUAGE(C CXX Fortran)
+
 # =========================================================================
-# Machine environements
+# Machine environements and specific library paths
 # =========================================================================
-#STRING(SUBSTRING ${CMAKE_ROOT} 4 6 CMAKEHOST)
-#STRING(COMPARE EQUAL ${CMAKEHOST} "hornet" ONHORNET)
+SET (CGNSDOWNLOAD https://github.com/CGNS/CGNS.git )
+SET (HDF5DOWNLOAD http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-${HOPR_HDF5VERSION}/src/hdf5-${HOPR_HDF5VERSION}.tar.gz )
+
 SITE_NAME(CMAKE_HOSTNAME)
 STRING(SUBSTRING "${CMAKE_HOSTNAME}" 0 7 CMAKEHOST)
+
 STRING(COMPARE EQUAL "${CMAKEHOST}" "eslogin" ONHORNET)
 IF (ONHORNET OR ONNEHALEM)
   ADD_DEFINITIONS(-DLUSTRE)
+  SET (CGNSDOWNLOAD git@129.69.43.151:libs/CGNS.git )
 ENDIF()
+
 #STRING(COMPARE EQUAL "${CMAKEHOST}" "juqueen" ONJUQUEEN)
 #IF (ONJUQUEEN)
   #ADD_DEFINITIONS(-DGPFS)
@@ -79,7 +86,6 @@ ENDIF()
 # append relative filename-macro for __FILENAME__ in Stamp of abort function (see globals.f90)
 SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -D__FILENAME__='\"$(subst ${CMAKE_SOURCE_DIR}/,,$(abspath $<))\"'")
 
-
 # =========================================================================
 # COMPILER STUFF
 # =========================================================================
@@ -88,16 +94,8 @@ SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -D__FILENAME__='\"$(subst ${CMAK
 GET_FILENAME_COMPONENT (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 
 IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
-  # gfortran
   # set compiler
   SET (HOPR_COMPILERNAME "GNU")
-  #IF (NOT(ONHORNET))
-  #  IF (HOPR_MPI)
-  #     SET (CMAKE_Fortran_COMPILER mpif90)
-  #     SET (CMAKE_C_COMPILER mpicc)
-  #     SET (CMAKE_CXX_COMPILER mpicc)
-  #  ENDIF()
-  #ENDIF()
   # set Flags
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fdefault-double-8 -fbackslash -DGNU")
   SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O3 -march=native  -finline-functions")
@@ -106,16 +104,8 @@ IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   SET_TARGET_PROPERTIES(hoprlibF90 PROPERTIES COMPILE_FLAGS "-xf95-cpp-input")
   SET_TARGET_PROPERTIES(hopr       PROPERTIES COMPILE_FLAGS "-xf95-cpp-input")
 ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-  # ifort
   # set compiler
   SET (HOPR_COMPILERNAME "INTEL")
-  #IF (NOT(ONHORNET))
-  #  IF (HOPR_MPI)
-  #     SET (CMAKE_Fortran_COMPILER mpif90)
-  #     SET (CMAKE_C_COMPILER mpicc)
-  #     SET (CMAKE_CXX_COMPILER mpicc)
-  #  ENDIF()
-  #ENDIF()
   # set Flags
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -DINTEL -mkl=sequential")
   SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O2 $(INSTRUCTION) -vec-report0 -no-prec-div")
@@ -163,14 +153,15 @@ IF (NOT HDF5_FOUND)
 ELSE()
   OPTION(HOPR_BUILDHDF5 "Compile and build hdf5 library" OFF)
 ENDIF()
-IF (HOPR_BUILDHDF5)
+
+IF(HOPR_BUILDHDF5)
+
   SET(HOPR_HDF5VERSION 1.8.16 CACHE STRING "Sets the version of the hdf5 library")
-  IF ("${CMAKE_VERSION}" VERSION_GREATER 3.2.0)
-    IF (EXISTS "${HOPR_HDF5DIR}/build/lib/libhdf5.a")
-    ELSE()
-      include(ExternalProject)
+  SET(HDF5_DIR  ${HOPR_HDF5DIR}/build/lib)
+  IF ("${CMAKE_VERSION}" VERSION_GREATER 3.2.0) # Compile HDF5 using cmake
+    IF (NOT EXISTS "${HOPR_HDF5DIR}/build/lib/libhdf5.a")
       ExternalProject_Add(hdf5
-        URL http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-${HOPR_HDF5VERSION}/src/hdf5-${HOPR_HDF5VERSION}.tar.bz2
+        DOWNLOAD_COMMAND ${HDF5DOWNLOAD}
         PREFIX ${HOPR_HDF5DIR}
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${HOPR_HDF5DIR}/build /
         -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS_RELEASE} /
@@ -179,34 +170,28 @@ IF (HOPR_BUILDHDF5)
         -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${HOPR_HDF5DIR}/build
       )
     ENDIF()
-    SET(HDF5_DIR  ${HOPR_HDF5DIR}/build/lib)
     SET(HDF5_INCLUDE_DIR ${HOPR_HDF5DIR}/build/include/static)
-    MESSAGE(STATUS "HDF5 include dir: " ${HDF5_INCLUDE_DIR})
-    INCLUDE_DIRECTORIES (${HDF5_INCLUDE_DIR})
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${HDF5_INCLUDE_DIR}")
     TARGET_LINK_LIBRARIES(hopr ${HDF5_DIR}/libhdf5_fortran.a ${HDF5_DIR}/libhdf5_f90cstub.a ${HDF5_DIR}/libhdf5.a -ldl -lz)
-  ELSE()
-    IF (EXISTS "${HOPR_HDF5DIR}/lib/libhdf5.a")
-    ELSE()
-      include(ExternalProject)
+  ELSE()                                        # Compile HDF5 using automake
+    IF (NOT EXISTS "${HOPR_HDF5DIR}/lib/libhdf5.a")
       ExternalProject_Add(hdf5
-        URL http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-${HOPR_HDF5VERSION}/src/hdf5-${HOPR_HDF5VERSION}.tar.bz2
+        DOWNLOAD_COMMAND ${HDF5DOWNLOAD}
         PREFIX ${HOPR_HDF5DIR}
-        CONFIGURE_COMMAND FC=${CMAKE_FORTRAN_COMPULER} CC=${CMAKE_C_COMPILER} ${HOPR_HDF5DIR}/src/hdf5/configure --prefix=${HOPR_HDF5DIR} --enable-fortran --disable-shared
+        CONFIGURE_COMMAND FC=${CMAKE_FORTRAN_COMPULER} CC=${CMAKE_C_COMPILER} ${HOPR_HDF5DIR}/src/hdf5/configure --prefix=${HOPR_HDF5DIR}/build --enable-fortran --disable-shared
         BUILD_COMMAND ${MAKE}
       )
     ENDIF()
-    SET(HDF5_DIR  ${HOPR_HDF5DIR}/lib)
-    SET(HDF5_INCLUDE_DIR ${HOPR_HDF5DIR}/include)
-    MESSAGE(STATUS "HDF5 include dir: " ${HDF5_INCLUDE_DIR})
-    INCLUDE_DIRECTORIES (${HDF5_INCLUDE_DIR})
+    SET(HDF5_INCLUDE_DIR ${HOPR_HDF5DIR}/build/include)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${HDF5_INCLUDE_DIR}")
     TARGET_LINK_LIBRARIES(hopr ${HDF5_DIR}/libhdf5_fortran.a ${HDF5_DIR}/libhdf5.a -ldl -lz)
-    #use configure script for hdf5 (too old cmake for hdf5 configuration)
   ENDIF()
+  MESSAGE(STATUS "HDF5 include dir: " ${HDF5_INCLUDE_DIR})
+  INCLUDE_DIRECTORIES (${HDF5_INCLUDE_DIR})
+
 ELSE()
-  # Now check if HDF5 has been built using CMAKE
-  IF(HDF5_DIR STREQUAL "HDF5_DIR-NOTFOUND")
+
+  IF(HDF5_DIR STREQUAL "HDF5_DIR-NOTFOUND")     # HDF5 built using standard configure script
     FIND_PACKAGE (HDF5 COMPONENTS C Fortran )
     LIST(GET HDF5_INCLUDE_DIR 0 HDF5_INCLUDE_DIR)
     MESSAGE(STATUS "HDF5 include dir: " ${HDF5_INCLUDE_DIR})
@@ -214,10 +199,7 @@ ELSE()
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${HDF5_INCLUDE_DIR}")
     TARGET_LINK_LIBRARIES(hopr ${HDF5_LIBRARIES})
     MESSAGE(STATUS "HDF5 libraries: " ${HDF5_LIBRARIES})
-    IF (NOT(HDF5_FOUND)) 
-      MESSAGE(ERROR "HDF5 not found and HOPR_BUILD_HDF5=OFF!")
-    ENDIF()
-  ELSE()
+  ELSE()                                        # HDF5 built using cmake
     FIND_PACKAGE (HDF5 NAMES hdf5 COMPONENTS C Fortran static )
     LIST(GET HDF5_INCLUDE_DIR 0 HDF5_INCLUDE_DIR)
     MESSAGE(STATUS "HDF5 include dir: " ${HDF5_INCLUDE_DIR_FORTRAN})
@@ -225,9 +207,9 @@ ELSE()
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${HDF5_INCLUDE_DIR_FORTRAN}")
     TARGET_LINK_LIBRARIES(hopr ${HDF5_FORTRAN_STATIC_LIBRARY} ${HDF5_LIBRARIES})
     MESSAGE(STATUS "HDF5 libraries: " ${HDF5_LIBRARIES} ${HDF5_FORTRAN_STATIC_LIBRARY})
-    IF (NOT(HDF5_FOUND)) 
-      MESSAGE(ERROR "HDF5 not found and HOPR_BUILD_HDF5=OFF!")
-    ENDIF()
+  ENDIF()
+  IF (NOT HDF5_FOUND)
+    MESSAGE(ERROR "HDF5 not found and HOPR_BUILD_HDF5=OFF!")
   ENDIF()
 
 ENDIF()
@@ -240,23 +222,25 @@ ENDIF()
 # =========================================================================
 SET(HOPR_CGNSDIR ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/cgns)
 FIND_PACKAGE(CGNS QUIET)
-IF (NOT(CGNS_FOUND))
+IF (NOT CGNS_FOUND)
   OPTION(HOPR_BUILDCGNS "Compile and build cgns library" ON)
 ELSE()
   OPTION(HOPR_BUILDCGNS "Compile and build cgns library" OFF)
 ENDIF()
 
+STRING(COMPARE EQUAL ${HOPR_CGNS_INT} "64" HOPR_CGNS_64BIT)
+
 IF (HOPR_BUILDCGNS)
-  SET(HOPR_CGNSVERSION "3.2.1" CACHE STRING "CGNS version")
-  IF (NOT(EXISTS "${HOPR_CGNSDIR}/build/lib/libcgns.a"))
-    include(ExternalProject)
+  SET(HOPR_CGNSTAG "v3.2.1" CACHE STRING "CGNS version tag")
+  IF (NOT EXISTS "${HOPR_CGNSDIR}/build/lib/libcgns.a")
     ExternalProject_Add(cgns
-    URL http://github.com/CGNS/CGNS/archive/v${HOPR_CGNSVERSION}.tar.gz
+    GIT_REPOSITORY ${CGNSDOWNLOAD}
+    GIT_TAG ${HOPR_CGNSTAG}
     PATCH_COMMAND sed -i s/^c/!/g ${HOPR_CGNSDIR}/src/cgns/src/cgnslib_f.h.in
     PREFIX ${HOPR_CGNSDIR}
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${HOPR_CGNSDIR}/build /
-    -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} /
-    -DCMAKE_BUILD_TYPE=Release -DCGNS_ENABLE_FORTRAN=ON -DCMAKE_INSTALL_PREFIX=${HOPR_CGNSDIR}/build
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${HOPR_CGNSDIR}/build /
+    -DCGNS_ENABLE_FORTRAN=ON   -DCGNS_ENABLE_64BIT=${HOPR_CGNS_64BIT} -DCGNS_BUILD_SHARED=OFF -DCGNS_USE_SHARED=OFF /
+    -DCMAKE_BUILD_TYPE=Release -DCGNS_BUILD_CGNSTOOLS=OFF -DCGNS_ENABLE_TESTS=OFF -DCMAKE_SKIP_RPATH=ON
     )
   ENDIF()
   INCLUDE_DIRECTORIES(${HOPR_CGNSDIR}/build/include)
@@ -268,19 +252,11 @@ ELSE()
 ENDIF()
 
 # =========================================================================
-# RECIPES library
-# =========================================================================
-#FIND_LIBRARY(HOPR_RECIPESLIB recipes ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/RECIPES/)
-#TARGET_LINK_LIBRARIES(hopr ${HOPR_RECIPESLIB})
-
-# =========================================================================
 # LAPACK library
 # =========================================================================
-IF(NOT LAPACK_lapack_LIBRARY)
-   FIND_PACKAGE(LAPACK)
-ENDIF()
-TARGET_LINK_LIBRARIES(hopr ${LAPACK_lapack_LIBRARY}) 
-TARGET_LINK_LIBRARIES(hoprlibF90 ${LAPACK_lapack_LIBRARY}) 
+FIND_PACKAGE(LAPACK REQUIRED)
+TARGET_LINK_LIBRARIES(hopr ${LAPACK_LIBRARIES}) 
+TARGET_LINK_LIBRARIES(hoprlibF90 ${LAPACK_LIBRARIES})
 
 # =========================================================================
 # store configuratioPREFIX ${HOPR_HDF5DIR}n
@@ -298,7 +274,7 @@ FILE(WRITE ${configuration} "")
 GETLISTOFVARSSTARTINGWITH("HOPR_" hoprVars)
 FOREACH (_var IN LISTS hoprVars)
    GET_PROPERTY(currentHelpString CACHE "${_var}" PROPERTY HELPSTRING)
-   SET(boolian (${${_var}} STREQUAL "ON" OR ${${_var}} STREQUAL "OFF")) 
+   SET(boolian ${${_var}} STREQUAL "ON" OR ${${_var}} STREQUAL "OFF")
    IF(${boolian})
       FILE(APPEND ${configuration} "OPTION(${_var} \"${currentHelpString}\" ${${_var}})\n")
    ELSE()
