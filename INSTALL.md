@@ -40,6 +40,29 @@ download and compile these libraries
 
 ## Compiling HOPR
 
+You have two choices for compiling HOPR, CMake and it`s own
+Makefile based build system.
+
+### Compiling with CMake
+
+We recommend to compile HOPR using CMake for general use
+on most common systems. Create a new sub-directory,
+e.g. "build" . In that directory execute
+ 
+   CC=<C-Compiler> FC=<Fortran-Compiler>  ccmake ../
+
+Here you can specify library paths and options. If no
+preinstallied libraries for HDF5 and CGNS are found these
+libraries will be downloaded and built automatically.
+Press <c> to configure and <g> to create the Makefiles.
+Finally compile HOPR by typing `make`.
+
+### Compiling with HOPR Makefile
+
+HOPR`s own build system, gives you more freedom in case you
+need to set many settings manually or CMake is not available
+or working on your platform.
+
 To compile HOPR, specify the compiler in the file `Makefile.defs`,
 
 - Intel: `COMPILER=INTEL`
