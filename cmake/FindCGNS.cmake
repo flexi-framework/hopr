@@ -6,13 +6,17 @@
 # CGNS_FOUND       - Do not attempt to use CGNS if "no" or undefined.
 
 find_path(CGNS_INCLUDE_DIR cgnslib.h
-  /usr/local/include
-  /usr/include
+  HINTS $ENV{CGNS_DIR}/include
+        $ENV{CGNS_ROOT}/include
+        /usr/local/include
+        /usr/include
 )
 
 find_library(CGNS_LIBRARY cgns
-  /usr/local/lib
-  /usr/lib
+  HINTS $ENV{CGNS_DIR}/lib
+        $ENV{CGNS_ROOT}/lib
+        /usr/local/lib
+        /usr/lib
 )
 
 set(CGNS_FOUND "NO")
