@@ -221,6 +221,7 @@ ENDIF()
 # CGNS library
 # =========================================================================
 SET(HOPR_CGNSDIR ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/cgns)
+LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 FIND_PACKAGE(CGNS QUIET)
 IF (NOT CGNS_FOUND)
   OPTION(HOPR_BUILDCGNS "Compile and build cgns library" ON)
