@@ -76,9 +76,15 @@ using MPI) or with debug flags add the Flag `_MPI` or `_DEBUG`
 to the `COMPILER` string, e.g. `COMPILER=GNU_MPI_DEBUG`.
 Other options are descibed in the `Makefile.defs` header.
 
-In case you want to use a precompiled HDF5 version on your system,
-set the option `BUILD_HDF5=<empty>`, then the path to HDF5 can be
-specified by the environment variable `$HDF5_DIR`.
+### Libraries
+
+In case you want to use a precompiled HDF5 or CGNS version
+on your system, set the option `BUILD_HDF5=<empty>`, then 
+the path to HDF5 can be specified by the environment variable
+`$HDF5_DIR` if HDF5 has been built with CMake or `$HDF5_ROOT`
+if built using Automake. Note that `$HDF5_DIR` should contain
+the path to the CMake subdirectory of HDF5,
+i.e. $HDF5_ROOT/share/cmake/hdf5 .
 
 
 ## Testing HOPR
