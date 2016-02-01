@@ -85,14 +85,14 @@ DO WHILE(ASSOCIATED(aElem))
   DO iNode=1,aElem%nNodes
     IF(aElem%Node(iNode)%np%tmp.EQ.-1)THEN
       x_loc(:)=aElem%Node(iNode)%np%x(:)
-      aElem%Node(iNode)%np%x(:)=PostDeformFunc(x_loc)
+      CALL PostDeformFunc(x_loc,aElem%Node(iNode)%np%x(:),aElem%Node(iNode)%np%vmecData)
       aElem%Node(iNode)%np%tmp=0
     END IF
   END DO
   DO iNode=1,aElem%nCurvedNodes
     IF(aElem%CurvedNode(iNode)%np%tmp.EQ.-1)THEN
       x_loc(:)=aElem%CurvedNode(iNode)%np%x(:)
-      aElem%CurvedNode(iNode)%np%x(:)=PostDeformFunc(x_loc)
+      CALL PostDeformFunc(x_loc,aElem%CurvedNode(iNode)%np%x(:),aElem%CurvedNode(iNode)%np%vmecData)
       aElem%CurvedNode(iNode)%np%tmp=0
     END IF
   END DO
@@ -103,7 +103,7 @@ END SUBROUTINE PostDeform
 
 
 
-FUNCTION PostDeformFunc(X) RESULT(xout)
+SUBROUTINE PostDeformFunc(X,xout,vmecData)
 !===================================================================================================================================
 ! input x,y,z node coordinates are transformed by a smooth (!) mapping to new x,y,z coordinates 
 !===================================================================================================================================
@@ -122,12 +122,14 @@ IMPLICIT NONE
 REAL,INTENT(IN) :: x(3) ! contains original xyz coords
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
-REAL            :: Xout(3)    ! contains new XYZ position 
+REAL,INTENT(OUT):: Xout(3)    ! contains new XYZ position 
+REAL,INTENT(OUT):: vmecData(PP_nVarVMEC)  ! contains additional vmec data
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL            :: dx(3),alpha,dx1(3),dx2(3),dx3(3)
+REAL            :: xtmp(3) 
 REAL            :: cosa,cosb,sina,sinb 
 REAL            :: rotmat(2,2)
 !===================================================================================================================================
@@ -277,9 +279,12 @@ CASE(2) ! 3D box, x,y in [-1,1]^3, to Sphere with radius PostDeform_R0
      
 END SELECT
 IF(useVMEC)THEN
-  xout = MapToVMEC(xout)
+  xtmp=xout
+  CALL MapToVMEC(xtmp,xout,vmecData)
+ELSE
+  vmecData=0.
 END IF
 
-END FUNCTION PostDeformFunc
+END SUBROUTINE PostDeformFunc
 
 END MODULE MOD_Mesh_PostDeform

@@ -33,7 +33,10 @@ PUBLIC
 LOGICAL             :: useVMEC
 INTEGER             :: mn_mOdd,mn_mEven
 INTEGER,ALLOCATABLE :: mn_mapOdd(:),mn_mapEven(:)
+INTEGER             :: mn_mOdd_nyq,mn_mEven_nyq
+INTEGER,ALLOCATABLE :: mn_mapOdd_nyq(:),mn_mapEven_nyq(:)
 REAL,ALLOCATABLE    :: phinorm(:)   
+CHARACTER(LEN=255)  :: VMECvarnames(PP_nVarVMEC)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! Private Part ---------------------------------------------------------------------------------------------------------------------
 ! Public Part ----------------------------------------------------------------------------------------------------------------------

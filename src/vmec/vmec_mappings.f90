@@ -119,6 +119,9 @@ MODULE MOD_VMEC_Mappings
 !> iota on half mesh
   REAL(KIND = hp), DIMENSION(:), ALLOCATABLE :: iotas
 
+!> iota on full mesh
+  REAL(KIND = hp), DIMENSION(:), ALLOCATABLE :: iotaf
+
 !> pressure on full mesh
   REAL(KIND = hp), DIMENSION(:), ALLOCATABLE :: presf
 
@@ -154,12 +157,12 @@ MODULE MOD_VMEC_Mappings
   REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: dgdSmnc
 
 !> |B} (cosine components (read on half mesh, interpolated on full mesh))
-  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: bmnc
+  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: bmnc_nyq
 
   !! B^u, B^v (cosine components (read on half mesh, interpolated on full
   !! mesh))
-!  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: bsupumnc, bsupvmnc
-
+  REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: bsupumnc_nyq, bsupvmnc_nyq
+!
   !! dlambda/du, dlambda/dv (cosine components on full mesh)
   REAL(KIND = hp), DIMENSION(:, :), ALLOCATABLE :: lUmnc, lVmnc
 
@@ -516,6 +519,8 @@ CONTAINS
     aError = aError + aStat
     ALLOCATE(iotas(stInd:radius), stat = aStat)
     aError = aError + aStat
+    ALLOCATE(iotaf(radius), stat = aStat)
+    aError = aError + aStat
     ALLOCATE(presf(radius), stat = aStat)
     aError = aError + aStat
     ALLOCATE(phi(radius), stat = aStat)
@@ -538,12 +543,12 @@ CONTAINS
     aError = aError + aStat
     ALLOCATE(dgdSmnc(mn_mode_nyq, stInd:radius), stat = aStat)
     aError = aError + aStat
-    ALLOCATE(bmnc(mn_mode_nyq, radius), stat = aStat)
+    ALLOCATE(bmnc_nyq(mn_mode_nyq, radius), stat = aStat)
     aError = aError + aStat
-!    ALLOCATE(bsupumnc(mn_mode_nyq, radius), stat = aStat)
-!    aError = aError + aStat
-!    ALLOCATE(bsupvmnc(mn_mode_nyq, radius), stat = aStat)
-!    aError = aError + aStat
+    ALLOCATE(bsupumnc_nyq(mn_mode_nyq, radius), stat = aStat)
+    aError = aError + aStat
+    ALLOCATE(bsupvmnc_nyq(mn_mode_nyq, radius), stat = aStat)
+    aError = aError + aStat
 
     IF (aError /= 0) THEN
       PRINT *, "Allocation failure in subroutine ReadVmecOutput!"
@@ -552,6 +557,7 @@ CONTAINS
 
     !! initialize some arrays
     iotas(:) = 0
+    iotaf(:) = 0
     phipf(:) = 0
     presf(:) = 0
 
@@ -575,6 +581,10 @@ CONTAINS
     ioError = NF_INQ_VARID(ncid, "iotas", id)
     ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
          (/ nFluxVMEC /), iotas(1:))
+    !! read iotaf
+    ioError = NF_INQ_VARID(ncid, "iotaf", id)
+    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
+         (/ nFluxVMEC /), iotaf(:))
     !! read presf
     ioError = NF_INQ_VARID(ncid, "presf", id)
     ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
@@ -618,15 +628,15 @@ CONTAINS
     !! read b_mn
     ioError = NF_INQ_VARID(ncid, "bmnc", id)
     ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
-         mn_mode_nyq, nFluxVMEC /), bmnc(:, :))
-!    !! read B^u_mn
-!    ioError = NF_INQ_VARID(ncid, "bsupumnc", id)
-!    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
-!         mn_mode_nyq, nFluxVMEC /), bsupumnc(:, :))
-!    !! read B^v_mn
-!    ioError = NF_INQ_VARID(ncid, "bsupvmnc", id)
-!    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
-!         mn_mode_nyq, nFluxVMEC /), bsupvmnc(:, :))
+         mn_mode_nyq, nFluxVMEC /), bmnc_nyq(:, :))
+    !! read B^u_mn
+    ioError = NF_INQ_VARID(ncid, "bsupumnc", id)
+    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
+         mn_mode_nyq, nFluxVMEC /), bsupumnc_nyq(:, :))
+    !! read B^v_mn
+    ioError = NF_INQ_VARID(ncid, "bsupvmnc", id)
+    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
+         mn_mode_nyq, nFluxVMEC /), bsupvmnc_nyq(:, :))
 
     IF (ioError /= 0) THEN
       PRINT *, " Cannot read variables from ", TRIM(fileName), "!"
@@ -690,9 +700,9 @@ CONTAINS
     CALL HalfMeshToFullMesh1D(nFluxVMEC, iotas(1:nFluxVMEC))
     CALL HalfMeshToFullMesh2D(mn_mode, nFluxVMEC, lmns(:, 1:nFluxVMEC))
     CALL HalfMeshToFullMesh2D(mn_mode_nyq, nFluxVMEC, gmnc(:, 1:nFluxVMEC))
-    CALL HalfMeshToFullMesh2D(mn_mode_nyq, nFluxVMEC, bmnc(:, :nFluxVMEC))
-!    CALL HalfMeshToFullMesh2D(mn_mode_nyq, nFluxVMEC, bsupumnc(:, :nFluxVMEC))
-!    CALL HalfMeshToFullMesh2D(mn_mode_nyq, nFluxVMEC, bsupvmnc(:, :nFluxVMEC))
+    CALL HalfMeshToFullMesh2D(mn_mode_nyq, nFluxVMEC, bmnc_nyq(:, :nFluxVMEC))
+    CALL HalfMeshToFullMesh2D(mn_mode_nyq, nFluxVMEC, bsupumnc_nyq(:, :nFluxVMEC))
+    CALL HalfMeshToFullMesh2D(mn_mode_nyq, nFluxVMEC, bsupvmnc_nyq(:, :nFluxVMEC))
 
     !! write original R, z values for test purpose
     IF (debug .AND. (me_rank == 0)) THEN
@@ -888,9 +898,9 @@ CONTAINS
     !! calculate partial derivatives
     DO curS = 1, radius
       !! dB/du
-      dBdUmns(:, curS) = -xm_nyq(:) * bmnc(:, curS)
+      dBdUmns(:, curS) = -xm_nyq(:) * bmnc_nyq(:, curS)
       !! dB/dv
-      dBdVmns(:, curS) = xn_nyq(:) * bmnc(:, curS)
+      dBdVmns(:, curS) = xn_nyq(:) * bmnc_nyq(:, curS)
       IF (corVMEC .AND. useScaledB) THEN
         !! scaled dB/du
         dBdUsmns(:, curS) = -xm_nyq(:) * absBsmnc(:, curS)
@@ -1743,14 +1753,14 @@ CONTAINS
     END DO
     !! normalize vectors
     absBsmnc(:, :) = absBsmnc(:, :) / REAL(intPointsU * intPointsV, hp)
-    bmnc(:, :) = absBmnc(:, :) / REAL(intPointsU * intPointsV, hp)
+    bmnc_nyq(:, :) = absBmnc(:, :) / REAL(intPointsU * intPointsV, hp)
     !! get fourier coefficients of the radial derivative of |B|
     DO curS = 1, radius
       DO i = 1, mn_mode_nyq
         !! scaled |B|
         dBdSsmnc(i, curS) = GetRadialDerivative(radius, curS, absBsmnc(i, :))
         !! |B|
-        dBdSmnc(i, curS) = GetRadialDerivative(radius, curS, bmnc(i, :))
+        dBdSmnc(i, curS) = GetRadialDerivative(radius, curS, bmnc_nyq(i, :))
       END DO
     END DO
 

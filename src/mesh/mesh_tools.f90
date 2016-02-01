@@ -465,6 +465,7 @@ USE MOD_Basis_Vars,ONLY:Vdm_Visu_Hexa,D_Visu_Hexa
 USE MOD_Basis_Vars,ONLY:VisuHexaMapInv
 USE MOD_Basis_Vars,ONLY:nVisu
 USE MOD_Output    ,ONLY:Visualize
+USE MOD_VMEC_Vars ,ONLY:VMECvarnames
 USE MOD_Output_vars,ONLY:Visu_sJ_limit
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -481,6 +482,7 @@ INTEGER                         :: nVal   ! ?
 CHARACTER(LEN=255)              :: FileString  ! ?
 CHARACTER(LEN=255),ALLOCATABLE  :: VarNames(:)  ! ?
 REAL,ALLOCATABLE                :: xNode(:,:),x(:,:),xt1(:,:),xt2(:,:),xt3(:,:),Jac(:)  ! ?
+REAL,ALLOCATABLE                :: VMECdataNode(:,:)
 REAL,ALLOCATABLE                :: Coord(:,:,:),Values(:,:,:)   ! ?
 REAL                            :: smaxJac  ! ?
 INTEGER,ALLOCATABLE             :: ElemMap(:),ElemMapInv(:)  ! for visu_sJ_limit
@@ -518,13 +520,15 @@ ALLOCATE(xt1(Nplot_p1_3,3))
 ALLOCATE(xt2(Nplot_p1_3,3))
 ALLOCATE(xt3(Nplot_p1_3,3))
 ALLOCATE(Jac(Nplot_p1_3))
+ALLOCATE(VMECdataNode((N+1)**3,PP_nVarVMEC))
 
-nVal=4
+nVal=4+PP_nVarVMEC
 ALLOCATE(VarNames(nVal))
 VarNames(1)='elemind'
 VarNames(2)='Jacobian'
 VarNames(3)='scaledJacobian'
 VarNames(4)='scaledJacElem'
+VarNames(5:4+PP_nVarVMEC)=VMECvarnames(:)
 
 ALLOCATE(Coord(    3,Nplot_p1_3,nCurveds))
 ALLOCATE(Values(nVal,Nplot_p1_3,nCurveds))
@@ -544,6 +548,7 @@ DO WHILE(ASSOCIATED(Elem))
       DO iNode=1,nNodes
         IF(ASSOCIATED(Elem%curvedNode(iNode)%np))THEN
           xNode(iNode,:)=Elem%curvedNode(iNode)%np%x
+          VMECdataNode(iNode,:)=Elem%curvedNode(iNode)%np%vmecData(:)
         ELSE
           CALL abort(__STAMP__, &
            'Curved node array has not the right size.',999,999.) ! check required due to intel compiler error (02)
@@ -569,6 +574,7 @@ DO WHILE(ASSOCIATED(Elem))
       END DO
       Values(1,:,iElem)=Elem%ind
       Values(4,:,iElem)=MINVAL(Values(3,:,iElem))
+      Values(5:4+PP_nVarVMEC,:,iElem)  = TRANSPOSE(MATMUL(Vdm_Visu_Hexa,VMECDataNode(1:nNodes,:)))
     END SELECT
   END IF
   Elem=>Elem%nextElem

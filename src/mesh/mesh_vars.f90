@@ -109,6 +109,7 @@ TYPE tNode ! provides data structure for local node
   TYPE(tNormal),POINTER               ::       firstNormal            ! pointer to first normal of node
   TYPE(tEdge),POINTER                 ::       firstEdge              ! pointer to first normal of node
   REAL                                ::       x(3)                   ! node coordinates
+  REAL                                ::       VMECdata(PP_nVarVMEC)  ! additional VMEC data
   INTEGER                             ::       ind                    ! node counter
   INTEGER                             ::       tmp    ! ?
   INTEGER                             ::       refCount               ! In general nodes are used by more than 
