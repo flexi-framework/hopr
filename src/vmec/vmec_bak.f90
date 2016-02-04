@@ -140,53 +140,43 @@ IF(useVMEC)THEN
   WRITE(UNIT_stdOut,*)'   Max Mode m,n: ',maxmode_m,maxmode_n
   WRITE(UNIT_stdOut,*)'   Number of even(m) and odd(m) mn-modes:',mn_mEven,mn_mOdd
   !find even and odd m-modes, to seperately evalute them
-!  mn_mEven_nyq=0
-!  DO iMode=1,mn_mode_nyq
-!    IF(MOD(xm_nyq(iMode),2.).EQ.0.) mn_mEven_nyq=mn_mEven_nyq+1
-!  END DO ! i=1,mn_mode_nyq
-!
-!  mn_mOdd_nyq=mn_mode_nyq-mn_mEven_nyq
-!  ALLOCATE(mn_mapOdd_nyq(mn_mOdd_nyq),mn_mapEven_nyq(mn_mEven_nyq))
-!  iEven=0
-!  iOdd=0
-!  DO iMode=1,mn_mode_nyq
-!    IF(MOD(xm_nyq(iMode),2.).EQ.0.) THEN
-!      iEven=iEven+1
-!      mn_mapEven_nyq(iEven)=iMode
-!    ELSE
-!      iOdd=iOdd+1
-!      mn_mapOdd_nyq(iOdd)=iMode
-!    END IF !even
-!  END DO ! i=1,mn_mode_nyq
-!  WRITE(UNIT_stdOut,*)'   Total Number of mn-modes (Nyquist):',mn_mode_nyq
-!  WRITE(UNIT_stdOut,*)'   Max Mode m,n: ',MAXVAL(xm_nyq),MAXVAL(xn_nyq)
-!  WRITE(UNIT_stdOut,*)'   Number of even(m) and odd(m) mn-modes (Nyquist):',mn_mEven_nyq,mn_mOdd_nyq
+  mn_mEven_nyq=0
+  DO iMode=1,mn_mode_nyq
+    IF(MOD(xm_nyq(iMode),2.).EQ.0.) mn_mEven_nyq=mn_mEven_nyq+1
+  END DO ! i=1,mn_mode_nyq
 
-  useFilter=GETLOGICAL('VMECuseFilter','.FALSE.')
+  mn_mOdd_nyq=mn_mode_nyq-mn_mEven_nyq
+  ALLOCATE(mn_mapOdd_nyq(mn_mOdd_nyq),mn_mapEven_nyq(mn_mEven_nyq))
+  iEven=0
+  iOdd=0
+  DO iMode=1,mn_mode_nyq
+    IF(MOD(xm_nyq(iMode),2.).EQ.0.) THEN
+      iEven=iEven+1
+      mn_mapEven_nyq(iEven)=iMode
+    ELSE
+      iOdd=iOdd+1
+      mn_mapOdd_nyq(iOdd)=iMode
+    END IF !even
+  END DO ! i=1,mn_mode_nyq
+  WRITE(UNIT_stdOut,*)'   Total Number of mn-modes (Nyquist):',mn_mode_nyq
+  WRITE(UNIT_stdOut,*)'   Max Mode m,n: ',MAXVAL(xm_nyq),MAXVAL(xn_nyq)
+  WRITE(UNIT_stdOut,*)'   Number of even(m) and odd(m) mn-modes (Nyquist):',mn_mEven_nyq,mn_mOdd_nyq
+
   !find even and odd m-modes, to seperately evalute them AND FILTER HIGH MODES
-  IF(.NOT.useFilter)THEN
-    ALLOCATE(filtMap(mn_mode_nyq))
-    mn_mode_filt=mn_mode_nyq
-    DO iMode=1,mn_mode_nyq
-        filtMap(iMode)=iMode
-    END DO ! i=1,mn_mode_nyq
-  ELSE  
-    mn_mode_filt=0
-    DO iMode=1,mn_mode_nyq
-      IF((xm_nyq(iMode).LE.maxmode_m).AND.(ABS(xn_nyq(iMode)).LE.maxmode_n)) THEN
-        mn_mode_filt=mn_mode_filt+1
-      END IF
-    END DO ! i=1,mn_mode_nyq
-    ALLOCATE(filtMap(mn_mode_filt))
-    iFilt=0
-    DO iMode=1,mn_mode_nyq
-      IF((xm_nyq(iMode).LE.maxmode_m).AND.(ABS(xn_nyq(iMode)).LE.maxmode_n)) THEN
-        iFilt=iFilt+1
-        filtMap(iFilt)=iMode
-      END IF
-    END DO ! i=1,mn_mode_nyq
-  END IF!useFilter
-
+  mn_mode_filt=0
+  DO iMode=1,mn_mode_nyq
+    !IF((xm_nyq(iMode).LE.maxmode_m).AND.(ABS(xn_nyq(iMode)).LE.maxmode_n)) THEN
+      mn_mode_filt=mn_mode_filt+1
+    !END IF
+  END DO ! i=1,mn_mode_nyq
+  ALLOCATE(filtMap(mn_mode_filt))
+  iFilt=0
+  DO iMode=1,mn_mode_nyq
+    !IF((xm_nyq(iMode).LE.maxmode_m).AND.(ABS(xn_nyq(iMode)).LE.maxmode_n)) THEN
+      iFilt=iFilt+1
+      filtMap(iFilt)=iMode
+    !END IF
+  END DO ! i=1,mn_mode_nyq
   mn_mEven_filt=0
   DO iFilt=1,mn_mode_filt
     iMode=FiltMap(iFilt)
@@ -284,13 +274,14 @@ zeta   = -2*Pi*xcyl(3) ! which coordinate system is not clear, this gives correc
 CosMN(:)  = COS(xm(:) * theta - xn(:) * zeta)
 SinMN(:)  = SIN(xm(:) * theta - xn(:) * zeta)
 
-CosMN_nyq(FiltMap(:))  = COS(xm_nyq(FiltMap(:)) * theta - xn_nyq(FiltMap(:)) * zeta)
-!CosMN_nyq(:)  = COS(xm_nyq(:) * theta - xn_nyq(:) * zeta)
+CosMN_nyq(:)  = COS(xm_nyq(:) * theta - xn_nyq(:) * zeta)
 !SinMN_nyq(:)  = SIN(xm_nyq(:) * theta - xn_nyq(:) * zeta) !not yet needed
 
 phi_p=phi_p**2 ! use scaling of radius to phi evaluation variable
 
 !! look for the nearest supporting point phinorm(s1) < phi_p < phinorm(s1) 
+!! exception: extrapolate for phi_p<phinorm(2) 
+!!            -> use s1=2 instead of s1=1, because 1/sqrt(phinorm(s1))=1/0. is not defined.
 IF(phi_p.LT.1.0E-08)THEN
   s1=1
   s2=1
@@ -304,16 +295,6 @@ ELSE
   END DO
   s2=MIN(s1+1,nFluxVMEC)
 END IF
-!! exception: extrapolate for phi_p<phinorm(2) 
-!!            -> use s1=2 instead of s1=1, because 1/sqrt(phinorm(s1))=1/0. is not defined.
-!s1=nFluxVMEC
-!DO i = 2, nFluxVMEC
-!  IF (phi_p .LT. phinorm(i)) THEN
-!   s1=i
-!   EXIT
-!  END IF
-!END DO
-!s2=MIN(s1+1,nFluxVMEC)
 
 !WRITE(*,*)'DEBUG,s1,s2,phi1,phi2,phi',s1,s2,phinorm(s1),phinorm(s2),phi_p
 
@@ -330,11 +311,10 @@ IF(s1.NE.s2)THEN
   Z=InterpolateData(f1,f2,w1,w2,SinMN,Zmns(:,s1),Zmns(:,s2))
 
 
-!  Bsupu  = InterpolateData_nyq(f1,f2,w1,w2,CosMN_nyq,bsupumnc_nyq(:,s1),bsupumnc_nyq(:,s2))
-!  Bsupv  = InterpolateData_nyq(f1,f2,w1,w2,CosMN_nyq,bsupvmnc_nyq(:,s1),bsupvmnc_nyq(:,s2))
-  Bsupu  = InterpolateData_filt(f1,f2,w1,w2,CosMN_nyq(:),bsupumnc_nyq(:,s1),bsupumnc_nyq(:,s2))
-  Bsupv  = InterpolateData_filt(f1,f2,w1,w2,CosMN_nyq(:),bsupvmnc_nyq(:,s1),bsupvmnc_nyq(:,s2))
-
+!  Bsupu  = InterpolateData_filt(f1,f2,w1,w2,CosMN_nyq(:),bsupumnc_nyq(:,s1),bsupumnc_nyq(:,s2))
+!  Bsupv  = InterpolateData_filt(f1,f2,w1,w2,CosMN_nyq(:),bsupvmnc_nyq(:,s1),bsupvmnc_nyq(:,s2))
+  Bsupu  = InterpolateData_nyq(f1,f2,w1,w2,CosMN_nyq(:),bsupumnc_nyq(:,s1),bsupumnc_nyq(:,s2))
+  Bsupv  = InterpolateData_nyq(f1,f2,w1,w2,CosMN_nyq(:),bsupvmnc_nyq(:,s1),bsupvmnc_nyq(:,s2))
 
   dRdu =InterpolateData(f1,f2,w1,w2,SinMN,dRdUmns(:,s1),dRdUmns(:,s2))
   dRdv =InterpolateData(f1,f2,w1,w2,SinMN,dRdVmns(:,s1),dRdVmns(:,s2))
@@ -355,17 +335,16 @@ IF(s1.NE.s2)THEN
 
   Btheta = phipf_int*(iotas_int - InterpolateData(f1,f2,w1,w2,CosMN,lVmnc(:,s1),lVmnc(:,s2)))
   Bzeta  = phipf_int*(1.        + InterpolateData(f1,f2,w1,w2,CosMN,lUmnc(:,s1),lUmnc(:,s2)))
-  ! ==> DO NOT MATCH WITH Bsupu, Bsupv !!!
+!  ! ==> DO NOT MATCH WITH Bsupu, Bsupv !!!
 ELSE
   !weighting with sqrt(s) cancels, evaluate all modes at s2.
   R      = SUM(CosMN(:)*Rmnc(:, s2))
   Z      = SUM(SinMN(:)*Zmns(:, s2))
 
-!  Bsupu  = SUM(CosMN_nyq(:)*bsupumnc_nyq(:,s2))
-!  Bsupv  = SUM(CosMN_nyq(:)*bsupvmnc_nyq(:,s2))
-  Bsupu  = SUM(CosMN_nyq(FiltMap(:))*bsupumnc_nyq(FiltMap(:),s2))
-  Bsupv  = SUM(CosMN_nyq(FiltMap(:))*bsupvmnc_nyq(FiltMap(:),s2))
-
+!  Bsupu  = SUM(CosMN_nyq(FiltMap(:))*bsupumnc_nyq(FiltMap(:),s2))
+!  Bsupv  = SUM(CosMN_nyq(FiltMap(:))*bsupvmnc_nyq(FiltMap(:),s2))
+  Bsupu  = SUM(CosMN_nyq(:)*bsupumnc_nyq(:,s2))
+  Bsupv  = SUM(CosMN_nyq(:)*bsupvmnc_nyq(:,s2))
 
   dRdu   = SUM(SinMN(:)*dRdUmns(:,s2))
   dRdv   = SUM(SinMN(:)*dRdVmns(:,s2))
@@ -416,7 +395,7 @@ vmecData(1)=phi_p
 vmecData(2)=Br
 vmecData(3)=Bz
 vmecData(4)=Bphi
-vmecData(5)=SQRT(SUM(Bcart**2))
+vmecData(5)=SUM(Bcart**2)
 vmecData(6:8)=Bcart(:)
 vmecData(9)=pressure
 vmecData(10)=Bsupu

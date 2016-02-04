@@ -31,10 +31,13 @@ PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
 LOGICAL             :: useVMEC
+LOGICAL             :: useFilter
 INTEGER             :: mn_mOdd,mn_mEven
 INTEGER,ALLOCATABLE :: mn_mapOdd(:),mn_mapEven(:)
 INTEGER             :: mn_mOdd_nyq,mn_mEven_nyq
+INTEGER             :: mn_mOdd_filt,mn_mEven_filt,mn_mode_filt
 INTEGER,ALLOCATABLE :: mn_mapOdd_nyq(:),mn_mapEven_nyq(:)
+INTEGER,ALLOCATABLE :: mn_mapOdd_filt(:),mn_mapEven_filt(:),FiltMap(:)
 REAL,ALLOCATABLE    :: phinorm(:)   
 CHARACTER(LEN=255)  :: VMECvarnames(PP_nVarVMEC)
 !-----------------------------------------------------------------------------------------------------------------------------------
