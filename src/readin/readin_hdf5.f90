@@ -37,8 +37,9 @@ USE MOD_Mesh_Vars,ONLY:usecurveds,N
 USE MOD_Mesh_Vars,ONLY:nMeshElems
 USE MOD_Mesh_Vars,ONLY:nNodesElemSideMapping,ElemSideMapping
 USE MOD_Mesh_Vars,ONLY:BoundaryType
-USE MOD_Mesh_Vars,ONLY:getNewElem,getNewNode,getNewBC,getNewSide
+USE MOD_Mesh_Vars,ONLY:getNewElem,getNewNode,getNewBC,getNewSide,deleteSide
 USE MOD_Mesh_Vars,ONLY:xiMinMax,ElemToTree,TreeCoords,NGeoTree,nGlobalTrees,MortarMesh,nTrees,offsetTree
+!USE MOD_Mesh_Connect,ONLY:SetMortarOrientedNodes
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -70,7 +71,7 @@ INTEGER                        :: nDims
 IF(initMesh) RETURN
 INQUIRE (FILE=TRIM(FileString), EXIST=fileExists)
 IF(.NOT.FileExists)  CALL abort(__STAMP__, &
-        'readMesh from HDF5, file "'//TRIM(FileString)//'" does not exist',999,999.)
+        'readMesh from HDF5, file "'//TRIM(FileString)//'" does not exist')
 
 WRITE(UNIT_stdOut,'(132("~"))')
 CALL Timer(.TRUE.)
@@ -266,6 +267,7 @@ DO iElem=1,nElems
   DO i=1,locnSides
     aSide=>Sides(i)%sp
     iSide=iSide+1
+
     ! ALLOCATE MORTAR
     ElemID=SideInfo(SIDE_nbElemID,iSide) !IF nbElemID <0, this marks a mortar master side. 
                                          ! The number (-1,-2,-3) is the Type of mortar
@@ -282,13 +284,13 @@ DO iElem=1,nElems
         CALL getNewSide(aSide%MortarSide(iMortar)%sp,4)
       END DO
     ELSE
-      aSide%nMortars=0 
+      aSide%nMortars=0
       aSide%MortarType=0 
     END IF
     IF(SideInfo(SIDE_Type,iSide).LT.0) aSide%MortarType=-1 !marks side as belonging to a mortar
 
+    aSide%Elem=>Elem
     IF(aSide%MortarType.LE.0)THEN
-      aSide%Elem=>Elem
       oriented=(Sideinfo(SIDE_ID,iSide).GT.0)
       aSide%Ind=ABS(SideInfo(SIDE_ID,iSide))
       IF(oriented)THEN !oriented side
@@ -335,7 +337,6 @@ DO iElem=1,nElems
   END DO !i=2,locnsides
   DEALLOCATE(Sides)
 END DO !iElem
-
 
 ! build up side connection 
 DO iElem=1,nElems
@@ -393,7 +394,7 @@ DO iElem=1,nElems
           END DO
         ELSE !MPI connection
           CALL abort(__STAMP__, &
-            ' elemID of neighbor not in global Elem list ',999,999.)
+            ' elemID of neighbor not in global Elem list ')
         END IF
       END IF
     END DO !iMortar 
@@ -490,6 +491,7 @@ k1=0
 l1=0
 nBCSides=0
 nPeriodicSides=0
+nMortarSides=0
 Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))
   aSide=>Elem%firstSide
@@ -534,6 +536,30 @@ DO WHILE(ASSOCIATED(Elem))
   END DO
   Elem=>Elem%nextElem
 END DO
+
+! dirty cleanup: connection are recreated in mesh_connect
+IF(.NOT.doConnection)THEN
+  Elem=>firstElem
+  DO WHILE(ASSOCIATED(Elem))
+    aSide=>Elem%firstSide
+    DO WHILE(ASSOCIATED(aSide))
+      IF(aSide%MortarType.GT.0)THEN    ! master
+        DO iSide=1,aSide%nMortars
+          CALL deleteSide(aSide,aSide%MortarSide(iSide)%sp)
+        END DO
+        DEALLOCATE(aSide%MortarSide)
+        NULLIFY(aSide%MortarSide)
+        aSide%nMortars=0
+      ELSEIF(aSide%MortarType.LT.0)THEN ! slave
+        NULLIFY(aSide%connection)
+        aSide%nMortars=0
+      END IF
+      aSide=>aSide%nextElemSide
+    END DO
+    Elem=>Elem%nextElem
+  END DO
+END IF
+
 LOGWRITE(*,*)'nElems:',i1
 LOGWRITE(*,*)'nSides:',j1
 LOGWRITE(*,*)'nMortarSides:',nMortarSides

@@ -21,8 +21,13 @@ INTERFACE Connect2DMesh
   MODULE PROCEDURE Connect2DMesh
 END INTERFACE
 
+INTERFACE SetMortarOrientedNodes
+  MODULE PROCEDURE SetMortarOrientedNodes
+END INTERFACE
+
 PUBLIC::Connect
 PUBLIC::Connect2DMesh
+PUBLIC::SetMortarOrientedNodes
 !===================================================================================================================================
 
 INTEGER :: next1(4,3:4)=RESHAPE((/2,3,1,0,2,3,4,1/),SHAPE(next1))
@@ -463,7 +468,6 @@ INTEGER                   :: iNode,jNode,iSide,jSide,kSide,ind,i  ! ?
 INTEGER                   :: aLocSide,bLocSide,counter  ! ?
 INTEGER                   :: CGNSToCart(4)
 INTEGER                   :: bigCorner(4)
-INTEGER                   :: masterNode,slaveNode
 INTEGER                   :: iCheck,jCheck,nCheck
 INTEGER                   :: nFound(4),checkInd,foundSides(2,100,4)
 INTEGER,ALLOCATABLE       :: edgeNodes(:,:),sideInds(:)
@@ -484,7 +488,7 @@ Elem=>FirstElem
 DO WHILE(ASSOCIATED(Elem))
   Side=>Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
-    IF(Side%MortarType.NE.0)THEN
+    IF(ASSOCIATED(Side%MortarSide))THEN
       Side=>Side%nextElemSide
       CYCLE
     END IF
@@ -517,7 +521,7 @@ Elem=>FirstElem
 DO WHILE(ASSOCIATED(Elem))
   Side=>Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
-    IF(Side%MortarType.NE.0)THEN
+    IF(ASSOCIATED(Side%MortarSide))THEN
       Side=>Side%nextElemSide
       CYCLE
     END IF
@@ -776,33 +780,7 @@ END DO
 ! side, if small side contains that node
 DO iSide=1,nNonConformingSides
   aSide=>Sides(iSide)%sp
-  IF(aSide%nMortars.LE.0) CYCLE  ! only check big mortar sides
-  ! big side
-  DO iNode=1,aSide%nNodes
-    aSide%OrientedNode(iNode)%np=>aSide%Node(iNode)%np
-  END DO
-  ! small sides
-  DO jSide=1,aSide%nMortars
-    bSide=>aSide%MortarSide(jSide)%sp 
-    commonNode=.FALSE.
-    DO iNode=1,aSide%nNodes
-      DO jNode=1,bSide%nNodes
-        IF(ASSOCIATED(aSide%Node(iNode)%np,bSide%Node(jNode)%np))THEN
-          masterNode=iNode
-          slaveNode=jNode
-          commonNode=.TRUE.
-          EXIT
-        END IF
-      END DO
-      IF(commonNode) EXIT
-    END DO
-    IF(.NOT.commonNode) STOP 'ERROR: no common node of big and small mortar sides found'
-    DO iNode=1,aSide%nNodes
-      bSide%orientedNode(masterNode)%np=>bSide%Node(slaveNode)%np
-      masterNode=prev1(masterNode,aSide%nNodes)
-      slaveNode=next1(slaveNode,aSide%nNodes)
-    END DO
-  END DO
+  CALL SetMortarOrientedNodes(aSide)
 END DO
 
 
@@ -905,6 +883,60 @@ DEALLOCATE(foundEdge)
 nNonConformingSides=counter
 
 END SUBROUTINE NonconformConnectMesh
+
+
+
+SUBROUTINE SetMortarOrientedNodes(aSide)
+!===================================================================================================================================
+! Now set the oriented nodes for mortar sides
+! big sides are always master and small sides inherit order
+! OrientedNode(iNode) of big side is identical to OrientedNode (iNode) of small
+! side, if small side contains that node
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars, ONLY:tSide,tSidePtr,tNode
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+TYPE(tSide),POINTER,INTENT(IN) :: aSide
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+TYPE(tSide),POINTER       :: bSide
+INTEGER                   :: iNode,jNode,jSide  ! ?
+INTEGER                   :: masterNode,slaveNode
+LOGICAL                   :: commonNode
+!===================================================================================================================================
+IF(aSide%nMortars.LE.0) RETURN  ! only check big mortar sides
+! big side
+DO iNode=1,aSide%nNodes
+  aSide%OrientedNode(iNode)%np=>aSide%Node(iNode)%np
+END DO
+! small sides
+DO jSide=1,aSide%nMortars
+  bSide=>aSide%MortarSide(jSide)%sp 
+  commonNode=.FALSE.
+  DO iNode=1,aSide%nNodes
+    DO jNode=1,bSide%nNodes
+      IF(ASSOCIATED(aSide%Node(iNode)%np,bSide%Node(jNode)%np))THEN
+        masterNode=iNode
+        slaveNode=jNode
+        commonNode=.TRUE.
+        EXIT
+      END IF
+    END DO
+    IF(commonNode) EXIT
+  END DO
+  IF(.NOT.commonNode) STOP 'ERROR: no common node of big and small mortar sides found'
+  DO iNode=1,aSide%nNodes
+    bSide%orientedNode(masterNode)%np=>bSide%Node(slaveNode)%np
+    masterNode=prev1(masterNode,aSide%nNodes)
+    slaveNode=next1(slaveNode,aSide%nNodes)
+  END DO
+END DO
+END SUBROUTINE SetMortarOrientedNodes
 
 
 PURE SUBROUTINE CommonEdge2(aSide,bSide,nA,nB,aFoundEdge,aFoundNode)
