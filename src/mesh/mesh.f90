@@ -323,6 +323,7 @@ nFineHexa=GETINT('nFineHexa','1')               ! split all hexa by a factor
 
 
 meshPostDeform=GETINT('MeshPostDeform','0')
+IF(meshPostDeform.GT.0) PostDeform_useGL=GETLOGICAL('PostDeform_useGL','.TRUE.')
 SELECT CASE(MeshPostDeform)
 CASE(0) !do nothing
 CASE(1,2) 
@@ -435,6 +436,7 @@ IMPLICIT NONE
 TYPE(tElem),POINTER :: Elem  ! ?
 TYPE(tSide),POINTER :: Side    ! ?
 LOGICAL             :: curvedFound  ! ?
+INTEGER             :: iElem  ! ?
 !===================================================================================================================================
 CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("="))')
@@ -493,11 +495,28 @@ IF(nFineHexa.GT.1) THEN
   AdaptedMesh=.TRUE.
 END IF
 
+! Count elements 
+nMeshElems=0
+Elem=>FirstElem
+DO WHILE(ASSOCIATED(Elem))
+  nMeshElems=nMeshElems+1
+  Elem=>Elem%nextElem
+END DO
+WRITE(UNIT_stdOut,*)'Number of Elements: ',nMeshElems
+ALLOCATE(Elems(nMeshElems))
+iElem=0
+Elem=>FirstElem
+DO WHILE(ASSOCIATED(Elem))
+  iElem=iElem+1
+  Elems(iElem)%ep=>Elem
+  Elem%ind=iElem
+  Elem=>Elem%nextElem
+END DO
+
 ! Set local and global mesh maxDX (will be used in ALL following searchmeshes unless redefined)
 maxDX=0.
-Elem=>FirstElem
-DO WHILE (ASSOCIATED(Elem))
-  Side=>Elem%firstSide
+DO iElem=1,nMeshElems
+  Side=>Elems(iElem)%ep%firstSide
   DO WHILE(ASSOCIATED(Side))
     !determine local max dx
     maxDX=MAX(maxDX,ABS(Side%Node(2)%np%x-Side%Node(1)%np%x))
@@ -506,18 +525,9 @@ DO WHILE (ASSOCIATED(Elem))
     IF(Side%nNodes.EQ.4) maxDX=MAX(maxDX,ABS(Side%Node(4)%np%x-Side%Node(3)%np%x))
     Side=>Side%nextElemSide
   END DO
-  Elem=>Elem%nextElem
-END DO
+END DO !iElem
 
-! Count elements 
-nMeshElems=0
-Elem=>FirstElem
-DO WHILE(ASSOCIATED(Elem))
-  nMeshElems=nMeshElems+1
-  Elem%ind=nMeshElems
-  Elem=>Elem%nextElem
-END DO
-WRITE(UNIT_stdOut,*)'Number of Elements: ',nMeshElems
+  
 
 
 ! WRITE some visualization, build connectivity and build edge data structure
@@ -537,15 +547,13 @@ CALL buildEdges()
 
 ! check if sides to be curved exist
 curvedFound=.FALSE.
-Elem=>FirstElem
-DO WHILE(ASSOCIATED(Elem))
-  Side=>Elem%firstSide
+DO iElem=1,nMeshElems
+  Side=>Elems(iElem)%ep%firstSide
   DO WHILE(ASSOCIATED(Side))
     IF(Side%curveIndex.GT.0) curvedFound=.TRUE.
     Side=>Side%nextElemSide
   END DO
-  Elem=>Elem%nextElem
-END DO
+END DO !iElem
 IF(.NOT.curvedFound) curvingMethod=-1
 
 

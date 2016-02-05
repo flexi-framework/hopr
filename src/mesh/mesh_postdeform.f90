@@ -49,7 +49,11 @@ SUBROUTINE PostDeform()
 !===================================================================================================================================
 !MODULE INPUT VARIABLES
 USE MOD_Globals
-USE MOD_Mesh_Vars,ONLY:firstElem,tElem,MeshPostDeform
+USE MOD_Mesh_Vars ,ONLY: tElem,Elems,MeshPostDeform,PostDeform_useGL
+USE MOD_Mesh_Vars ,ONLY: N,nMeshElems
+USE MOD_Basis_Vars,ONLY: HexaMap
+Use MOD_Basis1D   ,ONLY: LegGaussLobNodesAndWeights,BarycentricWeights,InitializeVandermonde
+Use MOD_Basis     ,ONLY: ChangeBasisHexa
 !MODULE OUTPUT VARIABLES
 ! MODULES
 ! IMPLICIT VARIABLE HANDLING
@@ -65,39 +69,105 @@ IMPLICIT NONE
 TYPE(tElem),POINTER          :: aElem   ! ?
 REAL                         :: x_loc(3)! ?
 INTEGER                      :: iNode   ! ?
+INTEGER                      :: i,iElem,ijk(3)
+REAL,DIMENSION(0:N)          :: xi_EQ,xi_GL,wBary_EQ,wBary_GL
+REAL,DIMENSION(0:N,0:N)      :: Vdm_EQtoGL, Vdm_GLtoEQ
+REAL                         :: buf(3+PP_nVarVMEC,0:N,0:N,0:N,nMeshElems)
 !===================================================================================================================================
 IF(MeshPostDeform.EQ.0) RETURN
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'POST DEFORM THE MESH...'
 CALL Timer(.TRUE.)
-aElem=>FirstElem
-DO WHILE(ASSOCIATED(aElem))
-  DO iNode=1,aElem%nNodes
-    aElem%Node(iNode)%np%tmp=-1
+
+IF(.NOT.PostDeform_useGL)THEN
+  !mark all nodes -2
+  DO iElem=1,nMeshElems
+    aElem=>Elems(iElem)%ep
+    DO iNode=1,aElem%nCurvedNodes
+      aElem%CurvedNode(iNode)%np%tmp=-2
+    END DO
+  END DO !iElem 
+ELSE !PostDeform_useGL
+  !prepare EQ to GL tranform
+  CALL LegGaussLobNodesAndWeights(N,xi_GL)
+  DO i=0,N
+    xi_EQ(i)=REAL(i)
   END DO
+  xi_EQ(:)=(2./REAL(N))*xi_EQ(:) -1.
+  CALL BarycentricWeights(N,xi_EQ,wBary_EQ)
+  CALL BarycentricWeights(N,xi_GL,wBary_GL)
+  CALL InitializeVandermonde(N,N,wBary_EQ,xi_EQ,xi_GL,Vdm_EQtoGL)
+  CALL InitializeVandermonde(N,N,wBary_GL,xi_GL,xi_EQ,Vdm_GLtoEQ)
+  
+  !mark all nodes -3
+  DO iElem=1,nMeshElems
+    aElem=>Elems(iElem)%ep
+    DO iNode=1,aElem%nCurvedNodes
+      aElem%CurvedNode(iNode)%np%tmp=-3
+    END DO
+  END DO !iElem 
+  
+  !transform Equidist. to Gauss-Lobatto points
+  DO iElem=1,nMeshElems
+    aElem=>Elems(iElem)%ep
+    DO iNode=1,aElem%nCurvedNodes
+      ijk(:)=HexaMap(iNode,:)
+      buf(1:3,ijk(1),ijk(2),ijk(3),iElem)= aElem%CurvedNode(iNode)%np%x(:)
+    END DO !iNode
+    CALL ChangeBasisHexa(3,N,N,Vdm_EQtoGL,buf(1:3,:,:,:,iElem),buf(1:3,:,:,:,iElem))
+  END DO ! iElem
+  
+  ! copy back (all nodes are marked -3 to -2)
+  DO iElem=1,nMeshElems
+    aElem=>Elems(iElem)%ep
+    DO iNode=1,aElem%nCurvedNodes
+      IF(aElem%CurvedNode(iNode)%np%tmp.EQ.-3)THEN
+        ijk(:)=HexaMap(iNode,:)
+        aElem%CurvedNode(iNode)%np%x(:)= buf(1:3,ijk(1),ijk(2),ijk(3),iElem)
+        aElem%CurvedNode(iNode)%np%tmp=-2
+      END IF
+    END DO !iNode
+  END DO !iElem 
+END IF !PostDeform_useGL
+
+!transform (all nodes are marked from -2 to -1)
+DO iElem=1,nMeshElems
+  aElem=>Elems(iElem)%ep
   DO iNode=1,aElem%nCurvedNodes
-    aElem%CurvedNode(iNode)%np%tmp=-1
-  END DO
-  aElem=>aElem%nextElem
-END DO ! WHILE(ASSOCIATED(aElem))
-aElem=>FirstElem
-DO WHILE(ASSOCIATED(aElem))
-  DO iNode=1,aElem%nNodes
-    IF(aElem%Node(iNode)%np%tmp.EQ.-1)THEN
-      x_loc(:)=aElem%Node(iNode)%np%x(:)
-      CALL PostDeformFunc(x_loc,aElem%Node(iNode)%np%x(:),aElem%Node(iNode)%np%vmecData)
-      aElem%Node(iNode)%np%tmp=0
-    END IF
-  END DO
-  DO iNode=1,aElem%nCurvedNodes
-    IF(aElem%CurvedNode(iNode)%np%tmp.EQ.-1)THEN
+    IF(aElem%CurvedNode(iNode)%np%tmp.EQ.-2)THEN
       x_loc(:)=aElem%CurvedNode(iNode)%np%x(:)
       CALL PostDeformFunc(x_loc,aElem%CurvedNode(iNode)%np%x(:),aElem%CurvedNode(iNode)%np%vmecData)
-      aElem%CurvedNode(iNode)%np%tmp=0
+      aElem%CurvedNode(iNode)%np%tmp=-1
     END IF
-  END DO
-  aElem=>aElem%nextElem
-END DO ! WHILE(ASSOCIATED(aElem))
+  END DO !iNode
+END DO !iElem
+
+IF(PostDeform_useGL)THEN
+  !transform back from GL to EQ
+  DO iElem=1,nMeshElems
+    aElem=>Elems(iElem)%ep
+    DO iNode=1,aElem%nCurvedNodes
+      ijk(:)=HexaMap(iNode,:)
+      buf(1:3,ijk(1),ijk(2),ijk(3),iElem)= aElem%CurvedNode(iNode)%np%x(:)
+      buf(4:3+PP_nVarVMEC,ijk(1),ijk(2),ijk(3),iElem)= aElem%CurvedNode(iNode)%np%vmecData(:)
+    END DO !iNode
+    CALL ChangeBasisHexa(3+PP_nVarVMEC,N,N,Vdm_GLtoEQ,buf(:,:,:,:,iElem),buf(:,:,:,:,iElem))
+  END DO !iElem
+  
+  ! copy back (all nodes are marked from -1 to 0)
+  DO iElem=1,nMeshElems
+    aElem=>Elems(iElem)%ep
+    DO iNode=1,aElem%nCurvedNodes
+      IF(aElem%CurvedNode(iNode)%np%tmp.EQ.-1)THEN
+        ijk(:)=HexaMap(iNode,:)
+        aElem%CurvedNode(iNode)%np%x(:)= buf(1:3,ijk(1),ijk(2),ijk(3),iElem)
+        aElem%CurvedNode(iNode)%np%vmecData(:)= buf(4:3+PP_nVarVMEC,ijk(1),ijk(2),ijk(3),iElem)
+        aElem%CurvedNode(iNode)%np%tmp=0
+      END IF
+    END DO !iNode
+  END DO !iElem
+END IF !PostDeform_useGL
+
 CALL Timer(.FALSE.)
 END SUBROUTINE PostDeform
 

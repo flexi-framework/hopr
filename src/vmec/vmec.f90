@@ -69,7 +69,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 CHARACTER(LEN = 256) :: dataFile
 INTEGER              :: ioError
-INTEGER              :: iMode,iEven,iOdd,iFilt
+INTEGER              :: iMode,iEven,iOdd
 REAL                 :: maxMode_m,maxMode_n
 LOGICAL              :: killmode
 !===================================================================================================================================
@@ -140,76 +140,76 @@ IF(useVMEC)THEN
   WRITE(UNIT_stdOut,*)'   Max Mode m,n: ',maxmode_m,maxmode_n
   WRITE(UNIT_stdOut,*)'   Number of even(m) and odd(m) mn-modes:',mn_mEven,mn_mOdd
   !find even and odd m-modes, to seperately evalute them
-!  mn_mEven_nyq=0
-!  DO iMode=1,mn_mode_nyq
-!    IF(MOD(xm_nyq(iMode),2.).EQ.0.) mn_mEven_nyq=mn_mEven_nyq+1
-!  END DO ! i=1,mn_mode_nyq
-!
-!  mn_mOdd_nyq=mn_mode_nyq-mn_mEven_nyq
-!  ALLOCATE(mn_mapOdd_nyq(mn_mOdd_nyq),mn_mapEven_nyq(mn_mEven_nyq))
-!  iEven=0
-!  iOdd=0
-!  DO iMode=1,mn_mode_nyq
-!    IF(MOD(xm_nyq(iMode),2.).EQ.0.) THEN
-!      iEven=iEven+1
-!      mn_mapEven_nyq(iEven)=iMode
-!    ELSE
-!      iOdd=iOdd+1
-!      mn_mapOdd_nyq(iOdd)=iMode
-!    END IF !even
-!  END DO ! i=1,mn_mode_nyq
-!  WRITE(UNIT_stdOut,*)'   Total Number of mn-modes (Nyquist):',mn_mode_nyq
-!  WRITE(UNIT_stdOut,*)'   Max Mode m,n: ',MAXVAL(xm_nyq),MAXVAL(xn_nyq)
-!  WRITE(UNIT_stdOut,*)'   Number of even(m) and odd(m) mn-modes (Nyquist):',mn_mEven_nyq,mn_mOdd_nyq
+  mn_mEven_nyq=0
+  DO iMode=1,mn_mode_nyq
+    IF(MOD(xm_nyq(iMode),2.).EQ.0.) mn_mEven_nyq=mn_mEven_nyq+1
+  END DO ! i=1,mn_mode_nyq
 
-  useFilter=GETLOGICAL('VMECuseFilter','.FALSE.')
-  !find even and odd m-modes, to seperately evalute them AND FILTER HIGH MODES
-  IF(.NOT.useFilter)THEN
-    ALLOCATE(filtMap(mn_mode_nyq))
-    mn_mode_filt=mn_mode_nyq
-    DO iMode=1,mn_mode_nyq
-        filtMap(iMode)=iMode
-    END DO ! i=1,mn_mode_nyq
-  ELSE  
-    mn_mode_filt=0
-    DO iMode=1,mn_mode_nyq
-      IF((xm_nyq(iMode).LE.maxmode_m).AND.(ABS(xn_nyq(iMode)).LE.maxmode_n)) THEN
-        mn_mode_filt=mn_mode_filt+1
-      END IF
-    END DO ! i=1,mn_mode_nyq
-    ALLOCATE(filtMap(mn_mode_filt))
-    iFilt=0
-    DO iMode=1,mn_mode_nyq
-      IF((xm_nyq(iMode).LE.maxmode_m).AND.(ABS(xn_nyq(iMode)).LE.maxmode_n)) THEN
-        iFilt=iFilt+1
-        filtMap(iFilt)=iMode
-      END IF
-    END DO ! i=1,mn_mode_nyq
-  END IF!useFilter
-
-  mn_mEven_filt=0
-  DO iFilt=1,mn_mode_filt
-    iMode=FiltMap(iFilt)
-    IF(MOD(xm_nyq(iMode),2.).EQ.0.) mn_mEven_filt=mn_mEven_filt+1
-  END DO ! i=1,mn_mode_filt
-  
-  mn_mOdd_filt=mn_mode_filt-mn_mEven_filt
-  ALLOCATE(mn_mapOdd_filt(mn_mOdd_filt),mn_mapEven_filt(mn_mEven_filt))
+  mn_mOdd_nyq=mn_mode_nyq-mn_mEven_nyq
+  ALLOCATE(mn_mapOdd_nyq(mn_mOdd_nyq),mn_mapEven_nyq(mn_mEven_nyq))
   iEven=0
   iOdd=0
-  DO iFilt=1,mn_mode_filt
-    iMode=FiltMap(iFilt)
+  DO iMode=1,mn_mode_nyq
     IF(MOD(xm_nyq(iMode),2.).EQ.0.) THEN
       iEven=iEven+1
-      mn_mapEven_filt(iEven)=iMode
+      mn_mapEven_nyq(iEven)=iMode
     ELSE
       iOdd=iOdd+1
-      mn_mapOdd_filt(iOdd)=iMode
+      mn_mapOdd_nyq(iOdd)=iMode
     END IF !even
   END DO ! i=1,mn_mode_nyq
-  WRITE(UNIT_stdOut,*)'   Total Number of mn-modes (filtered):',mn_mode_filt
-  WRITE(UNIT_stdOut,*)'   Max Mode m,n: ',maxmode_m,maxmode_n
-  WRITE(UNIT_stdOut,*)'   Number of even(m) and odd(m) mn-modes (filtered):',mn_mEven_filt,mn_mOdd_filt
+  WRITE(UNIT_stdOut,*)'   Total Number of mn-modes (Nyquist):',mn_mode_nyq
+  WRITE(UNIT_stdOut,*)'   Max Mode m,n: ',MAXVAL(xm_nyq),MAXVAL(xn_nyq)
+  WRITE(UNIT_stdOut,*)'   Number of even(m) and odd(m) mn-modes (Nyquist):',mn_mEven_nyq,mn_mOdd_nyq
+
+!  useFilter=GETLOGICAL('VMECuseFilter','.FALSE.')
+!  !find even and odd m-modes, to seperately evalute them AND FILTER HIGH MODES
+!  IF(.NOT.useFilter)THEN
+!    ALLOCATE(filtMap(mn_mode_nyq))
+!    mn_mode_filt=mn_mode_nyq
+!    DO iMode=1,mn_mode_nyq
+!        filtMap(iMode)=iMode
+!    END DO ! i=1,mn_mode_nyq
+!  ELSE  
+!    mn_mode_filt=0
+!    DO iMode=1,mn_mode_nyq
+!      IF((xm_nyq(iMode).LE.maxmode_m).AND.(ABS(xn_nyq(iMode)).LE.maxmode_n)) THEN
+!        mn_mode_filt=mn_mode_filt+1
+!      END IF
+!    END DO ! i=1,mn_mode_nyq
+!    ALLOCATE(filtMap(mn_mode_filt))
+!    iFilt=0
+!    DO iMode=1,mn_mode_nyq
+!      IF((xm_nyq(iMode).LE.maxmode_m).AND.(ABS(xn_nyq(iMode)).LE.maxmode_n)) THEN
+!        iFilt=iFilt+1
+!        filtMap(iFilt)=iMode
+!      END IF
+!    END DO ! i=1,mn_mode_nyq
+!  END IF!useFilter
+!
+!  mn_mEven_filt=0
+!  DO iFilt=1,mn_mode_filt
+!    iMode=FiltMap(iFilt)
+!    IF(MOD(xm_nyq(iMode),2.).EQ.0.) mn_mEven_filt=mn_mEven_filt+1
+!  END DO ! i=1,mn_mode_filt
+!  
+!  mn_mOdd_filt=mn_mode_filt-mn_mEven_filt
+!  ALLOCATE(mn_mapOdd_filt(mn_mOdd_filt),mn_mapEven_filt(mn_mEven_filt))
+!  iEven=0
+!  iOdd=0
+!  DO iFilt=1,mn_mode_filt
+!    iMode=FiltMap(iFilt)
+!    IF(MOD(xm_nyq(iMode),2.).EQ.0.) THEN
+!      iEven=iEven+1
+!      mn_mapEven_filt(iEven)=iMode
+!    ELSE
+!      iOdd=iOdd+1
+!      mn_mapOdd_filt(iOdd)=iMode
+!    END IF !even
+!  END DO ! i=1,mn_mode_nyq
+!  WRITE(UNIT_stdOut,*)'   Total Number of mn-modes (filtered):',mn_mode_filt
+!  WRITE(UNIT_stdOut,*)'   Max Mode m,n: ',maxmode_m,maxmode_n
+!  WRITE(UNIT_stdOut,*)'   Number of even(m) and odd(m) mn-modes (filtered):',mn_mEven_filt,mn_mOdd_filt
 
   !OUTPUT
   VMECvarnames(1)='VMEC-phinorm'
@@ -242,7 +242,7 @@ USE MOD_VMEC_Mappings, ONLY: mn_mode_nyq,xm_nyq,xn_nyq
 USE MOD_VMEC_Mappings, ONLY: Bsupumnc_nyq,Bsupvmnc_nyq,Bmnc_nyq
 USE MOD_VMEC_Mappings, ONLY: nFluxVMEC,phi,presf
 USE MOD_VMEC_Mappings, ONLY: phipf,iotas,lUmnc,lVmnc
-USE MOD_VMEC_Vars,     ONLY: phinorm,mn_mEven,mn_mOdd,mn_mapOdd,mn_mapEven,FiltMap
+USE MOD_VMEC_Vars,     ONLY: phinorm,mn_mEven,mn_mOdd,mn_mapOdd,mn_mapEven
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -284,8 +284,7 @@ zeta   = -2*Pi*xcyl(3) ! which coordinate system is not clear, this gives correc
 CosMN(:)  = COS(xm(:) * theta - xn(:) * zeta)
 SinMN(:)  = SIN(xm(:) * theta - xn(:) * zeta)
 
-CosMN_nyq(FiltMap(:))  = COS(xm_nyq(FiltMap(:)) * theta - xn_nyq(FiltMap(:)) * zeta)
-!CosMN_nyq(:)  = COS(xm_nyq(:) * theta - xn_nyq(:) * zeta)
+CosMN_nyq(:)  = COS(xm_nyq(:) * theta - xn_nyq(:) * zeta)
 !SinMN_nyq(:)  = SIN(xm_nyq(:) * theta - xn_nyq(:) * zeta) !not yet needed
 
 phi_p=phi_p**2 ! use scaling of radius to phi evaluation variable
@@ -330,10 +329,9 @@ IF(s1.NE.s2)THEN
   Z=InterpolateData(f1,f2,w1,w2,SinMN,Zmns(:,s1),Zmns(:,s2))
 
 
-!  Bsupu  = InterpolateData_nyq(f1,f2,w1,w2,CosMN_nyq,bsupumnc_nyq(:,s1),bsupumnc_nyq(:,s2))
-!  Bsupv  = InterpolateData_nyq(f1,f2,w1,w2,CosMN_nyq,bsupvmnc_nyq(:,s1),bsupvmnc_nyq(:,s2))
-  Bsupu  = InterpolateData_filt(f1,f2,w1,w2,CosMN_nyq(:),bsupumnc_nyq(:,s1),bsupumnc_nyq(:,s2))
-  Bsupv  = InterpolateData_filt(f1,f2,w1,w2,CosMN_nyq(:),bsupvmnc_nyq(:,s1),bsupvmnc_nyq(:,s2))
+  Bsupu  = InterpolateData_nyq(f1,f2,w1,w2,CosMN_nyq,bsupumnc_nyq(:,s1),bsupumnc_nyq(:,s2))
+  Bsupv  = InterpolateData_nyq(f1,f2,w1,w2,CosMN_nyq,bsupvmnc_nyq(:,s1),bsupvmnc_nyq(:,s2))
+  Bnorm  = InterpolateData_nyq(f1,f2,w1,w2,CosMN_nyq,Bmnc_nyq(:,s1),Bmnc_nyq(:,s2))
 
 
   dRdu =InterpolateData(f1,f2,w1,w2,SinMN,dRdUmns(:,s1),dRdUmns(:,s2))
@@ -350,21 +348,20 @@ IF(s1.NE.s2)THEN
 !  !   ...( lmns is overwritten to full mesh and then d/du d/dv is applied )
 
 
-  phipf_int = (f1*phipf(s1)+f2*phipf(s2))
-  iotas_int = f1*iotas(s1)+f2*iotas(s2) !iotas overwritten to full mesh 
-
-  Btheta = phipf_int*(iotas_int - InterpolateData(f1,f2,w1,w2,CosMN,lVmnc(:,s1),lVmnc(:,s2)))
-  Bzeta  = phipf_int*(1.        + InterpolateData(f1,f2,w1,w2,CosMN,lUmnc(:,s1),lUmnc(:,s2)))
-  ! ==> DO NOT MATCH WITH Bsupu, Bsupv !!!
+!  phipf_int = (f1*phipf(s1)+f2*phipf(s2))
+!  iotas_int = f1*iotas(s1)+f2*iotas(s2) !iotas overwritten to full mesh 
+!
+!  Btheta = phipf_int*(iotas_int - InterpolateData(f1,f2,w1,w2,CosMN,lVmnc(:,s1),lVmnc(:,s2)))
+!  Bzeta  = phipf_int*(1.        + InterpolateData(f1,f2,w1,w2,CosMN,lUmnc(:,s1),lUmnc(:,s2)))
+!  ! ==> DO NOT MATCH WITH Bsupu, Bsupv !!!
 ELSE
   !weighting with sqrt(s) cancels, evaluate all modes at s2.
   R      = SUM(CosMN(:)*Rmnc(:, s2))
   Z      = SUM(SinMN(:)*Zmns(:, s2))
 
-!  Bsupu  = SUM(CosMN_nyq(:)*bsupumnc_nyq(:,s2))
-!  Bsupv  = SUM(CosMN_nyq(:)*bsupvmnc_nyq(:,s2))
-  Bsupu  = SUM(CosMN_nyq(FiltMap(:))*bsupumnc_nyq(FiltMap(:),s2))
-  Bsupv  = SUM(CosMN_nyq(FiltMap(:))*bsupvmnc_nyq(FiltMap(:),s2))
+  Bsupu  = SUM(CosMN_nyq(:)*bsupumnc_nyq(:,s2))
+  Bsupv  = SUM(CosMN_nyq(:)*bsupvmnc_nyq(:,s2))
+  Bnorm  = SUM(CosMN_nyq(:)*Bmnc_nyq(:,s2))
 
 
   dRdu   = SUM(SinMN(:)*dRdUmns(:,s2))
@@ -375,8 +372,8 @@ ELSE
 
   pressure = presf(s2)
 
-  Btheta = phipf(s2)*(iotas(s2) - SUM(CosMN*lVmnc(:,s2)))
-  Bzeta  = phipf(s2)*(1.        + SUM(CosMN*lUmnc(:,s2)))
+!  Btheta = phipf(s2)*(iotas(s2) - SUM(CosMN*lVmnc(:,s2)))
+!  Bzeta  = phipf(s2)*(1.        + SUM(CosMN*lUmnc(:,s2)))
 END IF !s1/=s2
 
 Br   =dRdu*Bsupu+dRdv*Bsupv
@@ -416,7 +413,7 @@ vmecData(1)=phi_p
 vmecData(2)=Br
 vmecData(3)=Bz
 vmecData(4)=Bphi
-vmecData(5)=SQRT(SUM(Bcart**2))
+vmecData(5)=Bnorm !VMEC |B|
 vmecData(6:8)=Bcart(:)
 vmecData(9)=pressure
 vmecData(10)=Bsupu
@@ -493,36 +490,5 @@ REAL              :: val1e,val2e,val1o,val2o
   InterpolateData_nyq=f1*(val1e+w1*val1o) + f2*(val2e+w2*val2o)
 END FUNCTION InterpolateData_nyq
 
-FUNCTION InterpolateData_filt(f1,f2,w1,w2,trig_mn_filt,Xmn_filt_s1,Xmn_filt_s2)
-!===================================================================================================================================
-! MODULES
-USE MOD_Globals
-USE MOD_VMEC_Mappings, ONLY: mn_mode_nyq
-USE MOD_VMEC_Vars, ONLY: mn_mEven_filt,mn_mOdd_filt,mn_mapOdd_filt,mn_mapEven_filt,mn_mode_filt
-! IMPLICIT VARIABLE HANDLING
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-REAL, INTENT(IN)  :: f1,f2                    ! linear interpolation weights (f1+f2=1)
-REAL, INTENT(IN)  :: w1,w2                    ! extra-weights for odd modes (phi/sqrt(phi_1),phi/sqrt(phi_2))
-REAL, INTENT(IN)  :: trig_mn_filt(mn_mode_nyq) ! sin or cos evaluated at theta (m),zeta (n)
-REAL, INTENT(IN)  :: Xmn_filt_s1( mn_mode_nyq) ! variable in fourier space to interpolate
-REAL, INTENT(IN)  :: Xmn_filt_s2( mn_mode_nyq) ! variable in fourier space to interpolate
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-REAL              :: InterpolateData_filt
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-REAL              :: val1e,val2e,val1o,val2o
-!===================================================================================================================================
-  !evaluate only modes with m= even
-  val1e = SUM(trig_mn_filt(mn_mapEven_filt)*xmn_filt_s1(mn_mapEven_filt))
-  val2e = SUM(trig_mn_filt(mn_mapEven_filt)*xmn_filt_s2(mn_mapEven_filt))
-  !evaluate only modes with m= odd
-  val1o = SUM(trig_mn_filt(mn_mapOdd_filt)*xmn_filt_s1(mn_mapOdd_filt))
-  val2o = SUM(trig_mn_filt(mn_mapOdd_filt)*xmn_filt_s2(mn_mapOdd_filt))
-
-  InterpolateData_filt=f1*(val1e+w1*val1o) + f2*(val2e+w2*val2o)
-END FUNCTION InterpolateData_filt
 
 END MODULE MOD_VMEC

@@ -69,6 +69,9 @@ CHARACTER(LEN=*),INTENT(IN)  :: FileString  ! ?
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+TYPE(tNodePtr),POINTER         :: Nodes(:)
+TYPE(tSidePtr),POINTER         :: Sides(:)
+TYPE(tElemPtr),POINTER         :: Elems(:)
 TYPE(tElem),POINTER            :: Elem  ! ?
 TYPE(tSide),POINTER            :: aSide,bSide  ! ?
 INTEGER                        :: i1,j1,k1,nBCSides,nPeriodicSides  ! ?
