@@ -421,7 +421,7 @@ USE MOD_Readin_GMSH
 USE MOD_Readin_HDF5
 USE MOD_Readin_HDF5_OLD
 USE MOD_Readin_ICEM
-USE MOD_Output_Vars,ONLY:useSpaceFillingCurve
+USE MOD_Output_Vars,ONLY:useSpaceFillingCurve,sfc_boundbox
 USE MOD_Output_HDF5,      ONLY: SpaceFillingCurve
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
