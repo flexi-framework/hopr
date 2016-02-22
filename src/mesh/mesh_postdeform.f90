@@ -272,7 +272,44 @@ CASE(2) ! 3D box, x,y in [-1,1]^3, to Sphere with radius PostDeform_R0
     dx(:)=alpha*dx(:)
   END IF
   xout(1:3)=PostDeform_R0/SQRT(3.)*(x(1:3)+dx(1:3))
-     
+CASE(11)!Laval nozzle 
+        ! 3D box, x,y in [-1,1]^2 and z in [0,nozzle_length], to cylindrical cross section with a r(z) profile
+        ! r(z) profile here given by a fitted monomial polynomial over z.
+        ! all points outside [-1,1]^2 will be mapped directly to a circle (p.e. 2,2 => sqrt(0.5)*PostDeform_R0*(2,2) )
+        ! inside [-1,1]^2 and outside [-0.5,0.5]^2 there will be a blending from a circle to a square
+        ! the inner square [-0.5,0.5]^2 will be a linear blending of the bounding curves
+  IF((ABS(x(1)).LT.0.5).AND.(ABS(x(2)).LT.0.5))THEN !inside [-0.5,0.5]^2
+    !right side at x=0.5
+    dx1(1)=0.5*SQRT(2.)*COS(0.25*Pi*x(2)/0.5)-0.5
+    dx1(2)=0.5*SQRT(2.)*SIN(0.25*Pi*x(2)/0.5)-x(2)
+    !upper side at y=0.5
+    dx2(1)=0.5*SQRT(2.)*SIN(0.25*Pi*x(1)/0.5)-x(1)
+    dx2(2)=0.5*SQRT(2.)*COS(0.25*Pi*x(1)/0.5)-0.5
+    alpha=0.5
+    ! coons mapping of edges, dx=0 at the corners
+    dx(1:2)=alpha*(dx1(1:2)*(/2*x(1),1./)+dx2(1:2)*(/1.,2*x(2)/))
+  ELSE !outside [-0.5,0.5]^2
+    IF(ABS(x(2)).LT.ABS(x(1)))THEN !left and right quarter
+      dx(1)=x(1)*SQRT(2.)*COS(0.25*Pi*x(2)/x(1))-x(1)
+      dx(2)=x(1)*SQRT(2.)*SIN(0.25*Pi*x(2)/x(1))-x(2)
+    ELSEIF(ABS(x(2)).GE.ABS(x(1)))THEN !upper and lower quarter
+      dx(1)=x(2)*SQRT(2.)*SIN(0.25*Pi*x(1)/x(2))-x(1)
+      dx(2)=x(2)*SQRT(2.)*COS(0.25*Pi*x(1)/x(2))-x(2)
+    END IF
+    IF((ABS(x(1)).LE.1).AND.(ABS(x(2)).LE.1))THEN
+      !alpha=(1.-PRODUCT(1.-x(1:2)**2)) !only <1 inside [-1,1]^2
+      alpha=MAX(ABS(x(1)),ABS(x(2)))
+    ELSE !outside [-1,1]^2
+      alpha=1.
+    END IF
+    dx(1:2)=alpha*dx(1:2)
+  END IF
+  xout(1:2)=PostDeform_R0*SQRT(0.5)*(x(1:2)+dx(1:2))  !r=[0;1]
+  !scale with radius (polynomial given for z in [0;3.2]!!)
+  xout(1:2)=xout(1:2)* ((((((( 5.650243547593181E-03)*x(3) -6.234872576213188E-02)*x(3) +2.717131733412690E-01)*x(3) & 
+                              -5.898455159792279E-01)*x(3) +6.077001327643441E-01)*x(3) -3.529284589734004E-02)*x(3) &
+                              +5.008061090611048E-01)
+  xout(3)=x(3)
 END SELECT
 
 END FUNCTION PostDeformFunc
