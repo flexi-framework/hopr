@@ -92,6 +92,12 @@ nZones  =GETINT('nZones')
 meshIsAlreadyCurved=.FALSE.
 IF (MeshMode .EQ. 1) THEN
   ! ---------- INTERNAL CARTESIAN MESH ---------------------------------------------------------------------------------------------
+  IF(useCurveds) THEN
+    InnerElemStretch = GETLOGICAL('InnerElemStretch','.TRUE.')
+  ELSE
+    InnerElemStretch = .FALSE.
+  END IF
+  IF(InnerElemStretch) MeshIsAlreadyCurved=.TRUE.
   ALLOCATE(CartMeshes(nZones))
   DO i=1,nZones
     ALLOCATE(CartMeshes(i)%CM)
