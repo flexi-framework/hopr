@@ -31,12 +31,21 @@ PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
 LOGICAL             :: useVMEC
+CHARACTER(LEN = 256):: VMECdataFile
 INTEGER             :: mn_mOdd,mn_mEven
 INTEGER,ALLOCATABLE :: mn_mapOdd(:),mn_mapEven(:)
 INTEGER             :: mn_mOdd_nyq,mn_mEven_nyq
 INTEGER,ALLOCATABLE :: mn_mapOdd_nyq(:),mn_mapEven_nyq(:)
-REAL,ALLOCATABLE    :: phinorm(:)   
-CHARACTER(LEN=255)  :: VMECvarnames(PP_nVarVMEC)
+REAL,ALLOCATABLE    :: phinorm(:)                        !normalized toroidal flux 
+REAL,ALLOCATABLE    :: chinorm(:)                        !normalized poloidal flux 
+REAL,ALLOCATABLE    :: VMECoutdataGL(:,:,:,:,:)          ! VMEC data to be written to hdf5 file, on Gauss-Lobatto nodes
+INTEGER             :: nRhoCoefs                        ! number of density coefficients 
+INTEGER             :: RhoFluxVar                        ! =0: rho(phinorm) Normalized toroidal flux variable, =1: rho(chinorm) 
+REAL,ALLOCATABLE    :: RhoCoefs(:)                      !density coefficients of the polynomial coefficients:
+                                                         !rho_1+rho_2*x + rho_3*x^2 ...
+INTEGER             :: nVarVMEC
+CHARACTER(LEN=255),ALLOCATABLE  :: VMECvarnames(:)
+INTEGER             :: VMECoutVarMap(5)                  !only output Density,Pressure,Bx,By,Bz
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! Private Part ---------------------------------------------------------------------------------------------------------------------
 ! Public Part ----------------------------------------------------------------------------------------------------------------------

@@ -329,18 +329,13 @@ nFineHexa=GETINT('nFineHexa','1')               ! split all hexa by a factor
 
 
 meshPostDeform=GETINT('MeshPostDeform','0')
-IF(meshPostDeform.GT.0) PostDeform_useGL=GETLOGICAL('PostDeform_useGL','.TRUE.')
-SELECT CASE(MeshPostDeform)
-CASE(0) !do nothing
-CASE(1,2) 
+IF(meshPostDeform.GT.0) THEN
+  PostDeform_useGL=GETLOGICAL('PostDeform_useGL','.TRUE.')
   PostDeform_R0=GETREAL('PostDeform_R0','1.')
   PostDeform_Lz=GETREAL('PostDeform_Lz','1.')
-  PostDeform_sq=GETINT('PostDeform_sq','0')
+  PostDeform_sq=GETREAL('PostDeform_sq','0.')
   PostDeform_Rtorus=GETREAL('PostDeform_Rtorus','-1.')
-CASE DEFAULT
-  CALL abort(__STAMP__,&
-             'This MeshPostDeform case is not implemented.',MeshPostDeform)
-END SELECT
+END IF !PostDeform
 
 ! Connect
 ConformConnect=GETLOGICAL('ConformConnect','.TRUE.') ! Fast connect for conform mesh

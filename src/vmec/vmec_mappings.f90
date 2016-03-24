@@ -128,6 +128,9 @@ MODULE MOD_VMEC_Mappings
 !> toroidal flux on full mesh
   REAL(KIND = hp), DIMENSION(:), ALLOCATABLE :: phi
 
+!> poloidal flux on full mesh
+  REAL(KIND = hp), DIMENSION(:), ALLOCATABLE :: chi
+
 !> d(phi)/ds: Toroidal flux derivative on full mesh
   REAL(KIND = hp), DIMENSION(:), ALLOCATABLE :: phipf
 
@@ -525,6 +528,8 @@ CONTAINS
     aError = aError + aStat
     ALLOCATE(phi(radius), stat = aStat)
     aError = aError + aStat
+    ALLOCATE(chi(radius), stat = aStat)
+    aError = aError + aStat
     ALLOCATE(phipf(radius), stat = aStat)
     aError = aError + aStat
     ALLOCATE(icur(radius), stat = aStat)
@@ -595,6 +600,12 @@ CONTAINS
          (/ nFluxVMEC /), phi(:))
     !! scale toroidal flux to get internal VMEC Phi
     phi(:nFluxVMEC) = REAL(signgs, hp) * phi(:nFluxVMEC) / TwoPi
+    !! read chi
+    ioError = NF_INQ_VARID(ncid, "chi", id)
+    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
+         (/ nFluxVMEC /), chi(:))
+    !! scale poloidal flux to get internal VMEC chi
+    chi(:nFluxVMEC) = REAL(signgs, hp) * chi(:nFluxVMEC) / TwoPi
     !! read phipf
     ioError = NF_INQ_VARID(ncid, "phipf", id)
     ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
