@@ -54,7 +54,7 @@ USE MOD_Mesh_Vars   ,ONLY: N,nMeshElems
 USE MOD_Basis_Vars  ,ONLY: HexaMap
 USE MOD_Basis1D     ,ONLY: LegGaussLobNodesAndWeights,BarycentricWeights,InitializeVandermonde
 USE MOD_Basis       ,ONLY: ChangeBasisHexa
-USE MOD_VMEC_Vars   ,ONLY:useVMEC,nVarVMEC,VMECoutVarMap,VMECoutdataGL
+USE MOD_VMEC_Vars   ,ONLY:useVMEC,nVarVMEC,nVarOutVMEC,VMECoutVarMap,VMECoutdataGL
 USE MOD_VMEC        ,ONLY:MapToVMEC
 USE MOD_Output_vars ,ONLY:DebugVisu,DebugVisuLevel
 !MODULE OUTPUT VARIABLES
@@ -101,7 +101,7 @@ DO iElem=1,nMeshElems
   aElem=>Elems(iElem)%ep
   DO iNode=1,aElem%nCurvedNodes
     ijk(:)=HexaMap(iNode,:)
-    xElem(1:3,ijk(1),ijk(2),ijk(3),iElem)= aElem%CurvedNode(iNode)%np%x(:)
+    xElem(1:3,ijk(1),ijk(2),ijk(3),aElem%ind)= aElem%CurvedNode(iNode)%np%x(:)
     aElem%CurvedNode(iNode)%np%tmp=-1
   END DO !iNode
 END DO ! iElem
@@ -119,7 +119,7 @@ CALL PostDeformFunc(nTotal,xElem,xElem)
 
 IF(useVMEC)THEN
   CALL MapToVMEC(nTotal,xElem,0,xElem,VMECdata)
-  ALLOCATE(VMECoutdataGL(5,0:N,0:N,0:N,nMeshElems))
+  ALLOCATE(VMECoutdataGL(nVarOutVMEC,0:N,0:N,0:N,nMeshElems))
   IF(PostDeform_useGL)THEN
     !data is already on GL poitns 
     VMECoutdataGL=VMECdata(VMECoutVarMap,:,:,:,:)
@@ -129,7 +129,7 @@ IF(useVMEC)THEN
     END DO !iElem
   ELSE
     DO iElem=1,nMeshElems
-      CALL ChangeBasisHexa(5,N,N,Vdm_EQtoGL,VMECdata(VMECoutVarMap,:,:,:,iElem),VMECoutdataGL(:,:,:,:,iElem))
+      CALL ChangeBasisHexa(nVarOutVMEC,N,N,Vdm_EQtoGL,VMECdata(VMECoutVarMap,:,:,:,iElem),VMECoutdataGL(:,:,:,:,iElem))
     END DO !iElem
   END IF!postDeform_useGL
 ELSE
@@ -149,11 +149,11 @@ DO iElem=1,nMeshElems
   DO iNode=1,aElem%nCurvedNodes
     IF(aElem%CurvedNode(iNode)%np%tmp.EQ.-1)THEN
       ijk(:)=HexaMap(iNode,:)
-      aElem%CurvedNode(iNode)%np%x(:)= xElem(1:3,ijk(1),ijk(2),ijk(3),iElem)
+      aElem%CurvedNode(iNode)%np%x(:)= xElem(1:3,ijk(1),ijk(2),ijk(3),aElem%ind)
       !for Debugvisu in splineVol
       IF(DebugVisu.AND.(DebugVisuLevel.GE.2).AND.useVMEC)THEN
         ALLOCATE(aElem%CurvedNode(iNode)%np%VMECdata(nVarVMEC))
-        aElem%CurvedNode(iNode)%np%VMECdata(:)= VMECdata(:,ijk(1),ijk(2),ijk(3),iElem)
+        aElem%CurvedNode(iNode)%np%VMECdata(:)= VMECdata(:,ijk(1),ijk(2),ijk(3),aElem%ind)
       END IF
       aElem%CurvedNode(iNode)%np%tmp=0
     END IF

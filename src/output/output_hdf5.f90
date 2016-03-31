@@ -60,7 +60,7 @@ USE MOD_Mesh_Vars,ONLY:N
 USE MOD_Output_Vars,ONLY:dosortIJK
 USE MOD_Mesh_Vars,ONLY:nUserDefinedBoundaries,BoundaryName,BoundaryType
 USE MOD_Mesh_Basis,ONLY:ISORIENTED
-USE MOD_VMEC_Vars,ONLY:useVMEC,VMECvarNames,VMECoutdataGL,VMECoutVarMap
+USE MOD_VMEC_Vars,ONLY:useVMEC,VMECvarNames,nVarOutVMEC,VMECoutdataGL,VMECoutVarMap
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -301,8 +301,8 @@ END IF
 
 
 IF(useVMEC)THEN
-  CALL WriteArrayToHDF5(File_ID,'VMECdata_VarNames',1,(/5/),StrArray=VMECvarNames(VMECoutVarMap))
-  CALL WriteArrayToHDF5(File_ID,'VMECdata_GL',5,(/5,N+1,N+1,N+1,nElems/),RealArray=VMECoutdataGL)
+  CALL WriteArrayToHDF5(File_ID,'VMECdata_VarNames',1,(/nVarOutVMEC/),StrArray=VMECvarNames(VMECoutVarMap))
+  CALL WriteArrayToHDF5(File_ID,'VMECdata_GL',5,(/nVarOutVMEC,N+1,N+1,N+1,nElems/),RealArray=VMECoutdataGL)
 END IF !useVMEC
 
 

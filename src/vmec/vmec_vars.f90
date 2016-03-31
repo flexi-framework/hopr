@@ -45,7 +45,8 @@ REAL,ALLOCATABLE    :: RhoCoefs(:)                      !density coefficients of
                                                          !rho_1+rho_2*x + rho_3*x^2 ...
 INTEGER             :: nVarVMEC
 CHARACTER(LEN=255),ALLOCATABLE  :: VMECvarnames(:)
-INTEGER             :: VMECoutVarMap(5)                  !only output Density,Pressure,Bx,By,Bz
+INTEGER             :: nVarOutVMEC
+INTEGER,ALLOCATABLE :: VMECoutVarMap(:)                  !only output Density,Pressure,Bx,By,Bz
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! Private Part ---------------------------------------------------------------------------------------------------------------------
 ! Public Part ----------------------------------------------------------------------------------------------------------------------
