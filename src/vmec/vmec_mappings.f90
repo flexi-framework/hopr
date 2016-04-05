@@ -520,8 +520,8 @@ CONTAINS
     aError = aError + aStat
     ALLOCATE(xm_nyq(mn_mode_nyq), xn_nyq(mn_mode_nyq), stat = aStat)
     aError = aError + aStat
-    ALLOCATE(iotas(stInd:radius), stat = aStat)
-    aError = aError + aStat
+!    ALLOCATE(iotas(stInd:radius), stat = aStat)
+!    aError = aError + aStat
     ALLOCATE(iotaf(radius), stat = aStat)
     aError = aError + aStat
     ALLOCATE(presf(radius), stat = aStat)
@@ -532,28 +532,28 @@ CONTAINS
     aError = aError + aStat
     ALLOCATE(phipf(radius), stat = aStat)
     aError = aError + aStat
-    ALLOCATE(icur(radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(jcur(radius), stat = aStat)
-    aError = aError + aStat
+!    ALLOCATE(icur(radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(jcur(radius), stat = aStat)
+!    aError = aError + aStat
     ALLOCATE(rmnc(mn_mode, stInd:radius), stat = aStat)
     aError = aError + aStat
     ALLOCATE(zmns(mn_mode, stInd:radius), stat = aStat)
     aError = aError + aStat
     ALLOCATE(lmns(mn_mode, stInd:radius), stat = aStat)
     aError = aError + aStat
-    ALLOCATE(kmns(mn_mode, radius), stat = aStat)
-    aError = aError + aStat
+!    ALLOCATE(kmns(mn_mode, radius), stat = aStat)
+!    aError = aError + aStat
     ALLOCATE(gmnc(mn_mode_nyq, stInd:radius), stat = aStat)
     aError = aError + aStat
-    ALLOCATE(dgdSmnc(mn_mode_nyq, stInd:radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(bmnc_nyq(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(bsupumnc_nyq(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
-    ALLOCATE(bsupvmnc_nyq(mn_mode_nyq, radius), stat = aStat)
-    aError = aError + aStat
+!    ALLOCATE(dgdSmnc(mn_mode_nyq, stInd:radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(bmnc_nyq(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(bsupumnc_nyq(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
+!    ALLOCATE(bsupvmnc_nyq(mn_mode_nyq, radius), stat = aStat)
+!    aError = aError + aStat
 
     IF (aError /= 0) THEN
       PRINT *, "Allocation failure in subroutine ReadVmecOutput!"
@@ -561,7 +561,7 @@ CONTAINS
     END IF
 
     !! initialize some arrays
-    iotas(:) = 0
+!    iotas(:) = 0
     iotaf(:) = 0
     phipf(:) = 0
     presf(:) = 0
@@ -582,10 +582,10 @@ CONTAINS
     ioError = NF_INQ_VARID(ncid, "xn_nyq", id)
     ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
          (/ mn_mode_nyq /), xn_nyq(:))
-    !! read iotas
-    ioError = NF_INQ_VARID(ncid, "iotas", id)
-    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
-         (/ nFluxVMEC /), iotas(1:))
+!    !! read iotas
+!    ioError = NF_INQ_VARID(ncid, "iotas", id)
+!    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
+!         (/ nFluxVMEC /), iotas(1:))
     !! read iotaf
     ioError = NF_INQ_VARID(ncid, "iotaf", id)
     ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
@@ -612,14 +612,14 @@ CONTAINS
          (/ nFluxVMEC /), phipf(:))
     !! scale toroidal flux to get internal VMEC Phi
     phipf(:nFluxVMEC) = REAL(signgs, hp) * phipf(:nFluxVMEC) / TwoPi
-    !! read toroidal current
-    ioError = NF_INQ_VARID(ncid, "jcuru", id)
-    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
-         (/ nFluxVMEC /), icur(:))
-    !! read poloidal current
-    ioError = NF_INQ_VARID(ncid, "jcurv", id)
-    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
-         (/ nFluxVMEC /), jcur(:))
+!    !! read toroidal current
+!    ioError = NF_INQ_VARID(ncid, "jcuru", id)
+!    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
+!         (/ nFluxVMEC /), icur(:))
+!    !! read poloidal current
+!    ioError = NF_INQ_VARID(ncid, "jcurv", id)
+!    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1 /),&
+!         (/ nFluxVMEC /), jcur(:))
     !! read R_mn
     ioError = NF_INQ_VARID(ncid, "rmnc", id)
     ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/ mn_mode,&
@@ -628,26 +628,26 @@ CONTAINS
     ioError = NF_INQ_VARID(ncid, "zmns", id)
     ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/ mn_mode,&
          nFluxVMEC /), zmns(:, 1:))
-    !! read lambda_mn
+    !! read lambda_mn on HALF MESH
     ioError = NF_INQ_VARID(ncid, "lmns", id)
     ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/ mn_mode,&
          nFluxVMEC /), lmns(:, 1:))
-    !! read jacobian_mn
+    !! read jacobian_mn on HALF MESH!!
     ioError = NF_INQ_VARID(ncid, "gmnc", id)
     ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
          mn_mode_nyq, nFluxVMEC /), gmnc(:, 1:))
-    !! read b_mn
-    ioError = NF_INQ_VARID(ncid, "bmnc", id)
-    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
-         mn_mode_nyq, nFluxVMEC /), bmnc_nyq(:, :))
-    !! read B^u_mn
-    ioError = NF_INQ_VARID(ncid, "bsupumnc", id)
-    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
-         mn_mode_nyq, nFluxVMEC /), bsupumnc_nyq(:, :))
-    !! read B^v_mn
-    ioError = NF_INQ_VARID(ncid, "bsupvmnc", id)
-    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
-         mn_mode_nyq, nFluxVMEC /), bsupvmnc_nyq(:, :))
+!    !! read b_mn
+!    ioError = NF_INQ_VARID(ncid, "bmnc", id)
+!    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
+!         mn_mode_nyq, nFluxVMEC /), bmnc_nyq(:, :))
+!    !! read B^u_mn
+!    ioError = NF_INQ_VARID(ncid, "bsupumnc", id)
+!    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
+!         mn_mode_nyq, nFluxVMEC /), bsupumnc_nyq(:, :))
+!    !! read B^v_mn
+!    ioError = NF_INQ_VARID(ncid, "bsupvmnc", id)
+!    ioError = ioError + NF_GET_VARA_DOUBLE(ncid, id, (/ 1, 1 /), (/&
+!         mn_mode_nyq, nFluxVMEC /), bsupvmnc_nyq(:, :))
 
     IF (ioError /= 0) THEN
       PRINT *, " Cannot read variables from ", TRIM(fileName), "!"

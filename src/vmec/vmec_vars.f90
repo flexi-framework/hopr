@@ -32,12 +32,19 @@ PUBLIC
 ! GLOBAL VARIABLES 
 LOGICAL             :: useVMEC
 CHARACTER(LEN = 256):: VMECdataFile
-INTEGER             :: mn_mOdd,mn_mEven
-INTEGER,ALLOCATABLE :: mn_mapOdd(:),mn_mapEven(:)
-INTEGER             :: mn_mOdd_nyq,mn_mEven_nyq
-INTEGER,ALLOCATABLE :: mn_mapOdd_nyq(:),mn_mapEven_nyq(:)
+INTEGER,ALLOCATABLE :: xmAbs(:)                      ! abs |xm(iMode)|
+INTEGER,ALLOCATABLE :: xmAbs_nyq(:)                      ! abs |xm(iMode)|
 REAL,ALLOCATABLE    :: phinorm(:)                        !normalized toroidal flux 
 REAL,ALLOCATABLE    :: chinorm(:)                        !normalized poloidal flux 
+REAL,ALLOCATABLE    :: rho(:)                            !sqrt(phinorm)
+REAL,ALLOCATABLE    :: pres_Spl(:,:)       
+REAL,ALLOCATABLE    :: phipf_Spl(:,:)       
+REAL,ALLOCATABLE    :: iotaf_Spl(:,:)       
+REAL,ALLOCATABLE    :: chinorm_Spl(:,:)       
+REAL,ALLOCATABLE    :: Rmnc_Spl(:,:,:)                   ! modified spline coefficients of Rmnc
+REAL,ALLOCATABLE    :: Zmns_Spl(:,:,:)                   !
+REAL,ALLOCATABLE    :: lmns_Spl(:,:,:)                   !
+REAL,ALLOCATABLE    :: gmnc_nyq_Spl(:,:,:)               !
 REAL,ALLOCATABLE    :: VMECoutdataGL(:,:,:,:,:)          ! VMEC data to be written to hdf5 file, on Gauss-Lobatto nodes
 INTEGER             :: nRhoCoefs                        ! number of density coefficients 
 INTEGER             :: RhoFluxVar                        ! =0: rho(phinorm) Normalized toroidal flux variable, =1: rho(chinorm) 

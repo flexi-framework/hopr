@@ -54,10 +54,11 @@ SUBROUTINE InitVMEC
 ! ?
 !===================================================================================================================================
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut
+USE MOD_Globals,ONLY:UNIT_stdOut,abort
 USE MOD_ReadInTools
 USE MOD_VMEC_Mappings
 USE MOD_VMEC_Vars
+USE SPLINE1_MOD,       ONLY:SPLINE1_FIT 
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -69,9 +70,10 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER              :: ioError
-INTEGER              :: iMode,iEven,iOdd
-REAL                 :: maxMode_m,maxMode_n
-LOGICAL              :: killmode
+INTEGER              :: iMode,iFlux
+LOGICAL              :: useFilter
+REAL,ALLOCATABLE     :: lmns_half(:,:)
+REAL,ALLOCATABLE     :: gmnc_half_nyq(:,:)
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A)')'INIT VMEC INPUT ...'
 useVMEC      = GETLOGICAL('useVMEC','.FALSE.')   ! Use / reconstruct spline boundaries
@@ -113,115 +115,83 @@ IF(useVMEC)THEN
   !! read VMEC 2000 output (netcdf)
   CALL ReadVmecOutput(VMECdataFile)
 
-!!  llocate memory for new values
-  CALL AllocArrays
+  !data on half mesh (copy before its overwritten in precalcdata)
+  ALLOCATE(lmns_half(1:nFluxVMEC,mn_mode)) 
+  ALLOCATE(gmnc_half_nyq(1:nFluxVMEC,mn_mode_nyq))
 
-  !! calculate data for mapping (include recalculation of lambda and magnetic
-  !! field after smoothing r, z)
-  CALL PreCalcData
+  lmns_half         = lmns
+  gmnc_half_nyq     = gmnc
+  ! half data is stored from 2:nFluxVMEC
 
   !normalized toroidal flux (=flux variable s [0;1] in VMEC)
   ALLOCATE(phinorm(nFluxVMEC))
   phinorm=(phi-phi(1))/phi(nFluxVMEC)
+  WRITE(UNIT_stdOut,'(A,3F10.4)')'   normalized flux of first three flux surfaces',phinorm(2:4)
   !normalized poloidal flux (=flux variable in Grad-Shafranov equation)
   ALLOCATE(chinorm(nFluxVMEC))
   chinorm=(chi-chi(1))/(chi(nFluxVMEC)-chi(1))
 
-  !find even and odd m-modes, to seperately evalute them
-  mn_mEven=0
-  DO iMode=1,mn_mode
-    IF(MOD(xm(iMode),2.).EQ.0.) mn_mEven=mn_mEven+1
-  END DO ! i=1,mn_mode
-
-  mn_mOdd=mn_mode-mn_mEven
-  ALLOCATE(mn_mapOdd(mn_mOdd),mn_mapEven(mn_mEven))
-  iEven=0
-  iOdd=0
-  DO iMode=1,mn_mode
-    IF(MOD(xm(iMode),2.).EQ.0.) THEN
-      iEven=iEven+1
-      mn_mapEven(iEven)=iMode
-    ELSE
-      iOdd=iOdd+1
-      mn_mapOdd(iOdd)=iMode
-    END IF !even
-  END DO ! i=1,mn_mode
-  maxmode_m=MAXVAL(xm)
-  maxmode_n=MAXVAL(xn)
   WRITE(UNIT_stdOut,*)'   Total Number of mn-modes:',mn_mode
-  WRITE(UNIT_stdOut,*)'   Max Mode m,n: ',maxmode_m,maxmode_n
-  WRITE(UNIT_stdOut,*)'   Number of even(m) and odd(m) mn-modes:',mn_mEven,mn_mOdd
-  !find even and odd m-modes, to seperately evalute them
-  mn_mEven_nyq=0
-  DO iMode=1,mn_mode_nyq
-    IF(MOD(xm_nyq(iMode),2.).EQ.0.) mn_mEven_nyq=mn_mEven_nyq+1
-  END DO ! i=1,mn_mode_nyq
-
-  mn_mOdd_nyq=mn_mode_nyq-mn_mEven_nyq
-  ALLOCATE(mn_mapOdd_nyq(mn_mOdd_nyq),mn_mapEven_nyq(mn_mEven_nyq))
-  iEven=0
-  iOdd=0
-  DO iMode=1,mn_mode_nyq
-    IF(MOD(xm_nyq(iMode),2.).EQ.0.) THEN
-      iEven=iEven+1
-      mn_mapEven_nyq(iEven)=iMode
-    ELSE
-      iOdd=iOdd+1
-      mn_mapOdd_nyq(iOdd)=iMode
-    END IF !even
-  END DO ! i=1,mn_mode_nyq
+  WRITE(UNIT_stdOut,*)'   Max Mode m,n: ',MAXVAL(xm),MAXVAL(xn)
   WRITE(UNIT_stdOut,*)'   Total Number of mn-modes (Nyquist):',mn_mode_nyq
   WRITE(UNIT_stdOut,*)'   Max Mode m,n: ',MAXVAL(xm_nyq),MAXVAL(xn_nyq)
-  WRITE(UNIT_stdOut,*)'   Number of even(m) and odd(m) mn-modes (Nyquist):',mn_mEven_nyq,mn_mOdd_nyq
 
-!  useFilter=GETLOGICAL('VMECuseFilter','.FALSE.')
-!  !find even and odd m-modes, to seperately evalute them AND FILTER HIGH MODES
-!  IF(.NOT.useFilter)THEN
-!    ALLOCATE(filtMap(mn_mode_nyq))
-!    mn_mode_filt=mn_mode_nyq
-!    DO iMode=1,mn_mode_nyq
-!        filtMap(iMode)=iMode
-!    END DO ! i=1,mn_mode_nyq
-!  ELSE  
-!    mn_mode_filt=0
-!    DO iMode=1,mn_mode_nyq
-!      IF((xm_nyq(iMode).LE.maxmode_m).AND.(ABS(xn_nyq(iMode)).LE.maxmode_n)) THEN
-!        mn_mode_filt=mn_mode_filt+1
-!      END IF
-!    END DO ! i=1,mn_mode_nyq
-!    ALLOCATE(filtMap(mn_mode_filt))
-!    iFilt=0
-!    DO iMode=1,mn_mode_nyq
-!      IF((xm_nyq(iMode).LE.maxmode_m).AND.(ABS(xn_nyq(iMode)).LE.maxmode_n)) THEN
-!        iFilt=iFilt+1
-!        filtMap(iFilt)=iMode
-!      END IF
-!    END DO ! i=1,mn_mode_nyq
-!  END IF!useFilter
-!
-!  mn_mEven_filt=0
-!  DO iFilt=1,mn_mode_filt
-!    iMode=FiltMap(iFilt)
-!    IF(MOD(xm_nyq(iMode),2.).EQ.0.) mn_mEven_filt=mn_mEven_filt+1
-!  END DO ! i=1,mn_mode_filt
-!  
-!  mn_mOdd_filt=mn_mode_filt-mn_mEven_filt
-!  ALLOCATE(mn_mapOdd_filt(mn_mOdd_filt),mn_mapEven_filt(mn_mEven_filt))
-!  iEven=0
-!  iOdd=0
-!  DO iFilt=1,mn_mode_filt
-!    iMode=FiltMap(iFilt)
-!    IF(MOD(xm_nyq(iMode),2.).EQ.0.) THEN
-!      iEven=iEven+1
-!      mn_mapEven_filt(iEven)=iMode
-!    ELSE
-!      iOdd=iOdd+1
-!      mn_mapOdd_filt(iOdd)=iMode
-!    END IF !even
-!  END DO ! i=1,mn_mode_nyq
-!  WRITE(UNIT_stdOut,*)'   Total Number of mn-modes (filtered):',mn_mode_filt
-!  WRITE(UNIT_stdOut,*)'   Max Mode m,n: ',maxmode_m,maxmode_n
-!  WRITE(UNIT_stdOut,*)'   Number of even(m) and odd(m) mn-modes (filtered):',mn_mEven_filt,mn_mOdd_filt
+  useFilter=.TRUE. !GETLOGICAL('VMECuseFilter','.TRUE.') !SHOULD BE ALWAYS TRUE...
+
+  ALLOCATE(xmabs(mn_mode))
+  DO iMode=1,mn_mode
+    xmabs(iMode)=ABS(NINT(xm(iMode)))
+    IF(useFilter)THEN
+      IF(xmabs(iMode) > 3) THEN !Filtering for |m| > 3
+        IF(MOD(xmabs(iMode),2) == 0) THEN
+          xmabs(iMode)=2 !Even mode, remove rho**2
+        ELSE
+          xmabs(iMode)=3 !Odd mode, remove rho**3
+        END IF
+      END IF
+    END IF !usefilter
+  END DO !iMode=1,mn_mode
+
+  ALLOCATE(xmabs_nyq(mn_mode_nyq))
+  DO iMode=1,mn_mode_nyq
+    xmabs_nyq(iMode)=ABS(NINT(xm_nyq(iMode)))
+    IF(useFilter)THEN
+      IF(xmabs_nyq(iMode) > 3) THEN !Filtering for |m| > 3
+        IF(MOD(xmabs_nyq(iMode),2) == 0) THEN
+          xmabs_nyq(iMode)=2 !Even mode, remove rho**2
+        ELSE
+          xmabs_nyq(iMode)=3 !Odd mode, remove rho**3
+        END IF
+      END IF
+    END IF !usefilter
+  END DO !iMode=1,mn_mode
+
+  !prepare Spline interpolation
+  ALLOCATE(rho(1:nFluxVMEC))
+  rho(:)=SQRT(phinorm(:))
+  
+
+  ALLOCATE(Rmnc_Spl(4,1:nFluxVMEC,mn_mode)) !first dim is for spline interpolation
+  ALLOCATE(Zmns_Spl(4,1:nFluxVMEC,mn_mode))
+  ALLOCATE(lmns_Spl(4,1:nFluxVMEC,mn_mode))
+  ALLOCATE(gmnc_nyq_Spl(4,1:nFluxVMEC,mn_mode_nyq))
+
+  CALL FitSpline(mn_mode,xmAbs,Rmnc,Rmnc_Spl)
+  CALL FitSpline(mn_mode,xmAbs,Zmns,Zmns_Spl)
+  CALL FitSplineHalf(mn_mode,xmAbs,lmns_half,lmns_Spl)
+  CALL FitSplineHalf(mn_mode_nyq,xmAbs_nyq,gmnc_half_nyq,gmnc_nyq_Spl)
+  ALLOCATE(pres_spl(4,1:nFluxVMEC))
+  pres_spl(1,:)=presf(:)
+  CALL SPLINE1_FIT(nFluxVMEC,rho,pres_Spl(:,:), K_BC1=3, K_BCN=0)
+  ALLOCATE(phipf_spl(4,1:nFluxVMEC))
+  phipf_spl(1,:)=phipf(:)
+  CALL SPLINE1_FIT(nFluxVMEC,rho,phipf_Spl(:,:), K_BC1=3, K_BCN=0)
+  ALLOCATE(iotaf_spl(4,1:nFluxVMEC))
+  iotaf_spl(1,:)=iotaf(:)
+  CALL SPLINE1_FIT(nFluxVMEC,rho,iotaf_Spl(:,:), K_BC1=3, K_BCN=0)
+  ALLOCATE(chinorm_spl(4,1:nFluxVMEC))
+  chinorm_spl(1,:)=chinorm(:)
+  CALL SPLINE1_FIT(nFluxVMEC,rho,chinorm_Spl(:,:), K_BC1=3, K_BCN=0)
 
 
   !OUTPUT
@@ -251,6 +221,111 @@ WRITE(UNIT_stdOut,'(A)')'... DONE'
 END SUBROUTINE InitVMEC
 
 
+SUBROUTINE FitSpline(modes,mAbs,Xmn,Xmn_Spl)
+!===================================================================================================================================
+! Fit disrete data along flux surfaces as spline for each fourier mode
+!===================================================================================================================================
+! MODULES
+USE MOD_Globals
+USE MOD_VMEC_Mappings, ONLY: nFluxVMEC
+USE MOD_VMEC_Vars,     ONLY: rho 
+USE SPLINE1_MOD,       ONLY:SPLINE1_FIT 
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+INTEGER, INTENT(IN) :: modes
+INTEGER, INTENT(IN) :: mabs(modes)
+REAL, INTENT(IN)    :: Xmn(modes,nFluxVMEC)  ! fourier coefficients at all flux surfaces 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+REAL, INTENT(OUT)  :: Xmn_Spl(4,nFluxVMEC,modes)  ! spline fitted fourier coefficients 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER           :: iMode,iFlux
+!===================================================================================================================================
+Xmn_Spl=0.
+DO iMode=1,modes
+  !scaling with rho^|m|
+  DO iFlux=2,nFluxVMEC
+    Xmn_Spl(1,iFlux,iMode)=Xmn(iMode,iFlux) /(rho(iFlux)**mabs(iMode))
+  END DO !i
+  !Parabolic extrapolation to axis with dx'(rho=0)=0.
+  Xmn_Spl(1,1,iMode)=(Xmn_Spl(1,2,iMode)*rho(3)**2-Xmn_Spl(1,3,iMode)*rho(2)**2) /(rho(3)**2-rho(2)**2)
+!  !Quadratic extrapolation to axis with dx'(rho=0)=0.
+!  r1=rho(2)**2*rho(3)**4-rho(2)**4*rho(3)**2
+!  r2=rho(2)**2*rho(4)**4-rho(2)**4*rho(4)**2
+!  Xmn_Spl(1,1,iMode)= ( r1*(Xmn_Spl(1,2,iMode)*rho(4)**4-Xmn_Spl(1,4,iMode)*rho(2)**4) &
+!                       -r2*(Xmn_Spl(1,2,iMode)*rho(3)**4-Xmn_Spl(1,3,iMode)*rho(2)**4)) &
+!                     /( r1*(rho(4)**4-rho(2)**4)-r2*(rho(3)**4-rho(2)**4))
+  CALL SPLINE1_FIT(nFluxVMEC,rho,Xmn_Spl(:,:,iMode), K_BC1=3, K_BCN=0)
+END DO !iMode 
+
+END SUBROUTINE FitSpline
+
+
+SUBROUTINE FitSplineHalf(modes,mabs,Xmn_half,Xmn_Spl)
+!===================================================================================================================================
+! Fit disrete data along flux surfaces as spline for each fourier mode
+! input is given on the half mesh 2:nFluxVMEC 
+!===================================================================================================================================
+! MODULES
+USE MOD_Globals
+USE MOD_VMEC_Mappings, ONLY: nFluxVMEC
+USE MOD_VMEC_Vars,     ONLY: rho,phinorm 
+USE SPLINE1_MOD,       ONLY:SPLINE1_FIT 
+USE SPLINE1_MOD,       ONLY:SPLINE1_INTERP 
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+INTEGER, INTENT(IN) :: modes
+INTEGER, INTENT(IN) :: mabs(modes)
+REAL, INTENT(IN)    :: Xmn_half(modes,nFluxVMEC)  ! fourier coefficients at all flux surfaces 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+REAL, INTENT(OUT)  :: Xmn_Spl(4,nFluxVMEC,modes)  ! spline fitted fourier coefficients 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER           :: iMode,iFlux
+REAL              :: Xmn_half_Spl(4,nFluxVMEC+1)  ! spline fitted fourier coefficients 
+REAL              :: rho_half(1:nFluxVMEC+1)
+INTEGER           :: iFlag
+CHARACTER(len=100):: message
+!===================================================================================================================================
+DO iFlux=1,nFluxVMEC-1
+  rho_half(iFlux+1)=SQRT(0.5*(phinorm(iFlux+1)+phinorm(iFlux))) !0.5*(rho(iFlux)+rho(iFlux+1))
+END DO
+!add end points
+rho_half(1)=0.
+rho_half(nFluxVMEC+1)=1.
+
+DO iMode=1,modes
+  !scaling with rho^|m|
+  DO iFlux=2,nFluxVMEC
+    Xmn_half_Spl(1,iFlux)=Xmn_half(iMode,iFlux) /(rho_half(iFlux)**mabs(iMode))
+  END DO !i
+  !Parabolic extrapolation to axis with dx'(rho=0)=0.
+  Xmn_Half_Spl(1,1)=(Xmn_Half_Spl(1,2)*rho(3)**2-Xmn_Half_Spl(1,3)*rho(2)**2) /(rho(3)**2-rho(2)**2)
+  !Extrapolate to Edge extrapolation to axis
+  Xmn_Half_Spl(1,nFluxVMEC+1)= ( Xmn_half_Spl(1,nFluxVMEC  )*(rho_half(nFluxVMEC+1)-rho_half(nFluxVMEC-1))     &
+                                -Xmn_half_Spl(1,nFluxVMEC-1)*(rho_half(nFluxVMEC+1)-rho_half(nFluxVMEC  )) )   &
+                                   /(rho_half(nFluxVMEC)   -rho_half(nFluxVMEC-1) )
+  CALL SPLINE1_FIT(nFluxVMEC+1,rho_half,Xmn_half_Spl(:,:), K_BC1=3, K_BCN=0)
+  iflag=0
+  message=''
+  CALL SPLINE1_INTERP((/1,0,0/),nFluxVMEC+1,rho_half,Xmn_half_Spl, &
+                                nFluxVMEC  ,rho     ,Xmn_Spl(:,:,iMode),       &
+                          iflag,message, K_BC1=3,K_BCN=0)
+  !respline
+  Xmn_Spl(2:4,:,iMode)=0.
+  CALL SPLINE1_FIT(nFluxVMEC,rho,Xmn_Spl(:,:,iMode), K_BC1=3, K_BCN=0)
+END DO !iMode 
+
+END SUBROUTINE FitSplineHalf
+
+
+
 SUBROUTINE MapToVMEC(nTotal,x_in,InputCoordSys,xvmec,vmecData)
 !===================================================================================================================================
 ! Maps a cylinder (r,z,phi) to a toroidal closed flux surface configuration derived from VMEC data. 
@@ -258,15 +333,12 @@ SUBROUTINE MapToVMEC(nTotal,x_in,InputCoordSys,xvmec,vmecData)
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
-USE MOD_VMEC_Mappings, ONLY: mn_mode,xm,xn,Rmnc, Zmns,dRdUmns,dRdVmns,dZdUmnc,dZdVmnc,lUmnc,lVmnc
+USE MOD_VMEC_Mappings, ONLY: mn_mode,xm,xn,Rmnc,Zmns
 USE MOD_VMEC_Mappings, ONLY: mn_mode_nyq,xm_nyq,xn_nyq
-USE MOD_VMEC_Mappings, ONLY: Bsupumnc_nyq,Bsupvmnc_nyq,Bmnc_nyq,gmnc
-USE MOD_VMEC_Mappings, ONLY: nFluxVMEC,phi,presf
-USE MOD_VMEC_Mappings, ONLY: phipf,iotas,lUmnc,lVmnc
+USE MOD_VMEC_Mappings, ONLY: nFluxVMEC
 USE MOD_VMEC_Mappings, ONLY: mu0
-USE MOD_VMEC_Vars,     ONLY: nVarVMEC,phinorm,chinorm,mn_mEven,mn_mOdd,mn_mapOdd,mn_mapEven
-USE MOD_VMEC_Vars,     ONLY: VMECdataFile 
-USE MOD_VMEC_Vars,     ONLY: nRhoCoefs,RhoCoefs,RhoFluxVar
+USE MOD_VMEC_Vars
+USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -281,28 +353,35 @@ REAL,INTENT(OUT)   :: xvmec(3,nTotal) ! mapped x,y,z coordinates with vmec data
 REAL,INTENT(OUT)   :: vmecData(nVarVMEC,nTotal) 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER :: iNode,i,s1,s2,percent
-REAL    :: CosMN(mn_mode),SinMN(mn_mode)
+INTEGER :: iNode,percent
+INTEGER :: iMode
+INTEGER :: iGuess=1
+REAL    :: CosMN(mn_mode)
+REAL    :: SinMN(mn_mode)
 REAL    :: CosMN_nyq(mn_mode_nyq)
+REAL    :: r_p    ! raduis in cylindrical coordinate system
 REAL    :: phi_p  ! normalized toroidal flux (=flux coordinate s [0,1]) (use radial distance of point position)
 REAL    :: chi_p  ! normalized poloidal flux [0,1] 
 REAL    :: theta  ! poloidal angle [0,2pi]
 REAL    :: zeta ! toroidal angle [0,2pi]
 REAL    :: coszeta,sinzeta
 REAL    :: R,Z   
-REAL    :: f1,f2,w1,w2 
-REAL    :: Bsupu,Bsupv           !covariant magnetic field components, B^s=0, B^u=B^theta, B^v=B^zeta
-REAL    :: dRdU,dRdV,dZdU,dZdV   !derivatives of R and Z
-REAL    :: Bnorm                 !|B| from VMEC
+REAL    :: dRdrho,dRdU,dRdV      !derivatives
+REAL    :: dZdrho,dZdU,dZdV 
+REAL    :: phipf_int,iotaf_int
+REAL    :: sqrtG 
+REAL    :: rho_p,rhom,drhom,splOut(3) !for interpolation
+REAL    :: Density,Pressure
+REAL    :: lam,dldU,dldV
+REAL    :: Btheta,Bzeta          ! also called B^u, B^v, contravariant components of the magnetic field
 REAL    :: Br,Bz,Bphi            !mangetic field components in (R,Z,phi) system (phi=zeta)
-                                 ! Br=dRdu*Bsupu+dRdv*Bsupv, Bz=dZdu*Bsupu+dZdv*Bsupv, Bphi=R*Bsupv
+                                 ! Br=dRdu*Btheta+dRdv*Bszeta 
+                                 ! Bz=dZdu*Btheta+dZdv*Bzeta
+                                 ! Bphi=R*Bzeta
 REAL    :: Bcart(3)              !magnetic field components in (X,Y,Z) system 
                                  ! Bx=Br*cos(phi) - Bphi*sin(phi)
                                  ! By=Br*sin(phi) + Bphi*cos(phi)
                                  ! Bz=Bz
-REAL    :: Pressure,rho
-REAL    :: phipf_int,iotas_int,Btheta,Bzeta
-REAL    :: ssqrtG 
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A,I8,A,A,A)')'  MAP ', nTotal,' NODES TO VMEC DATA FROM ',TRIM(VMECdataFile),' ...'
 percent=0
@@ -314,141 +393,109 @@ DO iNode=1,nTotal
   END IF
   SELECT CASE(InputCoordSys)
   CASE(0)!x_in(1:3) = x,y,z of cylinder with r<1 and z=[0;1]
-    phi_p  = SQRT(x_in(1,iNode)**2+x_in(2,iNode)**2) 
-    theta  = ATAN2(x_in(2,iNode),x_in(1,iNode))
-    zeta   = -2.*Pi*x_in(3,iNode) 
+    r_p   = SQRT(x_in(1,iNode)**2+x_in(2,iNode)**2) 
+    theta = ATAN2(x_in(2,iNode),x_in(1,iNode))
+    zeta  = -2.*Pi*x_in(3,iNode) 
   CASE(1) !x_in(1:3) = (r,z,phi) with r= [0;1], z= [0;1], phi=[0;1] 
-    phi_p  =  x_in(1,iNode) !=r
-    theta   = 2.*Pi*x_in(3,iNode) !=2*pi*phi
-    zeta   = -2.*Pi*x_in(2,iNode) !=2*pi*z
+    r_p =  x_in(1,iNode) !=r
+    theta = 2.*Pi*x_in(3,iNode) !=2*pi*phi
+    zeta  = -2.*Pi*x_in(2,iNode) !=2*pi*z
   END SELECT 
-  CosMN(:)  = COS(xm(:) * theta - xn(:) * zeta)
-  SinMN(:)  = SIN(xm(:) * theta - xn(:) * zeta)
   
+  CosMN(:)      = COS(    xm(:) * theta -     xn(:) * zeta)
+  SinMN(:)      = SIN(    xm(:) * theta -     xn(:) * zeta) 
   CosMN_nyq(:)  = COS(xm_nyq(:) * theta - xn_nyq(:) * zeta)
-  !SinMN_nyq(:)  = SIN(xm_nyq(:) * theta - xn_nyq(:) * zeta) !not yet needed
   
-  phi_p=phi_p**2 ! use scaling of radius to phi evaluation variable
+  phi_p=r_p**2 ! use scaling of radius to phi evaluation variable
   
-  !! look for the nearest supporting point phinorm(s1) < phi_p < phinorm(s1) 
-  ! exception: extrapolate for phi_p<phinorm(2) 
-  !            -> use s1=2 instead of s1=1, because 1/sqrt(phinorm(s1))=1/0. is not defined.
-  s1=nFluxVMEC
-  DO i = 2, nFluxVMEC
-    IF (phi_p .LT. phinorm(i)) THEN
-     s1=i
-     EXIT
+  phi_p=MAX(phi_p,1.0E-08) 
+  rho_p=SQRT(phi_p)
+  
+  R      =0.
+  Z      =0.
+  dRdu   =0.
+  dRdv   =0.
+  dRdrho =0.
+  dZdu   =0.
+  dZdv   =0.
+  dZdrho =0.
+  lam    =0.
+  dldU   =0.
+  dldV   =0.
+  sqrtG  =0.
+  DO iMode=1,mn_mode
+    IF(xmabs(iMode).EQ.0)THEN
+      rhom=1.
+      drhom=0.
+    ELSEIF(xmabs(iMode).EQ.1)THEN
+      rhom=rho_p
+      drhom=1.
+    ELSE
+      rhom=rho_p**xmabs(iMode)
+      drhom=xmabs(iMode)*rho_p**(xmabs(iMode)-1)
     END IF
-  END DO
-  s2=MIN(s1+1,nFluxVMEC)
-  !DIRECT EVALUATION AT INTERVAL s1=1,s2=2 IS NOT WORKING!!
-!  IF(phi_p.LT.1.0E-08)THEN
-!    s1=1
-!    s2=1
-!  ELSE
-!    s1=nFluxVMEC
-!    DO i = 2, nFluxVMEC
-!      IF (phi_p .LT. phinorm(i)) THEN
-!       s1=i-1
-!       EXIT
-!      END IF
-!    END DO
-!    s2=MIN(s1+1,nFluxVMEC)
-!  END IF
-  
-  !WRITE(*,*)'DEBUG,s1,s2,phi1,phi2,phi',s1,s2,phinorm(s1),phinorm(s2),phi_p
-  
-  IF(s1.NE.s2)THEN
-    !interpolation factor
-    f2=(phi_p-phinorm(s1))/(phinorm(s2)-phinorm(s1))
-    f1=1.-f2 
-    chi_p=f1*chinorm(s1)+f2*chinorm(s2)
-    ! interpolation of odd modes with weighting sqrt(phi) * ((1-frac) * r1/sqrt(phi_1) + frac* r2/sqrt(phi_2))
-!    w1=MERGE(0.,SQRT(phi_p/phinorm(s1)),s1.EQ.1) !avoid division by 0 
-    w1=SQRT(phi_p/phinorm(s1))
-    w2=SQRT(phi_p/phinorm(s2))
+    CALL SPLINE1_EVAL((/1,1,0/), nFluxVMEC,rho_p,rho,Rmnc_Spl(:,:,iMode),iGuess,splout) 
+    R    = R    + rhom*splout(1)*CosMN(iMode)
+    !dR/dtheta (cos(m*theta-n*zeta))=-m*sin(m*theta-n*zeta)
+    dRdU = dRdU - rhom*splout(1)*SinMN(iMode)*xm(iMode) 
+    !dR/dzeta  (cos(m*theta-n*zeta))=n*sin(m*theta-n*zeta)
+    dRdV = dRdV + rhom*splout(1)*SinMN(iMode)*xn(iMode)
+    !dR/drho = sum_mn [ rho**m * dR_mn/drho + R_mn *d(rho**m)/drho ] * cos(m*theta-n*zeta)
+    dRdrho=dRdrho+(rhom*splout(2)+splout(1)*drhom)*CosMN(iMode)
+    CALL SPLINE1_EVAL((/1,1,0/), nFluxVMEC,rho_p,rho,Zmns_Spl(:,:,iMode),iGuess,splout) 
+    Z    = Z    + rhom*splout(1)*SinMN(iMode)
+    !dZ/dtheta (sin(m*theta-n*zeta))=m*cos(m*theta-n*zeta)
+    dZdU = dZdU + rhom*splout(1)*CosMN(iMode)*xm(iMode) 
+    !dZ/dzeta  (sin(m*theta-n*zeta))=-n*cos(m*theta-n*zeta)
+    dZdV = dZdV - rhom*splout(1)*CosMN(iMode)*xn(iMode)
+    !dZ/drho = sum_mn [ rho**m * dZ_mn/drho + Z_mn *d(rho**m)/drho ] * sin(m*theta-n*zeta)
+    dZdrho=dZdrho+(rhom*splout(2)+splout(1)*drhom)*SinMN(iMode)
+    !lambda
+    CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,lmns_Spl(:,:,iMode),iGuess,splout) 
+    lam   =lam   + rhom*splout(1)*SinMN(iMode)
+    !dL/dtheta (sin(m*theta-n*zeta))=m*cos(m*theta-n*zeta)
+    dldU = dldU + rhom*splout(1)*CosMN(iMode)*xm(iMode) 
+    !dl/dzeta  (sin(m*theta-n*zeta))=-n*cos(m*theta-n*zeta)
+    dldV = dldV - rhom*splout(1)*CosMN(iMode)*xn(iMode)
+  END DO !iMode=1,mn_mode 
 
-    R=InterpolateData(f1,f2,w1,w2,CosMN,Rmnc(:,s1),Rmnc(:,s2))
+  DO iMode=1,mn_mode_nyq
+    IF(xmabs_nyq(iMode).EQ.0)THEN
+      rhom=1.
+      drhom=0.
+    ELSEIF(xmabs_nyq(iMode).EQ.1)THEN
+      rhom=rho_p
+      drhom=1.
+    ELSE
+      rhom=rho_p**xmabs_nyq(iMode)
+      drhom=xmabs_nyq(iMode)*rho_p**(xmabs_nyq(iMode)-1)
+    END IF
+    CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,gmnc_nyq_Spl(:,:,iMode),iGuess,splout) 
+    sqrtG    = sqrtG    + rhom*splout(1)*CosMN_nyq(iMode)
+  END DO !iMode=1,mn_mode_nyq 
+
+  CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,pres_Spl(:,:),iGuess,splout) 
+  pressure=splout(1)
+  CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,chinorm_Spl(:,:),iGuess,splout) 
+  chi_p=splout(1)
+  CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,phipf_Spl(:,:),iGuess,splout) 
+  phipf_int=splout(1)
+  CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,iotaf_Spl(:,:),iGuess,splout) 
+  iotaf_int=splout(1)
   
-    Z=InterpolateData(f1,f2,w1,w2,SinMN,Zmns(:,s1),Zmns(:,s2))
-  
-  
-    Bsupu  = InterpolateData_nyq(f1,f2,w1,w2,CosMN_nyq,bsupumnc_nyq(:,s1),bsupumnc_nyq(:,s2))
-    Bsupv  = InterpolateData_nyq(f1,f2,w1,w2,CosMN_nyq,bsupvmnc_nyq(:,s1),bsupvmnc_nyq(:,s2))
-!    Bnorm  = InterpolateData_nyq(f1,f2,w1,w2,CosMN_nyq,Bmnc_nyq(:,s1),Bmnc_nyq(:,s2))
-  
-  
-    dRdu =InterpolateData(f1,f2,w1,w2,SinMN,dRdUmns(:,s1),dRdUmns(:,s2))
-    dRdv =InterpolateData(f1,f2,w1,w2,SinMN,dRdVmns(:,s1),dRdVmns(:,s2))
-  
-    dZdu =InterpolateData(f1,f2,w1,w2,cosMN,dZdUmnc(:,s1),dZdUmnc(:,s2))
-    dZdv =InterpolateData(f1,f2,w1,w2,cosMN,dZdVmnc(:,s1),dZdVmnc(:,s2))
-  
-    pressure = f1*presf(s1)+f2*presf(s2)
+
   !  !compute magnetic field, following Michael Kraus formulas: 
   !  ! B^s     = 0 
   !  ! B^theta = dphi/ds*(iota-dlambda/dzeta)  : phipf*(iotaf -  (lVmnc) ) 
   !  ! B^zeta = dphi/ds*(1+dlambda/dtheta)     : phipf*(1+ (lUmnc) )
   !  !   ...( lmns is overwritten to full mesh and then d/du d/dv is applied )
   
+  Btheta = phipf_int/sqrtG*(iotaf_int - dldV)
+  Bzeta  = phipf_int/sqrtG*(1.        + dldU)
   
-!    ssqrtG = 1./InterpolateData_nyq(f1,f2,w1,w2,CosMN_nyq,gmnc(:,s1),gmnc(:,s2))
-!    phipf_int = f1*phipf(s1)+f2*phipf(s2)
-!    iotas_int = f1*iotas(s1)+f2*iotas(s2) !iotas overwritten to full mesh 
-!  
-!    lU     = InterpolateData(f1,f2,w1,w2,CosMN,lUmnc(:,s1),lUmnc(:,s2))
-!    lV     = InterpolateData(f1,f2,w1,w2,CosMN,lVmnc(:,s1),lVmnc(:,s2))
-!    Btheta = phipf_int*ssqrtG*(iotas_int - lV)
-!    Bzeta  = phipf_int*ssqrtG*(1.        + lU)
-  ELSE
-    chi_p=chinorm(s2)
-    !weighting with sqrt(s) cancels, evaluate all modes at s2.
-    R      = SUM(CosMN(:)*Rmnc(:, s2))
-    Z      = SUM(SinMN(:)*Zmns(:, s2))
-  
-    Bsupu  = SUM(CosMN_nyq(:)*bsupumnc_nyq(:,s2))
-    Bsupv  = SUM(CosMN_nyq(:)*bsupvmnc_nyq(:,s2))
-!    Bnorm  = SUM(CosMN_nyq(:)*Bmnc_nyq(:,s2))
-  
-  
-    dRdu   = SUM(SinMN(:)*dRdUmns(:,s2))
-    dRdv   = SUM(SinMN(:)*dRdVmns(:,s2))
-  
-    dZdu   = SUM(cosMN(:)*dZdUmnc(:,s2))
-    dZdv   = SUM(cosMN(:)*dZdVmnc(:,s2))
-  
-    pressure = presf(s2)
-  
-!    ssqrtG = 1./SUM(CosMN_nyq(:)*gmnc(:,s2))
-!    phipf_int = phipf(s2)
-!    iotas_int = iotas(s2) !iotas overwritten to full mesh 
-!    lU     = SUM(CosMN*lUmnc(:,s2))
-!    lV     = SUM(CosMN*lVmnc(:,s2))
-!    Btheta = phipf_int*ssqrtG*(iotas_int - lV)
-!    Bzeta  = phipf_int*ssqrtG*(1.        + lU)
-  END IF !s1/=s2
-  
-  Br   =dRdu*Bsupu+dRdv*Bsupv
-  Bz   =dZdu*Bsupu+dZdv*Bsupv
-  Bphi =R*Bsupv
-  
-!  Br   =dRdu*Btheta+dRdv*Bzeta
-!  Bz   =dZdu*Btheta+dZdv*Bzeta
-!  Bphi =R*Bzeta
-  
-!  IF(s2.EQ.2)THEN
-!    WRITE(*,*)'s1,s2',s1,s2
-!    WRITE(*,*)'f1,f2',f1,f2
-!    WRITE(*,*)'w1,w2',w1,w2
-!    WRITE(*,*)'R,Z',R,Z
-!    WRITE(*,'(A,3E15.5,A,3E15.5)')' (s,theta/Pi,zeta/Pi) ',phi_p,theta/Pi,zeta/Pi,  &
-!                             ' compare: |B|',Bnorm,SQRT(Br*Br+Bz*Bz+Bphi*Bphi), Bnorm-SQRT(Br*Br+Bz*Bz+Bphi*Bphi)
-!  END IF
-  
-  !WRITE(*,*)'s1,s2',s1,s2,phinorm(s1),phinorm(s2)
-  !WRITE(*,'(A,3E14.5)') ' (s,theta/Pi,zeta/Pi) ',phi_p,theta/Pi,zeta/Pi
-  !WRITE(*,'(2(A,2E14.5))') ' Btheta,Bsupu ',Btheta,Bsupu,' Bzeta,Bsupv ', Bzeta,Bsupv
-  
+  Br   =dRdu*Btheta+dRdv*Bzeta
+  Bz   =dZdu*Btheta+dZdv*Bzeta
+  Bphi =R*Bzeta
   
   coszeta=COS(zeta)
   sinzeta=SIN(zeta)
@@ -461,7 +508,7 @@ DO iNode=1,nTotal
   Bcart(2)= Br*sinzeta+Bphi*coszeta
   Bcart(3)= Bz
   
-  Rho=EvalPoly(nRhoCoefs,RhoCoefs,MERGE(phi_p,chi_p,RhoFluxVar.EQ.0)) 
+  Density=EvalPoly(nRhoCoefs,RhoCoefs,MERGE(phi_p,chi_p,RhoFluxVar.EQ.0)) 
 
   vmecData(  1,iNode)=phi_p
   vmecData(  2,iNode)=chi_p
@@ -470,89 +517,16 @@ DO iNode=1,nTotal
   vmecData(  5,iNode)=Bphi
   vmecData(6:8,iNode)=Bcart(:)
   vmecData(  9,iNode)=pressure*mu0 !pressure transformed to mu0=1
-  vmecData( 10,iNode)=rho
-  vmecData( 11,iNode)=Bsupu
-  vmecData( 12,iNode)=Bsupv
-  vmecData( 13,iNode)=dRdu
-  vmecData( 14,iNode)=dZdu
+  vmecData( 10,iNode)=Density
+  vmecData( 11,iNode)=lam
+  vmecData( 12,iNode)=dldU
+  vmecData( 13,iNode)=(2.*rho_p*phipf_int)/(dRdU*dZdrho - dZdU*dRdrho)*(1.+dldU) !other way of computing Bphi=R*Bzeta
+                       ! using the definition of the  Jacobian sqrtG=R(dRdU*dZrho-dZdu*dRdrho)*drho/ds
+  vmecData( 14,iNode)=phipf_int/sqrtG
 END DO !iNode=1,nTotal
 
 WRITE(UNIT_stdOut,'(A)')'  ...DONE.                             '
 END SUBROUTINE MapToVmec 
-
-
-FUNCTION InterpolateData(f1,f2,w1,w2,trig_mn,Xmn_s1,Xmn_s2)
-!===================================================================================================================================
-! Interpolates Fourier series between two flux surfaces, cosine r sine are already evaluated in trig_mn
-! Here using the Fourier coefficients up to mn_mode
-! seperated even and odd modes in m, so that odd modes can be weighted with sqrt(phi)
-!===================================================================================================================================
-! MODULES
-USE MOD_Globals
-USE MOD_VMEC_Mappings, ONLY: mn_mode
-USE MOD_VMEC_Vars, ONLY: mn_mEven,mn_mOdd,mn_mapOdd,mn_mapEven
-! IMPLICIT VARIABLE HANDLING
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-REAL, INTENT(IN)  :: f1,f2            ! linear interpolation weights (f1+f2=1)
-REAL, INTENT(IN)  :: w1,w2            ! extra-weights for odd modes (phi/sqrt(phi_1),phi/sqrt(phi_2))
-REAL, INTENT(IN)  :: trig_mn(mn_mode) ! sin or cos evaluated at  theta (m),zeta (n)
-REAL, INTENT(IN)  :: Xmn_s1( mn_mode) ! variable in fourier space to interpolate
-REAL, INTENT(IN)  :: Xmn_s2( mn_mode) ! variable in fourier space to interpolate
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-REAL              :: InterpolateData
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-REAL              :: val1e,val2e,val1o,val2o
-!===================================================================================================================================
-  !evaluate only modes with m= even
-  val1e = SUM(trig_mn(mn_mapEven)*xmn_s1(mn_mapEven))
-  val2e = SUM(trig_mn(mn_mapEven)*xmn_s2(mn_mapEven))
-  !evaluate only modes with m= odd
-  val1o = SUM(trig_mn(mn_mapOdd)*xmn_s1(mn_mapOdd))
-  val2o = SUM(trig_mn(mn_mapOdd)*xmn_s2(mn_mapOdd))
-
-  InterpolateData=f1*(val1e+w1*val1o) + f2*(val2e+w2*val2o)
-END FUNCTION InterpolateData
-
-
-FUNCTION InterpolateData_nyq(f1,f2,w1,w2,trig_mn_nyq,Xmn_nyq_s1,Xmn_nyq_s2)
-!===================================================================================================================================
-! Interpolates Fourier series between two flux surfaces, cosine r sine are already evaluated in trig_mn
-! Here using the Fourier coefficients up to Nyquist mode
-! seperated even and odd modes in m, so that odd modes can be weighted with sqrt(phi)
-!===================================================================================================================================
-! MODULES
-USE MOD_Globals
-USE MOD_VMEC_Mappings, ONLY: mn_mode_nyq
-USE MOD_VMEC_Vars, ONLY: mn_mEven_nyq,mn_mOdd_nyq,mn_mapOdd_nyq,mn_mapEven_nyq
-! IMPLICIT VARIABLE HANDLING
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-REAL, INTENT(IN)  :: f1,f2                    ! linear interpolation weights (f1+f2=1)
-REAL, INTENT(IN)  :: w1,w2                    ! extra-weights for odd modes (phi/sqrt(phi_1),phi/sqrt(phi_2))
-REAL, INTENT(IN)  :: trig_mn_nyq(mn_mode_nyq) ! sin or cos evaluated at theta (m),zeta (n)
-REAL, INTENT(IN)  :: Xmn_nyq_s1( mn_mode_nyq) ! variable in fourier space to interpolate
-REAL, INTENT(IN)  :: Xmn_nyq_s2( mn_mode_nyq) ! variable in fourier space to interpolate
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-REAL              :: InterpolateData_nyq
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-REAL              :: val1e,val2e,val1o,val2o
-!===================================================================================================================================
-  !evaluate only modes with m= even
-  val1e = SUM(trig_mn_nyq(mn_mapEven_nyq)*xmn_nyq_s1(mn_mapEven_nyq))
-  val2e = SUM(trig_mn_nyq(mn_mapEven_nyq)*xmn_nyq_s2(mn_mapEven_nyq))
-  !evaluate only modes with m= odd
-  val1o = SUM(trig_mn_nyq(mn_mapOdd_nyq)*xmn_nyq_s1(mn_mapOdd_nyq))
-  val2o = SUM(trig_mn_nyq(mn_mapOdd_nyq)*xmn_nyq_s2(mn_mapOdd_nyq))
-
-  InterpolateData_nyq=f1*(val1e+w1*val1o) + f2*(val2e+w2*val2o)
-END FUNCTION InterpolateData_nyq
  
 
 FUNCTION EvalPoly(nCoefs,Coefs,x)
@@ -561,8 +535,6 @@ FUNCTION EvalPoly(nCoefs,Coefs,x)
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
-USE MOD_VMEC_Mappings, ONLY: mn_mode_nyq
-USE MOD_VMEC_Vars, ONLY: mn_mEven_nyq,mn_mOdd_nyq,mn_mapOdd_nyq,mn_mapEven_nyq
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
