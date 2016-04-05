@@ -186,9 +186,9 @@ IF(useVMEC)THEN
   ALLOCATE(phipf_spl(4,1:nFluxVMEC))
   phipf_spl(1,:)=phipf(:)
   CALL SPLINE1_FIT(nFluxVMEC,rho,phipf_Spl(:,:), K_BC1=3, K_BCN=0)
-  ALLOCATE(iotaf_spl(4,1:nFluxVMEC))
-  iotaf_spl(1,:)=iotaf(:)
-  CALL SPLINE1_FIT(nFluxVMEC,rho,iotaf_Spl(:,:), K_BC1=3, K_BCN=0)
+  ALLOCATE(iota_spl(4,1:nFluxVMEC))
+  iota_spl(1,:)=iotaf(:)
+  CALL SPLINE1_FIT(nFluxVMEC,rho,iota_Spl(:,:), K_BC1=3, K_BCN=0)
   ALLOCATE(chinorm_spl(4,1:nFluxVMEC))
   chinorm_spl(1,:)=chinorm(:)
   CALL SPLINE1_FIT(nFluxVMEC,rho,chinorm_Spl(:,:), K_BC1=3, K_BCN=0)
@@ -248,7 +248,11 @@ Xmn_Spl=0.
 DO iMode=1,modes
   !scaling with rho^|m|
   DO iFlux=2,nFluxVMEC
-    Xmn_Spl(1,iFlux,iMode)=Xmn(iMode,iFlux) /(rho(iFlux)**mabs(iMode))
+    IF(mabs(iMode).EQ.0)THEN
+      Xmn_Spl(1,iFlux,iMode)=Xmn(iMode,iFlux)
+    ELSE
+      Xmn_Spl(1,iFlux,iMode)=Xmn(iMode,iFlux) /(rho(iFlux)**mabs(iMode))
+    END IF
   END DO !i
   !Parabolic extrapolation to axis with dx'(rho=0)=0.
   Xmn_Spl(1,1,iMode)=(Xmn_Spl(1,2,iMode)*rho(3)**2-Xmn_Spl(1,3,iMode)*rho(2)**2) /(rho(3)**2-rho(2)**2)
@@ -303,14 +307,18 @@ rho_half(nFluxVMEC+1)=1.
 DO iMode=1,modes
   !scaling with rho^|m|
   DO iFlux=2,nFluxVMEC
-    Xmn_half_Spl(1,iFlux)=Xmn_half(iMode,iFlux) /(rho_half(iFlux)**mabs(iMode))
+    IF(mabs(iMode).EQ.0)THEN
+      Xmn_half_Spl(1,iFlux)=Xmn_half(iMode,iFlux)
+    ELSE
+      Xmn_half_Spl(1,iFlux)=Xmn_half(iMode,iFlux) /(rho_half(iFlux)**mabs(iMode))
+    END IF
   END DO !i
   !Parabolic extrapolation to axis with dx'(rho=0)=0.
-  Xmn_Half_Spl(1,1)=(Xmn_Half_Spl(1,2)*rho(3)**2-Xmn_Half_Spl(1,3)*rho(2)**2) /(rho(3)**2-rho(2)**2)
+  Xmn_Half_Spl(1,1)=(Xmn_Half_Spl(1,2)*rho_half(3)**2-Xmn_Half_Spl(1,3)*rho_half(2)**2) /(rho_half(3)**2-rho_half(2)**2)
   !Extrapolate to Edge extrapolation to axis
   Xmn_Half_Spl(1,nFluxVMEC+1)= ( Xmn_half_Spl(1,nFluxVMEC  )*(rho_half(nFluxVMEC+1)-rho_half(nFluxVMEC-1))     &
                                 -Xmn_half_Spl(1,nFluxVMEC-1)*(rho_half(nFluxVMEC+1)-rho_half(nFluxVMEC  )) )   &
-                                   /(rho_half(nFluxVMEC)   -rho_half(nFluxVMEC-1) )
+                                   /(  rho_half(nFluxVMEC)   -rho_half(nFluxVMEC-1) )
   CALL SPLINE1_FIT(nFluxVMEC+1,rho_half,Xmn_half_Spl(:,:), K_BC1=3, K_BCN=0)
   iflag=0
   message=''
@@ -319,6 +327,7 @@ DO iMode=1,modes
                           iflag,message, K_BC1=3,K_BCN=0)
   !respline
   Xmn_Spl(2:4,:,iMode)=0.
+  Xmn_Spl(1,1,iMode)  =(Xmn_Spl(1,2,iMode)*rho(3)**2-Xmn_Spl(1,3,iMode)*rho(2)**2) /(rho(3)**2-rho(2)**2)
   CALL SPLINE1_FIT(nFluxVMEC,rho,Xmn_Spl(:,:,iMode), K_BC1=3, K_BCN=0)
 END DO !iMode 
 
@@ -368,7 +377,7 @@ REAL    :: coszeta,sinzeta
 REAL    :: R,Z   
 REAL    :: dRdrho,dRdU,dRdV      !derivatives
 REAL    :: dZdrho,dZdU,dZdV 
-REAL    :: phipf_int,iotaf_int
+REAL    :: phipf_int,iota_int
 REAL    :: sqrtG 
 REAL    :: rho_p,rhom,drhom,splOut(3) !for interpolation
 REAL    :: Density,Pressure
@@ -408,9 +417,9 @@ DO iNode=1,nTotal
   
   phi_p=r_p**2 ! use scaling of radius to phi evaluation variable
   
-  phi_p=MAX(phi_p,1.0E-08) 
+  phi_p=MIN(1.,MAX(phi_p,1.0E-08))
   rho_p=SQRT(phi_p)
-  
+
   R      =0.
   Z      =0.
   dRdu   =0.
@@ -480,8 +489,8 @@ DO iNode=1,nTotal
   chi_p=splout(1)
   CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,phipf_Spl(:,:),iGuess,splout) 
   phipf_int=splout(1)
-  CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,iotaf_Spl(:,:),iGuess,splout) 
-  iotaf_int=splout(1)
+  CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,iota_Spl(:,:),iGuess,splout) 
+  iota_int=splout(1)
   
 
   !  !compute magnetic field, following Michael Kraus formulas: 
@@ -490,7 +499,7 @@ DO iNode=1,nTotal
   !  ! B^zeta = dphi/ds*(1+dlambda/dtheta)     : phipf*(1+ (lUmnc) )
   !  !   ...( lmns is overwritten to full mesh and then d/du d/dv is applied )
   
-  Btheta = phipf_int/sqrtG*(iotaf_int - dldV)
+  Btheta = phipf_int/sqrtG*(iota_int - dldV)
   Bzeta  = phipf_int/sqrtG*(1.        + dldU)
   
   Br   =dRdu*Btheta+dRdv*Bzeta
@@ -522,7 +531,7 @@ DO iNode=1,nTotal
   vmecData( 12,iNode)=dldU
   vmecData( 13,iNode)=(2.*rho_p*phipf_int)/(dRdU*dZdrho - dZdU*dRdrho)*(1.+dldU) !other way of computing Bphi=R*Bzeta
                        ! using the definition of the  Jacobian sqrtG=R(dRdU*dZrho-dZdu*dRdrho)*drho/ds
-  vmecData( 14,iNode)=phipf_int/sqrtG
+  vmecData( 14,iNode)=iota_int
 END DO !iNode=1,nTotal
 
 WRITE(UNIT_stdOut,'(A)')'  ...DONE.                             '

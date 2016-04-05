@@ -39,7 +39,7 @@ REAL,ALLOCATABLE    :: chinorm(:)                        !normalized poloidal fl
 REAL,ALLOCATABLE    :: rho(:)                            !sqrt(phinorm)
 REAL,ALLOCATABLE    :: pres_Spl(:,:)       
 REAL,ALLOCATABLE    :: phipf_Spl(:,:)       
-REAL,ALLOCATABLE    :: iotaf_Spl(:,:)       
+REAL,ALLOCATABLE    :: iota_Spl(:,:)       
 REAL,ALLOCATABLE    :: chinorm_Spl(:,:)       
 REAL,ALLOCATABLE    :: Rmnc_Spl(:,:,:)                   ! modified spline coefficients of Rmnc
 REAL,ALLOCATABLE    :: Zmns_Spl(:,:,:)                   !
