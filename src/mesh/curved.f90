@@ -624,15 +624,14 @@ NULLIFY(aNormal%prevNormal)
 NULLIFY(aNormal%nextNormal)
 END SUBROUTINE getNewNormal
 
+
 SUBROUTINE reconstructNormals()
 !===================================================================================================================================
 ! create Normals on curved boundaries from the actual mesh, so just approximated normals! 
 !===================================================================================================================================
 ! MODULES
-USE MOD_Mesh_Vars,ONLY:tElem,tSide,tSidePtr,tNodePtr
+USE MOD_Mesh_Vars,ONLY:tElem,tSide,tNode,tNormal
 USE MOD_Mesh_Vars,ONLY:FirstElem
-USE MOD_Mesh_Vars,ONLY:getNewSide
-USE MOD_Search
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -643,295 +642,90 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 TYPE(tSide),POINTER       :: aSide  ! ?
 TYPE(tElem),POINTER       :: aElem  ! ?
-TYPE(tSidePtr),POINTER    :: cside(:)              ! array of Element Side pointers belonging to one CurveIndex
-TYPE(tSearchMesh),POINTER :: searchMesh,splineSearchMesh  ! ?
-TYPE(tNodePtr),POINTER    :: Nodes(:)  ! ?
-INTEGER                   :: i,j,iCurveInd,k  ! ?
-INTEGER                   :: iNode,nNodes  ! ?
-INTEGER                   :: maxCurveInd  ! ?
-INTEGER                   :: tind(4),nind(4),nSides  ! ?
-INTEGER                   :: na  ! ?
-INTEGER                   :: IO_ERROR  ! ?
-INTEGER                   :: vo  ! ?
-INTEGER,POINTER           :: foundCurveIndizes(:)  ! ?
-REAL                      :: s(3),v1(3),v2(3)  ! ?
-REAL                      :: normFact(4),tangFact(4)  ! ?
-REAL,POINTER              :: curvexmin(:,:),curvexmax(:,:)  ! ?
-REAL,POINTER              :: normal(:,:),NodesX(:,:)  ! ?
-LOGICAL                   :: somethingToDo  ! ?
-LOGICAL                   :: writeTecplot=.TRUE.  ! ?
-LOGICAL                   :: fileExists  ! ?
-CHARACTER(LEN=100)        :: normalsFilename
+TYPE(tNode),POINTER       :: Node  ! ?
+TYPE(tNormal),POINTER     :: nv,nv2,nv3
+INTEGER                   :: iNode,nn  ! ?
+INTEGER                   :: prev1(4,3:4),next1(4,3:4)
+REAL                      :: v1(3),v2(3),n_tmp(3)  ! ?
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'RECONSTRUCT NORMALS ... '
-CALL Timer(.TRUE.)
-tind          = (/1,2,1,2/)
-nind          = (/2,1,2,1/)
-normFact      = (/-0.5,0.5,0.5,-0.5/)
-tangFact      = (/1.,1.,-1.,-1./)
-maxCurveInd   = 0
-somethingToDo = .FALSE.
-! Check if splines have to be built and get max curve index
-aElem=>firstElem
-DO WHILE(ASSOCIATED(aElem))
-  aSide=>aElem%firstSide
-  DO WHILE(ASSOCIATED(aSide))
-    maxCurveInd=MAX(maxCurveInd,aSide%curveIndex)
-    IF(aSide%curveIndex .GT. 0) somethingToDo=.TRUE. 
-    aSide=>aSide%nextElemSide
-  END DO
-  aElem=>aElem%nextElem
-END DO
-IF(.NOT.somethingToDo) THEN
-  CALL Timer(.FALSE.)
-  WRITE(UNIT_stdOut,'(132("~"))')
-  RETURN
-END IF
 
-ALLOCATE(foundCurveIndizes(maxCurveInd),curvexmin(3,maxCurveInd),curvexmax(3,maxCurveInd))
-NULLIFY(searchMesh)
-CALL getNewSearchMesh(searchMesh,.FALSE.)
-CALL insertAllMeshSides(searchMesh,1)
-curvexmin         = 1.e16
-curvexmax         = -1.e16
-foundCurveIndizes = 0
+next1(:,3)=(/2,3,1,0/)
+prev1(:,3)=(/3,1,2,0/)
+next1(:,4)=(/2,3,4,1/)
+prev1(:,4)=(/4,1,2,3/)
+
+! compute the normals
 aElem=>firstElem
 DO WHILE(ASSOCIATED(aElem))
   aSide=>aElem%firstSide
   DO WHILE(ASSOCIATED(aSide))
-    IF (aSide%curveIndex .GT. 0) THEN
-      foundCurveIndizes(aSide%curveIndex) = foundCurveIndizes(aSide%curveIndex)+1
-      aSide%isCurved                      = .TRUE.
-      DO iNode=1,aSide%nNodes
-        curvexmin(:,aSide%curveIndex)=min(curvexmin(:,aSide%curveIndex),aSide%Node(iNode)%np%x)
-        curvexmax(:,aSide%curveIndex)=max(curvexmax(:,aSide%curveIndex),aSide%Node(iNode)%np%x)
-      END DO
+    IF (aSide%curveIndex.LE.0)THEN
+      aSide=>aSide%nextElemSide
+      CYCLE
     END IF
+    nn=aSide%nNodes
+    DO iNode=1,nn
+      node=>aSide%Node(iNode)%np
+      node%tmp=0
+      v1=aSide%Node(next1(iNode,nn))%np%x-node%x
+      v2=aSide%Node(prev1(iNode,nn))%np%x-node%x
+      NULLIFY(nv)
+      ALLOCATE(nv)
+      nv%nextNormal=>node%firstNormal
+      IF(ASSOCIATED(nv%nextNormal)) nv%nextNormal%prevNormal=>nv
+      node%firstNormal=>nv
+      ALLOCATE(nv%FaceID(1))
+      nv%normal=cross(v1,v2)
+      nv%FaceID(1)=aSide%curveIndex
+    END DO
     aSide=>aSide%nextElemSide
   END DO
   aElem=>aElem%nextElem
 END DO
-! loop over spline patches
-DO iCurveInd=1,maxCurveInd
-  WRITE(UNIT_stdOut,*)'        Spline Patch no: ',iCurveInd
-  nSides=foundCurveIndizes(iCurveInd)
-  NULLIFY(splineSearchMesh)
-  CALL getNewSearchMesh(splineSearchMesh,.FALSE.,curvexmin(:,iCurveInd),curvexmax(:,iCurveInd))
-  IF (nSides .GT. 0) THEN
-! Fill Side Array
-    ALLOCATE(cside(nSides))
-    i=0
-    aElem=>firstElem
-    DO WHILE(ASSOCIATED(aElem))
-      aSide=>aElem%firstSide
-      DO WHILE(ASSOCIATED(aSide))
-          IF (aSide%curveIndex .EQ. iCurveInd) THEN
-          i         = i+1
-          aSide%tmp = i
-          CALL getNewSide(cSide(i)%sp,aSide%nNodes)
-          cSide(i)%sp%tmp   = i
-          cSide(i)%sp%tmp2 = 0 !misused as origin proc
-          DO iNode=1,aSide%nNodes
-            cSide(i)%sp%Node(iNode)%np=>getUniqueNode(splineSearchMesh,aSide%Node(iNode)%np%x,.FALSE.)
-            cSide(i)%sp%Node(iNode)%np%refCount=cSide(i)%sp%Node(iNode)%np%refCount+1
-          END DO
-        END IF
-        aSide=>aSide%nextElemSide
-      END DO
-      aElem=>aElem%nextElem
-    END DO
-    !! count all Nodes of the Spline patch,  double/triple  nodes on edges are only counted once!
-    DO i=1,nSides
-      DO k=1,cSide(i)%sp%nNodes
-         cSide(i)%sp%Node(k)%np%tmp=0                  !omit double/triple nodes
-      END DO
-    END DO
-    nNodes=0
-    DO i=1,nSides
-      DO k=1,cSide(i)%sp%nNodes
-       IF (cSide(i)%sp%Node(k)%np%tmp .EQ. 0) THEN      !omit double/triple nodes
-         nNodes=nNodes+1
-         cSide(i)%sp%Node(k)%np%tmp=-1                   !omit double/triple nodes
-       END IF
-      END DO
-    END DO
-    ALLOCATE(normal(3,nNodes),Nodes(nNodes))
-    !! assign node pointers
-    j=0
-    DO i=1,nSides
-      DO k=1,cSide(i)%sp%nNodes
-       IF (cSide(i)%sp%Node(k)%np%tmp .EQ. -1) THEN      !omit double/triple nodes
-         j=j+1
-         Nodes(j)%np=>cSide(i)%sp%Node(k)%np
-         cSide(i)%sp%Node(k)%np%tmp=j                   !omit double/triple nodes
-       END IF
-      END DO
-    END DO
-    !! calculate normals in node (i,k), from all edges connected to node (i,k), which belong to spline patch
-    normal=0.
-    DO j=1,nNodes
-      DO i=1,nSides
-        DO k=1,cSide(i)%sp%nNodes
-          IF (ASSOCIATED(Nodes(j)%np,cSide(i)%sp%Node(k)%np)) THEN !side belonging to Node(j)
-            vo=k-1                                                 ! index Node before (vorher)
-            IF (vo .EQ. 0) vo=cSide(i)%sp%nNodes
-            na=mod(k,cSide(i)%sp%nNodes)+1                         ! index Node after (nachher)
-            v1=cSide(i)%sp%Node(na)%np%x-cSide(i)%sp%Node(k)%np%x
-            v2=cSide(i)%sp%Node(vo)%np%x-cSide(i)%sp%Node(k)%np%x
-            s=cross(v1,v2)
-            normal(:,j)=normal(:,j)+s
-            ! normal(:,j)=cSide(i)%sp%Node(k)%np%x
-          END IF
-        END DO !k=1,Side%nNodes
-      END DO !i=1,nSides
-      normal(:,j)=normal(:,j)/sqrt(REAL(SUM(normal(:,j)*normal(:,j))))
-    END DO !j=1,nNodes
-    IF (writeTecplot) THEN
-      WRITE(normalsFilename,'(a12,i6.6,a4)') 'normals_out_',iCurveInd,'.dat'
-      INQUIRE (FILE=normalsFilename, EXIST=fileExists)
-      IF (fileExists) THEN
-        OPEN(UNIT= 103, FILE= normalsFilename, STATUS= 'OLD', ACTION= 'WRITE', ACCESS= 'SEQUENTIAL', IOSTAT= IO_ERROR)
-        CLOSE( 103,STATUS = 'DELETE')
-      ENDIF
-      OPEN(UNIT=103,FILE=normalsFilename, STATUS='UNKNOWN',ACTION='WRITE', IOSTAT=IO_ERROR)
-      IF (IO_ERROR == 0) THEN
-        WRITE(103,*) 'TITLE="HALO approximate normal vectors"'
-        WRITE(103,*) 'FILTEYPE=GRID'
-        WRITE(103,*) 'VARIABLES = "x" "y" "z" "nx" "ny" "nz"'
-        WRITE(103,*) 'ZONE'
-        WRITE(103,*) 'I=', nNodes
-        DO i=1, nNodes
-          WRITE(103,'(3e21.12,3e21.12)') Nodes(i)%np%x(:),normal(:,i)
-        END DO
-      ELSE
-        ERRWRITE(*,*) '###############################################################'
-        ERRWRITE(*,*) 'BEIM OEFFNEN DER DATEI IST EIN FEHLER AUFGETRETEN:', IO_ERROR
-        ERRWRITE(*,*) '###############################################################'
-        STOP
-      END IF
-      CLOSE(UNIT=103)
-    END IF !writeTecplot
-    ALLOCATE(NodesX(3,nNodes))
-    DO iNode=1,nNodes
-      NodesX(:,iNode)=Nodes(iNode)%np%x
-    END DO
-    DEALLOCATE(Nodes,cSide)
-    CALL assignNormalsToNodes(nNodes,NodesX(:,:),Normal(:,:),iCurveInd) 
-    DEALLOCATE(NodesX,Normal) 
-  END IF ! more than 0 spline elems
-  CALL deleteSearchMesh(SplineSearchMesh)
-END DO ! iCurveInd
 
-CALL deleteSearchMesh(searchMesh)
-DEALLOCATE(foundCurveIndizes,curvexmin,curvexmax)
-CALL Timer(.FALSE.)
+! average normals by curveindex
+aElem=>firstElem
+DO WHILE(ASSOCIATED(aElem))
+  aSide=>aElem%firstSide
+  DO WHILE(ASSOCIATED(aSide))
+    IF (aSide%curveIndex.LE.0)THEN
+      aSide=>aSide%nextElemSide
+      CYCLE
+    END IF
+    nn=aSide%nNodes
+    DO iNode=1,nn
+      node=>aSide%Node(iNode)%np
+      IF(node%tmp.NE.0)CYCLE
+      node%tmp=999
+      ! loop over all normals connected to a node and average them, deallocate averaged normals
+      nv=>node%firstNormal
+      DO WHILE(ASSOCIATED(nv))
+        nv2=>nv%nextNormal
+        DO WHILE(ASSOCIATED(nv2))
+          IF(nv%FaceID(1).EQ.nv2%FaceID(1))THEN
+            nv%normal=nv%normal+nv2%normal
+            nv2%prevNormal%nextNormal=>nv2%nextNormal
+            IF(ASSOCIATED(nv2%nextNormal)) nv2%nextNormal%prevNormal=>nv2%prevNormal
+            nv3=>nv2
+            nv2=>nv2%nextNormal
+            DEALLOCATE(nv3)
+            CYCLE
+          END IF
+          nv2=>nv2%nextNormal
+        END DO
+        nv%normal=nv%normal/NORM2(nv%normal)
+        nv=>nv%nextNormal
+      END DO
+    END DO
+    aSide=>aSide%nextElemSide
+  END DO
+  aElem=>aElem%nextElem
+END DO
+
 WRITE(UNIT_stdOut,'(132("~"))')
 END SUBROUTINE reconstructNormals
-
-
-SUBROUTINE assignNormalsToNodes(nNodes,NodesX,Normal,iCurveInd)
-!===================================================================================================================================
-! Use the Normals defined by reconstruction and assign to local nodes
-!-----------------------------------------------------------------------------------------------------------------------------------
-!===================================================================================================================================
-! MODULES
-USE MOD_Mesh_Vars,ONLY:tElem,tSide,tNode,tNormal
-USE MOD_Mesh_Vars,ONLY:FirstElem
-USE MOD_Mesh_Tolerances,ONLY:SAMEPOINT
-USE MOD_Search
-! IMPLICIT VARIABLE HANDLING
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-INTEGER,INTENT(IN)                   :: nNodes  ! ?
-INTEGER,INTENT(IN)                   :: iCurveInd  ! ?
-REAL,INTENT(IN)                      :: NodesX(3,nNodes)  ! ?
-REAL,INTENT(IN)                      :: Normal(3,nNodes)  ! ?
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-! normals on a Meshnode
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-TYPE(tNode),POINTER       :: aNode  ! ?
-TYPE(tSide),POINTER       :: aSide  ! ?
-TYPE(tElem),POINTER       :: aElem  ! ?
-TYPE(tNormal),POINTER     :: aNormal,firstNormal  ! ?
-TYPE(tToObject),POINTER   :: ToObject !,nextToObject,searchToObject,NewToObject
-TYPE(tSearchMesh),POINTER :: searchMesh  ! ?
-INTEGER                   :: iNode,j  ! ?
-REAL                      :: xmin(3)  ! ?
-REAL                      :: xmax(3)  ! ?
-!===================================================================================================================================
-! if the sides nodes are used, the default searchMesh can be too small, so we get a secure xmin and xmax here
-xmax=-1.e16
-xmin=1.e16  
-aElem=>firstElem
-DO WHILE(ASSOCIATED(aElem))
-  aSide=>aElem%firstSide
-  DO WHILE(ASSOCIATED(aSide))
-    IF(aSide%curveIndex.EQ.iCurveInd) THEN
-      DO j=1,aSide%nNodes
-        aNode=>aSide%node(j)%np
-        aNode%tmp=0
-        xmax=MAX(xmax,aNode%x)
-        xmin=MIN(xmin,aNode%x)
-      END DO
-    END IF
-    aSide=>aSide%nextElemSide
-  END DO
-  aElem=>aElem%nextElem
-END DO
-!build local search mesh
-NULLIFY(searchMesh)
-CALL getNewSearchMesh(searchMesh,.TRUE.,xmin,xmax)
-aElem=>firstElem
-DO WHILE(ASSOCIATED(aElem))
-  aSide=>aElem%firstSide
-  DO WHILE(ASSOCIATED(aSide))
-    IF(aSide%curveIndex.EQ.iCurveInd) THEN
-      DO j=1,aSide%nNodes
-        aNode=>aSide%node(j)%np
-        IF(aNode%tmp .EQ. 0) THEN
-          aNode%tmp=999 
-          CALL insertNode(searchMesh,aNode)
-          aNode%refCount=aNode%refCount-1
-        END IF
-      END DO
-    END IF
-    aSide=>aSide%nextElemSide
-  END DO
-  aElem=>aElem%nextElem
-END DO
-
-! assign Normalvectors to nodes
-DO iNode=1, nNodes
-  !search if node is inside local search mesh
-  ToObject=>getFirstToObject(searchMesh,.FALSE.,NodesX(:,iNode))
-  DO WHILE (ASSOCIATED(ToObject))
-    IF (SAMEPOINT(ToObject%Node%x,NodesX(:,iNode),PP_MeshTolerance)) THEN
-      !build normalvector pointer list
-      CALL getNewNormal(aNormal, 1)
-      aNormal%normal(:)=Normal(:,iNode)
-      aNormal%FaceID(1)=iCurveInd
-      IF (ASSOCIATED (ToObject%Node%firstNormal)) THEN
-        firstNormal=>ToObject%Node%firstnormal
-        ToObject%Node%firstnormal=>aNormal
-        aNormal%nextNormal=>FirstNormal
-        FirstNormal%prevNormal=>aNormal
-      ELSE
-        ToObject%Node%firstNormal=>aNormal
-      END IF
-      ! delete ToObject from search mesh
-      CALL deleteToObject(searchmesh%sm(searchMesh%actualInd(1),&
-                                        searchMesh%actualInd(2),&
-                                        searchMesh%actualInd(3))%ToObject,ToObject)
-    END IF ! SAMEPOINT
-    ToObject=>getNextToObject(searchMesh,.TRUE.)
-  END DO !associated toobject
-END DO !iNode
-CALL deleteSearchMesh(searchMesh)
-END SUBROUTINE assignNormalsToNodes
 
 
 SUBROUTINE deleteDuplicateNormals()
