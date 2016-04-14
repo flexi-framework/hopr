@@ -40,7 +40,8 @@ INTEGER                            :: bOrd
 INTEGER,ALLOCATABLE                :: tetMapGMSH(:,:,:),  pyrMapGMSH(:,:,:),  priMapGMSH(:,:,:),  hexMapGMSH(:,:,:)
 INTEGER                            :: tetMapCGNSToGMSH(4),pyrMapCGNSToGMSH(5),priMapCGNSToGMSH(6),hexMapCGNSToGMSH(8)
 INTEGER                            :: GMSH_TYPES(6,131)
-INTEGER,ALLOCATABLE                :: MapBC(:)
+INTEGER                            :: nBCs_GMSH
+INTEGER,ALLOCATABLE                :: MapBC(:),MapBCInd(:)
 
 CONTAINS
 SUBROUTINE buildTypes()
