@@ -23,7 +23,9 @@ ENABLE_LANGUAGE(C CXX Fortran)
 # Machine environements and specific library paths
 # =========================================================================
 SET (CGNSDOWNLOAD https://github.com/CGNS/CGNS.git )
-SET (HDF5DOWNLOAD http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-${HOPR_HDF5VERSION}/src/hdf5-${HOPR_HDF5VERSION}.tar.gz )
+SET (HOPR_CGNSTAG "v3.2.1" CACHE STRING "CGNS version tag")
+SET (HDF5DOWNLOAD https://gitlabext.iag.uni-stuttgart.de/libs/HDF5.git )
+SET (HOPR_HDF5TAG "1.8.17" CACHE STRING "HDF5 version tag")
 
 SITE_NAME(CMAKE_HOSTNAME)
 STRING(FIND "${CMAKE_HOSTNAME}" "eslogin" ONHORNET)
@@ -106,7 +108,7 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   SET (HOPR_COMPILERNAME "INTEL")
   # set Flags
   SET (CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -r8 -i4 -traceback -warn all -DINTEL -mkl=sequential")
-  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O2 $(INSTRUCTION) -vec-report0 -no-prec-div")
+  SET (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS} -O2 -xHost -vec-report0 -no-prec-div")
   SET (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS} -g -O0 -fpe0 -traceback -check all,noarg_temp_created,noformat,nooutput_conversion,pointer,uninit")
   SET (CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS} -O2 -xHost -ip")
   SET (CMAKE_C_FLAGS_DEBUG     "${CMAKE_C_FLAGS} -g")
@@ -165,7 +167,8 @@ IF(HOPR_BUILDHDF5)
   IF ("${CMAKE_VERSION}" VERSION_GREATER 3.2.0) # Compile HDF5 using cmake
     IF (NOT EXISTS "${HOPR_HDF5DIR}/build/lib/libhdf5.a")
       ExternalProject_Add(hdf5
-        DOWNLOAD_COMMAND ${HDF5DOWNLOAD}
+        GIT_REPOSITORY ${HDF5DOWNLOAD}
+        GIT_TAG ${HOPR_HDF5TAG}
         PREFIX ${HOPR_HDF5DIR}
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${HOPR_HDF5DIR}/build /
         -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS_RELEASE} /
@@ -236,7 +239,6 @@ ENDIF()
 STRING(COMPARE EQUAL ${HOPR_CGNS_INT} "64" HOPR_CGNS_64BIT)
 
 IF (HOPR_BUILDCGNS)
-  SET(HOPR_CGNSTAG "v3.2.1" CACHE STRING "CGNS version tag")
   IF (NOT EXISTS "${HOPR_CGNSDIR}/build/lib/libcgns.a")
     ExternalProject_Add(cgns
     GIT_REPOSITORY ${CGNSDOWNLOAD}
@@ -289,3 +291,9 @@ FOREACH (_var IN LISTS hoprVars)
       FILE(APPEND ${configuration} "SET(${_var} \"${${_var}}\" CACHE STRING \"${currentHelpString}\")\n")
    ENDIF()
 ENDFOREACH()
+
+# =========================================================================
+# final message
+# =========================================================================
+ADD_CUSTOM_COMMAND(TARGET hopr POST_BUILD COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --cyan "SUCCESS: HOPR BUILD COMPLETE!")
+ADD_CUSTOM_COMMAND(TARGET hopr POST_BUILD COMMAND ln -sf  ${CMAKE_CURRENT_BINARY_DIR}/bin/hopr ${CMAKE_CURRENT_SOURCE_DIR}/bin/hopr )
