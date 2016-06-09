@@ -301,6 +301,7 @@ END IF
 
 
 IF(useVMEC)THEN
+  CALL WriteAttributeToHDF5(File_ID,'VMECdata_Version',1,IntegerScalar=2)
   CALL WriteArrayToHDF5(File_ID,'VMECdata_VarNames',1,(/nVarOutVMEC/),StrArray=VMECvarNames(VMECoutVarMap))
   CALL WriteArrayToHDF5(File_ID,'VMECdata_GL',5,(/nVarOutVMEC,N+1,N+1,N+1,nElems/),RealArray=VMECoutdataGL)
 END IF !useVMEC
