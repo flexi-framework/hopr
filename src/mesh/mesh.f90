@@ -396,6 +396,13 @@ SUBROUTINE fillMesh()
 !===================================================================================================================================
 ! MODULES
 USE MOD_Mesh_Vars
+USE MOD_Readin_ANSA
+USE MOD_Readin_CGNS
+USE MOD_Readin_Gambit
+USE MOD_Readin_GMSH
+USE MOD_Readin_HDF5
+USE MOD_Readin_HDF5_OLD
+USE MOD_Readin_ICEM
 USE MOD_zcorrection,      ONLY: zcorrection
 USE MOD_zcorrection,      ONLY: OrientElemsToZ
 USE MOD_SplitToHex,       ONLY: SplitElementsToHex,SplitAllHexa
@@ -415,14 +422,7 @@ USE MOD_Mesh_Tools,       ONLY: CountSplines,Netvisu,BCvisu,chkspl_surf,chkspl_v
 USE MOD_Mesh_PostDeform,  ONLY: PostDeform
 USE MOD_Output_HDF5,      ONLY: WriteMeshToHDF5
 USE MOD_Mesh_Jacobians,   ONLY: CheckJacobians
-USE MOD_Readin_ANSA
-USE MOD_Readin_CGNS
-USE MOD_Readin_Gambit
-USE MOD_Readin_GMSH
-USE MOD_Readin_HDF5
-USE MOD_Readin_HDF5_OLD
-USE MOD_Readin_ICEM
-USE MOD_Output_Vars,ONLY:useSpaceFillingCurve,sfc_boundbox
+USE MOD_Output_Vars,      ONLY:useSpaceFillingCurve
 USE MOD_Output_HDF5,      ONLY: SpaceFillingCurve
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE

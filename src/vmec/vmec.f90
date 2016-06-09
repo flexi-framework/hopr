@@ -56,9 +56,9 @@ SUBROUTINE InitVMEC
 ! MODULES
 USE MOD_Globals,ONLY:UNIT_stdOut,abort
 USE MOD_ReadInTools
-USE MOD_VMEC_Mappings
 USE MOD_VMEC_Vars
 USE SPLINE1_MOD,       ONLY:SPLINE1_FIT 
+USE MOD_VMEC_Mappings !ReadVMECoutput,VMEC variables
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -69,8 +69,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER              :: ioError
-INTEGER              :: iMode,iFlux
+INTEGER              :: iMode
 LOGICAL              :: useFilter
 REAL,ALLOCATABLE     :: lmns_half(:,:)
 REAL,ALLOCATABLE     :: gmnc_half_nyq(:,:)
@@ -199,9 +198,9 @@ IF(useVMEC)THEN
   ALLOCATE(VMECVarNames(nVarVMEC))
   VMECvarnames( 1)='VMEC-torfluxnorm'
   VMECvarnames( 2)='VMEC-polfluxnorm'
-  VMECvarnames( 3)='VMEC-BR'
-  VMECvarnames( 4)='VMEC-Bz'
-  VMECvarnames( 5)='VMEC-Bphi'
+  VMECvarnames( 3)='VMEC-A_X'
+  VMECvarnames( 4)='VMEC-A_Y'
+  VMECvarnames( 5)='VMEC-A_Z'
   VMECvarnames( 6)='VMEC-B_X'
   VMECvarnames( 7)='VMEC-B_Y'
   VMECvarnames( 8)='VMEC-B_Z'
@@ -211,10 +210,10 @@ IF(useVMEC)THEN
   VMECvarnames(12)='VMEC-12'
   VMECvarnames(13)='VMEC-13'
   VMECvarnames(14)='VMEC-14'
-  nVarOutVMEC=7
+  nVarOutVMEC=10
   ALLOCATE(VMECoutVarMap(1:nVarOutVMEC))
-  !output variables for HDF5 file: Density,Pressure,Bx,By,Bz,normalized poloidal & toroidal flux
-  VMECoutVarMap(:)=(/10,9,6,7,8,2,1/) 
+  !output variables for HDF5 file: Density,Pressure,Bx,By,Bz,normalized poloidal & toroidal flux, magnetic potential
+  VMECoutVarMap(:)=(/10,9,6,7,8,2,1,3,4,5/) 
 END IF !useVMEC
 
 WRITE(UNIT_stdOut,'(A)')'... DONE'
@@ -315,7 +314,7 @@ DO iMode=1,modes
   END DO !i
   !Parabolic extrapolation to axis with dx'(rho=0)=0.
   Xmn_Half_Spl(1,1)=(Xmn_Half_Spl(1,2)*rho_half(3)**2-Xmn_Half_Spl(1,3)*rho_half(2)**2) /(rho_half(3)**2-rho_half(2)**2)
-  !Extrapolate to Edge extrapolation to axis
+  !Extrapolate to Edge 
   Xmn_Half_Spl(1,nFluxVMEC+1)= ( Xmn_half_Spl(1,nFluxVMEC  )*(rho_half(nFluxVMEC+1)-rho_half(nFluxVMEC-1))     &
                                 -Xmn_half_Spl(1,nFluxVMEC-1)*(rho_half(nFluxVMEC+1)-rho_half(nFluxVMEC  )) )   &
                                    /(  rho_half(nFluxVMEC)   -rho_half(nFluxVMEC-1) )
@@ -342,10 +341,11 @@ SUBROUTINE MapToVMEC(nTotal,x_in,InputCoordSys,xvmec,vmecData)
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
-USE MOD_VMEC_Mappings, ONLY: mn_mode,xm,xn,Rmnc,Zmns
+USE MOD_VMEC_Mappings, ONLY: mn_mode,xm,xn
 USE MOD_VMEC_Mappings, ONLY: mn_mode_nyq,xm_nyq,xn_nyq
 USE MOD_VMEC_Mappings, ONLY: nFluxVMEC
 USE MOD_VMEC_Mappings, ONLY: mu0
+USE MOD_VMEC_Mappings, ONLY: chi,phi
 USE MOD_VMEC_Vars
 USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
 ! IMPLICIT VARIABLE HANDLING
@@ -375,22 +375,25 @@ REAL    :: theta  ! poloidal angle [0,2pi]
 REAL    :: zeta ! toroidal angle [0,2pi]
 REAL    :: coszeta,sinzeta
 REAL    :: R,Z   
-REAL    :: dRdrho,dRdU,dRdV      !derivatives
-REAL    :: dZdrho,dZdU,dZdV 
-REAL    :: phipf_int,iota_int
-REAL    :: sqrtG 
+REAL    :: sqrtG   
+REAL    :: dRdrho,dRdtheta,dRdzeta      !derivatives
+REAL    :: dZdrho,dZdtheta,dZdzeta 
+REAL    :: phi_int,chi_int,phipf_int,iota_int
 REAL    :: rho_p,rhom,drhom,splOut(3) !for interpolation
 REAL    :: Density,Pressure
-REAL    :: lam,dldU,dldV
+REAL    :: lam,dldtheta,dldzeta,dldrho
 REAL    :: Btheta,Bzeta          ! also called B^u, B^v, contravariant components of the magnetic field
 REAL    :: Br,Bz,Bphi            !mangetic field components in (R,Z,phi) system (phi=zeta)
-                                 ! Br=dRdu*Btheta+dRdv*Bszeta 
-                                 ! Bz=dZdu*Btheta+dZdv*Bzeta
+                                 ! Br=dRdtheta*Btheta+dRdzeta*Bszeta 
+                                 ! Bz=dZdtheta*Btheta+dZdzeta*Bzeta
                                  ! Bphi=R*Bzeta
 REAL    :: Bcart(3)              !magnetic field components in (X,Y,Z) system 
                                  ! Bx=Br*cos(phi) - Bphi*sin(phi)
                                  ! By=Br*sin(phi) + Bphi*cos(phi)
                                  ! Bz=Bz
+REAL    :: Arho,Atheta,Azeta
+REAL    :: Ar,Az,Aphi,Acart(3)   !magnetic potential
+REAL    :: ssqrtG
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A,I8,A,A,A)')'  MAP ', nTotal,' NODES TO VMEC DATA FROM ',TRIM(VMECdataFile),' ...'
 percent=0
@@ -420,54 +423,61 @@ DO iNode=1,nTotal
   phi_p=MIN(1.,MAX(phi_p,1.0E-08))
   rho_p=SQRT(phi_p)
 
-  R      =0.
-  Z      =0.
-  dRdu   =0.
-  dRdv   =0.
-  dRdrho =0.
-  dZdu   =0.
-  dZdv   =0.
-  dZdrho =0.
-  lam    =0.
-  dldU   =0.
-  dldV   =0.
-  sqrtG  =0.
+  R         =0.
+  Z         =0.
+  dRdtheta  =0.
+  dRdzeta   =0.
+  dRdrho    =0.
+  dZdtheta  =0.
+  dZdzeta   =0.
+  dZdrho    =0.
+  lam       =0.
+  dldtheta  =0.
+  dldzeta   =0.
+  dldrho    =0.
   DO iMode=1,mn_mode
-    IF(xmabs(iMode).EQ.0)THEN
+    SELECT CASE(xmabs(iMode))
+    CASE(0)
       rhom=1.
       drhom=0.
-    ELSEIF(xmabs(iMode).EQ.1)THEN
+    CASE(1)
       rhom=rho_p
       drhom=1.
-    ELSE
+    CASE(2)
+      rhom=rho_p*rho_p
+      drhom=2*rho_p
+    CASE DEFAULT
       rhom=rho_p**xmabs(iMode)
       drhom=xmabs(iMode)*rho_p**(xmabs(iMode)-1)
-    END IF
+    END SELECT
     CALL SPLINE1_EVAL((/1,1,0/), nFluxVMEC,rho_p,rho,Rmnc_Spl(:,:,iMode),iGuess,splout) 
     R    = R    + rhom*splout(1)*CosMN(iMode)
     !dR/dtheta (cos(m*theta-n*zeta))=-m*sin(m*theta-n*zeta)
-    dRdU = dRdU - rhom*splout(1)*SinMN(iMode)*xm(iMode) 
+    dRdtheta = dRdtheta - rhom*splout(1)*SinMN(iMode)*xm(iMode) 
     !dR/dzeta  (cos(m*theta-n*zeta))=n*sin(m*theta-n*zeta)
-    dRdV = dRdV + rhom*splout(1)*SinMN(iMode)*xn(iMode)
+    dRdzeta  = dRdzeta  + rhom*splout(1)*SinMN(iMode)*xn(iMode)
     !dR/drho = sum_mn [ rho**m * dR_mn/drho + R_mn *d(rho**m)/drho ] * cos(m*theta-n*zeta)
-    dRdrho=dRdrho+(rhom*splout(2)+splout(1)*drhom)*CosMN(iMode)
+    dRdrho   = dRdrho   + (rhom*splout(2)+splout(1)*drhom)*CosMN(iMode)
     CALL SPLINE1_EVAL((/1,1,0/), nFluxVMEC,rho_p,rho,Zmns_Spl(:,:,iMode),iGuess,splout) 
     Z    = Z    + rhom*splout(1)*SinMN(iMode)
     !dZ/dtheta (sin(m*theta-n*zeta))=m*cos(m*theta-n*zeta)
-    dZdU = dZdU + rhom*splout(1)*CosMN(iMode)*xm(iMode) 
+    dZdtheta = dZdtheta + rhom*splout(1)*CosMN(iMode)*xm(iMode) 
     !dZ/dzeta  (sin(m*theta-n*zeta))=-n*cos(m*theta-n*zeta)
-    dZdV = dZdV - rhom*splout(1)*CosMN(iMode)*xn(iMode)
+    dZdzeta  = dZdzeta  - rhom*splout(1)*CosMN(iMode)*xn(iMode)
     !dZ/drho = sum_mn [ rho**m * dZ_mn/drho + Z_mn *d(rho**m)/drho ] * sin(m*theta-n*zeta)
-    dZdrho=dZdrho+(rhom*splout(2)+splout(1)*drhom)*SinMN(iMode)
+    dZdrho   = dZdrho   + (rhom*splout(2)+splout(1)*drhom)*SinMN(iMode)
     !lambda
-    CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,lmns_Spl(:,:,iMode),iGuess,splout) 
-    lam   =lam   + rhom*splout(1)*SinMN(iMode)
+    CALL SPLINE1_EVAL((/1,1,0/), nFluxVMEC,rho_p,rho,lmns_Spl(:,:,iMode),iGuess,splout) 
+    lam      = lam      + rhom*splout(1)*SinMN(iMode)
     !dL/dtheta (sin(m*theta-n*zeta))=m*cos(m*theta-n*zeta)
-    dldU = dldU + rhom*splout(1)*CosMN(iMode)*xm(iMode) 
+    dldtheta = dldtheta + rhom*splout(1)*CosMN(iMode)*xm(iMode) 
     !dl/dzeta  (sin(m*theta-n*zeta))=-n*cos(m*theta-n*zeta)
-    dldV = dldV - rhom*splout(1)*CosMN(iMode)*xn(iMode)
+    dldzeta  = dldzeta  - rhom*splout(1)*CosMN(iMode)*xn(iMode)
+    !dl/drho = sum_mn [ rho**m * dl_mn/drho + l_mn *d(rho**m)/drho ] * sin(m*theta-n*zeta)
+    dldrho   = dldrho   + (rhom*splout(2)+splout(1)*drhom)*SinMN(iMode)
   END DO !iMode=1,mn_mode 
 
+  sqrtG     =0.
   DO iMode=1,mn_mode_nyq
     IF(xmabs_nyq(iMode).EQ.0)THEN
       rhom=1.
@@ -486,7 +496,7 @@ DO iNode=1,nTotal
   CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,pres_Spl(:,:),iGuess,splout) 
   pressure=splout(1)
   CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,chinorm_Spl(:,:),iGuess,splout) 
-  chi_p=splout(1)
+  chi_p=splout(1) !normalized chi (poloidal flux)
   CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,phipf_Spl(:,:),iGuess,splout) 
   phipf_int=splout(1)
   CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,iota_Spl(:,:),iGuess,splout) 
@@ -497,15 +507,55 @@ DO iNode=1,nTotal
   !  ! B^s     = 0 
   !  ! B^theta = dphi/ds*(iota-dlambda/dzeta)  : phipf*(iotaf -  (lVmnc) ) 
   !  ! B^zeta = dphi/ds*(1+dlambda/dtheta)     : phipf*(1+ (lUmnc) )
-  !  !   ...( lmns is overwritten to full mesh and then d/du d/dv is applied )
+  !  !   ...( lmns is overwritten to full mesh and then d/dtheta d/dzeta is applied )
   
-  Btheta = phipf_int/sqrtG*(iota_int - dldV)
-  Bzeta  = phipf_int/sqrtG*(1.        + dldU)
+
+  !do not use sqrtG
+  !sqrtG=0.5/(rho_p)*R*(dRdtheta*dZdrho-dRdrho*dZdtheta) ! =drho/ds *R*(dRdtheta*dZdrho-dRdrho*dZdtheta)
+
+  !contravariant components of B (B^s=0) !!! sqrtG=Jacobian: R*(dRdtheta*dZds-dRds*dZdtheta)
+!  Btheta = phipf_int/sqrtG*(iota_int - dldzeta)
+!  Bzeta  = phipf_int/sqrtG*(1.  + dldtheta)
+!
+!  Br   =  dRdtheta*Btheta+dRdzeta*Bzeta
+!  Bz   =  dZdtheta*Btheta+dZdzeta*Bzeta
+!  Bphi =  R*Bzeta
+
+  !cylindrical components of B
+!  Br   =  phipf_int*(dRdtheta*(iota_int-dldzeta)+dRdzeta*(1.  + dldtheta))*2*rho_p/(R*(dRdtheta*dZdrho-dRdrho*dZdtheta))
+!  Bz   =  phipf_int*(dZdtheta*(iota_int-dldzeta)+dZdzeta*(1.  + dldtheta))*2*rho_p/(R*(dRdtheta*dZdrho-dRdrho*dZdtheta))
+!  Bphi =  phipf_int*(1.  + dldtheta)*2*rho_p/(dRdtheta*dZdrho-dRdrho*dZdtheta)
+
+  ! directly cylindrical components of B
+  Br   =  phipf_int*(dRdtheta*(iota_int-dldzeta)+dRdzeta*(1.  + dldtheta))/sqrtG
+  Bz   =  phipf_int*(dZdtheta*(iota_int-dldzeta)+dZdzeta*(1.  + dldtheta))/sqrtG
+  Bphi =  phipf_int*(1.  + dldtheta)*R/sqrtG
+ 
+  phi_int= phi(1)+(phi(nFluxVMEC)-phi(1))*phi_p 
+  chi_int= chi(1)+(chi(nFluxVMEC)-chi(1))*chi_p 
+
+!  !covariant components of A!!!
+!  Arho   = 0.5/rho_p*phi_int*dldrho
+!  Atheta = phi_int*(1+dldtheta)
+!  Azeta  = phi_int*dldzeta-chi_int
+!
+!  !cylindrical components of A
+!  Ar   = (-dZdtheta*Arho + 0.5/rho_p*dZdrho*Atheta )*R/sqrtG
+!  Az   = ( dRdtheta*Arho - 0.5/rho_p*dRdrho*Atheta )*R/sqrtG
+!  Aphi = -Azeta/R
+
+  !directly cylindrical components of A
+  Ar   = phi_int*(-dZdtheta*dldrho + dZdrho*(1+dldtheta) )/(dRdtheta*dZdrho-dRdrho*dZdtheta)
+  Az   = phi_int*( dRdtheta*dldrho - dRdrho*(1+dldtheta) )/(dRdtheta*dZdrho-dRdrho*dZdtheta)
+  Aphi = (chi_int-phi_int*dldzeta)/R
   
-  Br   =dRdu*Btheta+dRdv*Bzeta
-  Bz   =dZdu*Btheta+dZdv*Bzeta
-  Bphi =R*Bzeta
-  
+  !cylindrical components of A
+!  Ar   = phi_int*(-dZdtheta*(0.5*dldrho/rho_p) + (0.5*dZdrho/rho_p)*(1+dldtheta) )*R/sqrtG
+!  Az   = phi_int*( dRdtheta*(0.5*dldrho/rho_p) - (0.5*dRdrho/rho_p)*(1+dldtheta) )*R/sqrtG
+!  Aphi = (chi_int-phi_int*dldzeta)/R
+
+
+
   coszeta=COS(zeta)
   sinzeta=SIN(zeta)
   
@@ -516,22 +566,23 @@ DO iNode=1,nTotal
   Bcart(1)= Br*coszeta-Bphi*sinzeta
   Bcart(2)= Br*sinzeta+Bphi*coszeta
   Bcart(3)= Bz
+
+  Acart(1)= Ar*coszeta-Aphi*sinzeta
+  Acart(2)= Ar*sinzeta+Aphi*coszeta
+  Acart(3)= Az
   
   Density=EvalPoly(nRhoCoefs,RhoCoefs,MERGE(phi_p,chi_p,RhoFluxVar.EQ.0)) 
 
   vmecData(  1,iNode)=phi_p
   vmecData(  2,iNode)=chi_p
-  vmecData(  3,iNode)=Br
-  vmecData(  4,iNode)=Bz
-  vmecData(  5,iNode)=Bphi
+  vmecData(3:5,iNode)=Acart(:)
   vmecData(6:8,iNode)=Bcart(:)
   vmecData(  9,iNode)=pressure*mu0 !pressure transformed to mu0=1
   vmecData( 10,iNode)=Density
   vmecData( 11,iNode)=lam
-  vmecData( 12,iNode)=dldU
-  vmecData( 13,iNode)=(2.*rho_p*phipf_int)/(dRdU*dZdrho - dZdU*dRdrho)*(1.+dldU) !other way of computing Bphi=R*Bzeta
-                       ! using the definition of the  Jacobian sqrtG=R(dRdU*dZrho-dZdu*dRdrho)*drho/ds
-  vmecData( 14,iNode)=iota_int
+  vmecData( 12,iNode)=dRdrho
+  vmecData( 13,iNode)=dldrho
+  vmecData( 14,iNode)=dZdrho
 END DO !iNode=1,nTotal
 
 WRITE(UNIT_stdOut,'(A)')'  ...DONE.                             '

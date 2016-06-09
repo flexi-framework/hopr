@@ -70,7 +70,6 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 TYPE(tElem),POINTER          :: aElem   
-REAL                         :: x_loc(3)
 INTEGER                      :: iNode   
 INTEGER                      :: nTotal 
 INTEGER                      :: i,iElem,ijk(3)
