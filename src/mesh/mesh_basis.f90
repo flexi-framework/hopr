@@ -27,6 +27,7 @@ MODULE MOD_Mesh_Basis
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
+USE MOD_Mesh_Vars,ONLY:tEdge
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 PRIVATE
@@ -51,9 +52,9 @@ INTERFACE CreateSides
  MODULE PROCEDURE CreateSides
 END INTERFACE
 
-INTERFACE AdjustOrientedNodes
-  MODULE PROCEDURE AdjustOrientedNodes
-END INTERFACE
+!INTERFACE AdjustOrientedNodes
+  !MODULE PROCEDURE AdjustOrientedNodes
+!END INTERFACE
 
 INTERFACE GetBoundaryIndex
   MODULE PROCEDURE GetBoundaryIndex
@@ -75,16 +76,32 @@ INTERFACE isOriented
    MODULE PROCEDURE isOriented
 END INTERFACE
 
+INTERFACE PACKGEO
+   MODULE PROCEDURE PACK1D
+   MODULE PROCEDURE PACK2D
+   MODULE PROCEDURE PACK3D
+END INTERFACE
+
+INTERFACE UNPACKGEO
+   MODULE PROCEDURE UNPACK1D
+   MODULE PROCEDURE UNPACK2D
+   MODULE PROCEDURE UNPACK3D
+END INTERFACE
+
+
 PUBLIC::ElemGeometry
 PUBLIC::getNewHexa
 PUBLIC::CreateSides
-PUBLIC::AdjustOrientedNodes
+!PUBLIC::AdjustOrientedNodes
 PUBLIC::GetBoundaryIndex
 PUBLIC::BuildEdges
 PUBLIC::FlushMesh
 PUBLIC::assignBC
 PUBLIC::isOriented
 PUBLIC::FindElemTypes
+PUBLIC::PackGeo
+PUBLIC::UnpackGeo
+
 !===================================================================================================================================
   !---------------------------------------------------------------------------!
 CONTAINS
@@ -466,96 +483,96 @@ END DO
 END SUBROUTINE CreateSides
 
 
-SUBROUTINE AdjustOrientedNodes(Side,countRef)
-!===================================================================================================================================
-! Nodes of a Side and the nodes of its neighbor side have to be oriented in the
-!   same manner. Therefor we have the structure nodes (which is sorted according
-!   to CGNS standards in local element system) and the Oriented nodes which are
-!   equally oriented for Side and Side%connection
-!===================================================================================================================================
-! MODULES
-USE MOD_Mesh_Vars,ONLY:tSide
-USE MOD_Mesh_Vars,ONLY:VV
-USE MOD_Mesh_Tolerances,ONLY:SAMEPOINT
-! IMPLICIT VARIABLE HANDLING
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-! VV...periodic displacement vector for Cartmesh generator
-! CALC%spaceQuandt...used to secure geometric operations
-! RealTolerance is defined in defines.f90 and used to secure geometric operations
-TYPE(tSide),POINTER,INTENT(IN) :: Side     ! pointer to the actual considered Side
-LOGICAL,INTENT(IN)             :: countRef ! determines if the Node%countref counter has to be updated
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-TYPE(tSide),POINTER :: nSide   ! ?
-INTEGER             :: iNode,fNode,deriv(2)  ! ?
-REAL                :: VV_loc(3)  ! ?
-LOGICAL             :: isPeriodic,dominant   ! ?
-!===================================================================================================================================
-deriv=0
-IF (countRef) THEN
-  DO iNode=1,Side%nNodes
-    Side%Node(iNode)%np%refCount=Side%Node(iNode)%np%refCount+1
-  END DO
-END IF
-nSide=>Side%Connection
-IF(.NOT. ASSOCIATED(nSide)) THEN
-  DO iNode=1,Side%nNodes
-    Side%orientedNode(iNode)%np=>Side%Node(iNode)%np
-  END DO
-ELSE
-  isPeriodic=.FALSE.
-  IF(ASSOCIATED(Side%BC)) THEN
-    IF(.NOT. ASSOCIATED(nSide%BC)) &
-      CALL abort(__STAMP__, &
-      'periodic Side error')
-    IF(Side%BC%BCType.EQ.1) THEN
-      IF(nSide%BC%BCType.NE.1) &
-        CALL abort(__STAMP__, &
-        'periodic Side error')
-      isPeriodic=.TRUE.
-      VV_loc=VV(:,abs(Side%BC%BCalphaInd))*sign(1,Side%BC%BCalphaInd)
-    END IF
-  END IF
-  IF (countRef) THEN
-    DO iNode=1,nSide%nNodes
-      nSide%Node(iNode)%np%refCount=nSide%Node(iNode)%np%refCount+1
-    END DO
-  END IF
-  fNode=0
-  DO iNode=1,Side%nNodes
-    IF(isPeriodic) THEN
-      IF(SAMEPOINT(Side%Node(1)%np%x+VV_loc,nSide%Node(iNode)%np%x)) THEN
-        fNode=iNode
-      END IF
-    ELSE
-      IF(ASSOCIATED(Side%Node(1)%np,nSide%Node(iNode)%np)) THEN
-        fNode=iNode
-      END IF
-    END IF
-  END DO
-  dominant=.FALSE.
-  IF(Side%Elem%ind .LT. nSide%Elem%ind) dominant=.TRUE.
-  IF(dominant) THEN
-    DO iNode=1,nSide%nNodes
-      Side%orientedNode(iNode)%np=>Side%Node(iNode)%np
-      nSide%orientedNode(iNode)%np=>nSide%Node(fNode)%np
-      fNode=fNode-1
-      IF(fNode .LT.1) fNode=fNode+nSide%nNodes
-    END DO
-  ELSE
-    DO iNode=1,nSide%nNodes
-      Side%orientedNode(iNode)%np=>Side%Node(fNode)%np
-      nSide%orientedNode(iNode)%np=>nSide%Node(iNode)%np
-      fNode=fNode-1
-      IF(fNode .LT.1) fNode=fNode+nSide%nNodes
-    END DO
-  END IF
-END IF
-END SUBROUTINE AdjustOrientedNodes
+!SUBROUTINE AdjustOrientedNodes(Side,countRef)
+!!==================================================================================================================================
+!! Nodes of a Side and the nodes of its neighbor side have to be oriented in the
+!!   same manner. Therefor we have the structure nodes (which is sorted according
+!!   to CGNS standards in local element system) and the Oriented nodes which are
+!!   equally oriented for Side and Side%connection
+!!==================================================================================================================================
+!! MODULES
+!USE MOD_Mesh_Vars,ONLY:tSide
+!USE MOD_Mesh_Vars,ONLY:VV
+!USE MOD_Mesh_Tolerances,ONLY:SAMEPOINT
+!! IMPLICIT VARIABLE HANDLING
+!IMPLICIT NONE
+!!----------------------------------------------------------------------------------------------------------------------------------
+!! INPUT VARIABLES
+!! VV...periodic displacement vector for Cartmesh generator
+!! CALC%spaceQuandt...used to secure geometric operations
+!! RealTolerance is defined in defines.f90 and used to secure geometric operations
+!TYPE(tSide),POINTER,INTENT(IN) :: Side     ! pointer to the actual considered Side
+!LOGICAL,INTENT(IN)             :: countRef ! determines if the Node%countref counter has to be updated
+!!----------------------------------------------------------------------------------------------------------------------------------
+!! OUTPUT VARIABLES
+!!----------------------------------------------------------------------------------------------------------------------------------
+!! LOCAL VARIABLES 
+!TYPE(tSide),POINTER :: nSide   ! ?
+!INTEGER             :: iNode,fNode,deriv(2)  ! ?
+!REAL                :: VV_loc(3)  ! ?
+!LOGICAL             :: isPeriodic,dominant   ! ?
+!!==================================================================================================================================
+!deriv=0
+!IF (countRef) THEN
+  !DO iNode=1,Side%nNodes
+    !Side%Node(iNode)%np%refCount=Side%Node(iNode)%np%refCount+1
+  !END DO
+!END IF
+!nSide=>Side%Connection
+!IF(.NOT. ASSOCIATED(nSide)) THEN
+  !DO iNode=1,Side%nNodes
+    !Side%orientedNode(iNode)%np=>Side%Node(iNode)%np
+  !END DO
+!ELSE
+  !isPeriodic=.FALSE.
+  !IF(ASSOCIATED(Side%BC)) THEN
+    !IF(.NOT. ASSOCIATED(nSide%BC)) &
+      !CALL abort(__STAMP__, &
+      !'periodic Side error')
+    !IF(Side%BC%BCType.EQ.1) THEN
+      !IF(nSide%BC%BCType.NE.1) &
+        !CALL abort(__STAMP__, &
+        !'periodic Side error')
+      !isPeriodic=.TRUE.
+      !VV_loc=VV(:,abs(Side%BC%BCalphaInd))*sign(1,Side%BC%BCalphaInd)
+    !END IF
+  !END IF
+  !IF (countRef) THEN
+    !DO iNode=1,nSide%nNodes
+      !nSide%Node(iNode)%np%refCount=nSide%Node(iNode)%np%refCount+1
+    !END DO
+  !END IF
+  !fNode=0
+  !DO iNode=1,Side%nNodes
+    !IF(isPeriodic) THEN
+      !IF(SAMEPOINT(Side%Node(1)%np%x+VV_loc,nSide%Node(iNode)%np%x)) THEN
+        !fNode=iNode
+      !END IF
+    !ELSE
+      !IF(ASSOCIATED(Side%Node(1)%np,nSide%Node(iNode)%np)) THEN
+        !fNode=iNode
+      !END IF
+    !END IF
+  !END DO
+  !dominant=.FALSE.
+  !IF(Side%Elem%ind .LT. nSide%Elem%ind) dominant=.TRUE.
+  !IF(dominant) THEN
+    !DO iNode=1,nSide%nNodes
+      !Side%orientedNode(iNode)%np=>Side%Node(iNode)%np
+      !nSide%orientedNode(iNode)%np=>nSide%Node(fNode)%np
+      !fNode=fNode-1
+      !IF(fNode .LT.1) fNode=fNode+nSide%nNodes
+    !END DO
+  !ELSE
+    !DO iNode=1,nSide%nNodes
+      !Side%orientedNode(iNode)%np=>Side%Node(fNode)%np
+      !nSide%orientedNode(iNode)%np=>nSide%Node(iNode)%np
+      !fNode=fNode-1
+      !IF(fNode .LT.1) fNode=fNode+nSide%nNodes
+    !END DO
+  !END IF
+!END IF
+!END SUBROUTINE AdjustOrientedNodes
 
 
 
@@ -598,7 +615,7 @@ SUBROUTINE buildEdges()
 ! If the edge is not  oriented, it goes from orientedNode(i+1)-> orientedNode(i)
 !===================================================================================================================================
 ! MODULES
-USE MOD_Mesh_Vars,ONLY:tElem,tSide,tEdge,tNode
+USE MOD_Mesh_Vars,ONLY:tElem,tSide,tEdge,tNode,tEdgePtr
 USE MOD_Mesh_Vars,ONLY:firstElem
 USE MOD_Mesh_Vars,ONLY:GetNewEdge
 ! IMPLICIT VARIABLE HANDLING
@@ -610,15 +627,36 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 TYPE(tElem),POINTER          :: aElem  ! ?
-TYPE(tSide),POINTER          :: aSide   ! ?
-TYPE(tEdge),POINTER          :: aEdge  ! ?
+TYPE(tSide),POINTER          :: aSide,bSide   ! ?
+TYPE(tEdge),POINTER          :: aEdge,bEdge  ! ?
+TYPE(tEdgePtr)               :: smallEdges(4)  ! ?
 TYPE(tNode),POINTER          :: aNode,bNode  ! ?
-INTEGER                      :: iSide,iEdge,iPlus,nSides,EdgeInd  ! ?
+INTEGER                      :: iSide,jSide,iEdge,jEdge,kEdge,iNode,iPlus,nSides,EdgeInd,nNodes  ! ?
+INTEGER                      :: indA(2),indB(2,4),indTmp(2)
+INTEGER                      :: edgeCount  ! ?
 LOGICAL                      :: edgeFound  ! ?
 !===================================================================================================================================
 CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'BUILD EDGES ...'
+
+! count unique corner nodes
+aElem=>firstElem
+DO WHILE(ASSOCIATED(aElem))
+  DO iNode=1,aElem%nNodes
+    aElem%Node(iNode)%np%tmp=0
+  END DO
+  aElem=>aElem%nextElem
+END DO !! ELEMS!!
+nNodes=0
+aElem=>firstElem
+DO WHILE(ASSOCIATED(aElem))
+  DO iNode=1,aElem%nNodes
+    IF(aElem%Node(iNode)%np%tmp.EQ.0) nNodes=nNodes+1
+    aElem%Node(iNode)%np%tmp=nNodes
+  END DO
+  aElem=>aElem%nextElem
+END DO !! ELEMS!!
 
 EdgeInd=0
 aElem=>firstElem
@@ -654,10 +692,10 @@ DO WHILE(ASSOCIATED(aElem))
         
         STOP
       END IF
+
       edgeFound=.FALSE.
-      aEdge=>aNode%firstEdge 
-     
-      DO WHILE (ASSOCIATED(aEdge))    
+      aEdge=>aNode%firstEdge
+      DO WHILE (ASSOCIATED(aEdge))
         IF (aEdge%Node(2)%np%ind .EQ. bNode%ind) THEN
           edgeFound=.TRUE.
           EXIT
@@ -673,12 +711,88 @@ DO WHILE(ASSOCIATED(aElem))
         aNode%firstEdge=>aEdge
       END IF 
       !WRITE(*,*)'DEBUG a',aNode%ind,'b',bNode%ind,edgeFound,aEdge%ind
-      aSide%Edge(iEdge)%edp=>aEdge  
+      aSide%Edge(iEdge)%edp=>aEdge
     END DO !!EDGES!!***************
     aSide=>aSide%nextElemSide
   END DO !!SIDES!!**************
   aElem=>aElem%nextElem
 END DO !! ELEMS!!
+
+! in case of nonconforming meshes, build nonconforming edge connectivity
+aElem=>firstElem
+DO WHILE(ASSOCIATED(aElem))
+  SELECT CASE(aElem%nNodes)
+  CASE(8)
+    nSides=6
+  CASE(6)
+    nSides=5
+  CASE(5)
+    nSides=5
+  CASE(4)
+    nSides=4
+  END SELECT
+  aSide=>aElem%firstSide
+  DO iSide=1,nSides
+    IF(aSide%nMortars.LE.0)THEN  ! only check big mortar sides
+      aSide=>aSide%nextElemSide
+      CYCLE
+    END IF
+    IF(ASSOCIATED(aSide%BC))THEN ! dont build periodic curveds
+      IF(aSide%BC%BCType.EQ.1)THEN
+        print*,'Warning: Periodic mortar edges are treated like conforming edges!'
+        aSide=>aSide%nextElemSide
+        CYCLE
+      END IF
+    END IF
+    DO iEdge=1,aSide%nNodes
+      aEdge=>aSide%Edge(iEdge)%edp
+      IF(ASSOCIATED(aEdge%MortarEdge)) CYCLE
+      indA(1)=aEdge%Node(1)%np%ind
+      indA(2)=aEdge%Node(2)%np%ind
+      edgeCount=0
+      DO jSide=1,aSide%nMortars
+        bSide=>aSide%MortarSide(jSide)%sp
+        DO jEdge=1,bSide%nNodes
+          bEdge=>bSide%Edge(jEdge)%edp
+          indTmp(1)=bEdge%Node(1)%np%ind
+          indTmp(2)=bEdge%Node(2)%np%ind
+          IF(ANY(indA(1).EQ.indTmp).OR.ANY(indA(2).EQ.indTmp))THEN
+            edgeCount=edgeCount+1
+            indB(:,edgeCount)=indTmp
+            smallEdges(edgeCount)%edp=>bEdge
+          END IF
+        END DO
+      END DO
+      IF(edgeCount.EQ.3) CYCLE
+      IF(edgeCount.NE.4) THEN
+        STOP 'Mismatch of neighbour edge count of non-conforming edges.'
+      END IF
+
+      DO jEdge=1,3
+        DO kEdge=jEdge+1,4
+          IF(ANY(indB(1,jEdge).EQ.indB(:,kEdge)).OR.ANY(indB(2,jEdge).EQ.indB(:,kEdge)))THEN
+            IF(ANY(indA(1).EQ.indB(:,jEdge)).AND.ANY(indA(2).EQ.indB(:,kEdge))) THEN
+              ALLOCATE(aEdge%MortarEdge(2))
+              aEdge%MortarEdge(1)%edp=>smallEdges(jEdge)%edp
+              aEdge%MortarEdge(2)%edp=>smallEdges(kEdge)%edp
+              smallEdges(jEdge)%edp%parentEdge=>aEdge
+              smallEdges(kEdge)%edp%parentEdge=>aEdge
+            ELSEIF(ANY(indA(1).EQ.indB(:,kEdge)).AND.ANY(indA(2).EQ.indB(:,jEdge))) THEN
+              ALLOCATE(aEdge%MortarEdge(2))
+              aEdge%MortarEdge(2)%edp=>smallEdges(jEdge)%edp
+              aEdge%MortarEdge(1)%edp=>smallEdges(kEdge)%edp
+              smallEdges(jEdge)%edp%parentEdge=>aEdge
+              smallEdges(kEdge)%edp%parentEdge=>aEdge
+            END IF
+          END IF
+        END DO
+      END DO
+    END DO
+    aSide=>aSide%nextElemSide
+  END DO !!SIDES!!**************
+  aElem=>aElem%nextElem
+END DO !! ELEMS!!
+
 CALL timer(.FALSE.)
 END SUBROUTINE buildEdges
 
@@ -761,5 +875,163 @@ IF ((ASSOCIATED(Side%Node(1)%np, Side%orientedNode(1)%np)) .AND. &
       isOriented=.TRUE.
 END IF
 END FUNCTION isOriented
+
+SUBROUTINE Pack1D(Ngeo,edge,data_out) 
+!----------------------------------------------------------------------------------------------------------------------------------!
+! description
+!----------------------------------------------------------------------------------------------------------------------------------!
+! MODULES  
+USE MOD_Mesh_Vars,ONLY:tEdge
+!----------------------------------------------------------------------------------------------------------------------------------!
+! insert modules here
+!----------------------------------------------------------------------------------------------------------------------------------!
+IMPLICIT NONE
+! INPUT / OUTPUT VARIABLES 
+INTEGER,INTENT(IN)             :: Ngeo
+TYPE(tEdge),POINTER,INTENT(IN) :: edge
+REAL,INTENT(OUT)               :: data_out(3,0:Ngeo)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER           :: iNgeo 
+!===================================================================================================================================
+DO iNgeo=0,Ngeo
+  data_out(:,iNgeo) = edge%curvedNode(iNgeo+1)%np%x
+END DO 
+END SUBROUTINE Pack1D
+
+SUBROUTINE Pack2D(Ngeo,side,data_out) 
+!----------------------------------------------------------------------------------------------------------------------------------!
+! description
+!----------------------------------------------------------------------------------------------------------------------------------!
+! MODULES                                                                                                                          !
+USE MOD_Mesh_Vars,ONLY:tSide
+USE MOD_Basis_Vars ,ONLY:QuadMapInv
+!----------------------------------------------------------------------------------------------------------------------------------!
+! insert modules here
+!----------------------------------------------------------------------------------------------------------------------------------!
+IMPLICIT NONE
+! INPUT / OUTPUT VARIABLES 
+INTEGER,INTENT(IN)  :: Ngeo
+TYPE(tSide),POINTER,INTENT(IN) :: side
+REAL,INTENT(OUT)    :: data_out(3,0:Ngeo,0:Ngeo)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER           :: iNgeo,jNgeo,i1D 
+!===================================================================================================================================
+DO jNgeo=0,Ngeo
+  DO iNgeo=0,Ngeo
+    i1D = QuadMapInv(iNgeo,jNgeo)
+    data_out(:,iNgeo,jNgeo) = side%curvedNode(i1D)%NP%x
+  END DO 
+END DO 
+END SUBROUTINE Pack2D
+
+SUBROUTINE Pack3D(Ngeo,elem,data_out) 
+!----------------------------------------------------------------------------------------------------------------------------------!
+! description
+!----------------------------------------------------------------------------------------------------------------------------------!
+! MODULES                                                                                                                          !
+USE MOD_Mesh_Vars,ONLY:tElem
+USE MOD_Basis_Vars ,ONLY:HexaMapInv
+!----------------------------------------------------------------------------------------------------------------------------------!
+! insert modules here
+!----------------------------------------------------------------------------------------------------------------------------------!
+IMPLICIT NONE
+! INPUT / OUTPUT VARIABLES 
+INTEGER,INTENT(IN)  :: Ngeo
+TYPE(tElem),POINTER,INTENT(IN) :: elem
+REAL,INTENT(OUT)    :: data_out(3,0:Ngeo,0:Ngeo,0:Ngeo)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER           :: iNgeo,jNgeo,kNgeo,i1D 
+!===================================================================================================================================
+DO kNgeo=0,Ngeo
+  DO jNgeo=0,Ngeo
+    DO iNgeo=0,Ngeo
+      i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
+      data_out(:,iNgeo,jNgeo,kNgeo) = elem%curvedNode(i1D)%NP%x
+    END DO 
+  END DO 
+END DO 
+END SUBROUTINE Pack3D
+
+SUBROUTINE Unpack1D(Ngeo,data_in,edge) 
+!----------------------------------------------------------------------------------------------------------------------------------!
+! description
+!----------------------------------------------------------------------------------------------------------------------------------!
+! MODULES                                                                                                                          !
+USE MOD_Mesh_Vars,ONLY:tEdge
+!----------------------------------------------------------------------------------------------------------------------------------!
+! insert modules here
+!----------------------------------------------------------------------------------------------------------------------------------!
+IMPLICIT NONE
+! INPUT / OUTPUT VARIABLES 
+INTEGER,INTENT(IN)  :: Ngeo
+REAL,INTENT(IN)     :: data_in(3,0:Ngeo)
+TYPE(tEdge),POINTER,INTENT(IN) :: edge
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER           :: iNgeo 
+!===================================================================================================================================
+DO iNgeo=0,Ngeo
+  edge%curvedNode(iNgeo+1)%NP%x = data_in(:,iNgeo)
+END DO 
+END SUBROUTINE Unpack1D
+
+SUBROUTINE Unpack2D(Ngeo,data_in,side) 
+!----------------------------------------------------------------------------------------------------------------------------------!
+! description
+!----------------------------------------------------------------------------------------------------------------------------------!
+! MODULES                                                                                                                          !
+USE MOD_Mesh_Vars,ONLY:tSide
+USE MOD_Basis_Vars ,ONLY:QuadMapInv
+!----------------------------------------------------------------------------------------------------------------------------------!
+! insert modules here
+!----------------------------------------------------------------------------------------------------------------------------------!
+IMPLICIT NONE
+! INPUT / OUTPUT VARIABLES 
+INTEGER,INTENT(IN)  :: Ngeo
+REAL,INTENT(IN)     :: data_in(3,0:Ngeo,0:Ngeo)
+TYPE(tSide),POINTER,INTENT(IN) :: side
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER           :: iNgeo,jNgeo,i1D
+!===================================================================================================================================
+DO jNgeo=0,Ngeo
+  DO iNgeo=0,Ngeo
+    i1D = QuadMapInv(iNgeo,jNgeo)
+    side%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo)
+  END DO 
+END DO 
+END SUBROUTINE Unpack2D
+
+SUBROUTINE Unpack3D(Ngeo,data_in,elem) 
+!----------------------------------------------------------------------------------------------------------------------------------!
+! description
+!----------------------------------------------------------------------------------------------------------------------------------!
+! MODULES                                                                                                                          !
+USE MOD_Mesh_Vars,ONLY:tElem
+USE MOD_Basis_Vars ,ONLY:HexaMapInv
+!----------------------------------------------------------------------------------------------------------------------------------!
+! insert modules here
+!----------------------------------------------------------------------------------------------------------------------------------!
+IMPLICIT NONE
+! INPUT / OUTPUT VARIABLES 
+INTEGER,INTENT(IN)  :: Ngeo
+REAL,INTENT(IN)     :: data_in(3,0:Ngeo,0:Ngeo,0:Ngeo)
+TYPE(tElem),POINTER,INTENT(IN) :: elem
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER           :: iNgeo,jNgeo,kNgeo,i1D
+!===================================================================================================================================
+DO kNgeo=0,Ngeo
+  DO jNgeo=0,Ngeo
+    DO iNgeo=0,Ngeo
+      i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
+      elem%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo,kNgeo)
+    END DO 
+  END DO 
+END DO 
+END SUBROUTINE Unpack3D
 
 END MODULE MOD_Mesh_Basis

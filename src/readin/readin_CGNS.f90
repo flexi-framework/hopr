@@ -398,11 +398,7 @@ DEALLOCATE(ElemConnect,NodeCoords)
 ! Now read in all boundary data
 CALL CG_NBOCOS_F(CGNSfile,CGNSBase,iZone,nCGNSBC,iError)
 IF (iError .NE. CG_OK) CALL abortCGNS(__STAMP__,CGNSFile)
-IF(MeshDim .EQ. 2)THEN
-  ALLOCATE(NodeIsBCNode(2*nNodes))  ! Expansion into 3D doubles the number of nodes
-ELSE
-  ALLOCATE(NodeIsBCNode(nNodes))
-END IF
+ALLOCATE(NodeIsBCNode(nNodes))
 
 DO iBC=1,nCGNSBC
   NodeIsBCNode(:)=.FALSE.    ! Reset

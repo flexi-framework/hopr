@@ -74,7 +74,8 @@ TYPE(tElem),POINTER            :: Elem  ! ?
 TYPE(tSide),POINTER            :: Side  ! ?
 INTEGER                        :: ElemID,SideID,NodeID  ! ?
 INTEGER                        :: locnSides
-INTEGER                        :: iNode,i 
+INTEGER                        :: iNode,i,iMortar
+LOGICAL                        :: found
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(132("~"))')
 CALL Timer(.TRUE.)
@@ -131,10 +132,25 @@ DO WHILE(ASSOCIATED(Elem))
   DO WHILE(ASSOCIATED(Side))
     locnSides = locnSides + 1
     IF(side%ind.EQ.0) THEN
-      nSideIDs=nSideIDs+1
-      Side%ind=-88888
-      IF(ASSOCIATED(Side%connection))THEN      
-        IF(Side%connection%ind.EQ.0) nSideIDs=nSideIDs-1 ! count inner and periodic sides only once 
+      IF(Side%MortarType.EQ.0)THEN
+        nSideIDs=nSideIDs+1
+        Side%ind=-88888
+        IF(ASSOCIATED(Side%connection))THEN      
+          Side%connection%ind = -88888 ! count inner and periodic sides only once 
+        END IF
+      ELSEIF(Side%MortarType.GT.0)THEN
+        locnSides = locnSides + Side%nMortars
+        nSideIDs=nSideIDs+1
+        Side%ind=-88888
+        DO iMortar=1,Side%nMortars
+          IF(Side%MortarSide(iMortar)%sp%ind.EQ.0)THEN
+            nSideIDs=nSideIDs+1
+            Side%MortarSide(iMortar)%sp%ind=-88888
+          END IF 
+        END DO !iMortar
+      ELSE
+        nSideIDs=nSideIDs+1
+        Side%ind=-88888
       END IF
     END IF
     Side=>Side%nextElemSide
@@ -147,6 +163,7 @@ DO WHILE(ASSOCIATED(Elem))
   nSides = nSides+locnSides
   Elem=>Elem%nextElem
 END DO
+
 
 !NOW CALLED IN FILLMESH!!
 !! prepare sorting by space filling curve
@@ -183,10 +200,24 @@ DO WHILE(ASSOCIATED(Elem))
   Side=>Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
     IF(side%ind.EQ.-88888) THEN  ! assign side ID 
-      SideID=SideID+1
-      Side%ind=SideID
-      IF(ASSOCIATED(Side%connection))THEN     
-        IF(side%connection%ind.EQ.-88888) Side%connection%ind=SideID !assign connection
+      IF(Side%MortarType.EQ.0)THEN
+        SideID=SideID+1
+        Side%ind=SideID
+        IF(ASSOCIATED(Side%connection))THEN      
+          IF(Side%connection%ind.EQ.-88888) Side%connection%ind=SideID ! count inner and periodic sides only once 
+        END IF
+      ELSEIF(Side%MortarType.GT.0)THEN
+        SideID=SideID+1
+        Side%ind=SideID
+        DO iMortar=1,Side%nMortars
+          IF(Side%MortarSide(iMortar)%sp%ind.EQ.-88888)THEN
+            SideID=SideID+1
+            Side%MortarSide(iMortar)%sp%ind=SideID
+          END IF 
+        END DO !iMortar
+      ELSE
+        SideID=SideID+1
+        Side%ind=SideID
       END IF
     END IF
     Side=>Side%nextElemSide
@@ -200,6 +231,7 @@ IF(SideID.NE.nSideIDs) CALL abort(__STAMP__,&
                      'Sanity check: max(sideID <> nSideIDs!')
 IF(ElemID.NE.nElems) CALL abort(__STAMP__,&
                      'Sanity check: max(elemID <> nElems!')
+
 
 !set Side Flip 
 Elem=>firstElem
@@ -220,13 +252,18 @@ DO WHILE(ASSOCIATED(Elem))
       CYCLE
     END IF
     IF(.NOT.ISORIENTED(Side))THEN
+      found=.FALSE.
       DO iNode=1,Side%nNodes
-        IF(ASSOCIATED(Side%Node(iNode)%np,Side%OrientedNode(1)%np)) EXIT
+        IF(ASSOCIATED(Side%Node(iNode)%np,Side%OrientedNode(1)%np))THEN
+          found=.TRUE.
+          EXIT
+        END IF
       END DO 
-      IF(iNode.GT.Side%nNodes) STOP 'Flip not found'
+      IF(.NOT.found) STOP 'Flip not found'
       Side%flip=iNode
-      IF(.NOT.ASSOCIATED(Side%connection)) STOP 'Side connection should be associated for non-oreinted side'
-      Side%connection%flip=iNode !flip is the same for the connection
+      IF(.NOT.ASSOCIATED(Side%connection)) CALL ABORT(__STAMP__, &
+        'Side connection should be associated for non-oreinted side')
+      IF (Side%connection%MortarType.LE.0) Side%connection%flip=iNode !flip is the same for the connection
     END IF
     Side=>Side%nextElemSide
   END DO
@@ -329,7 +366,8 @@ IMPLICIT NONE
 TYPE(tElem),POINTER            :: Elem  ! ?
 TYPE(tSide),POINTER            :: Side  ! ?
 INTEGER                        :: locnNodes,locnSides
-INTEGER                        :: iNode,iSide,iElem,i
+INTEGER                        :: iNode,iSide,iElem,i,iMortar
+TYPE(tSide),POINTER            :: aSide
 !===================================================================================================================================
 !fill ElementInfo. 
 ALLOCATE(ElemInfo(ElemInfoSize,1:nElems))
@@ -345,6 +383,14 @@ Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))
   iElem=iElem+1
   locnSides=nSidesElem(Elem%nNodes)
+
+  aSide=>Elem%firstSide
+  DO WHILE(ASSOCIATED(aSide))
+    locnSides = locnSides + aSide%nMortars
+    aSide=>aSide%nextElemSide
+  END DO 
+
+
   IF(N.EQ.1)THEN
     locnNodes=Elem%nNodes
   ELSE
@@ -412,15 +458,46 @@ DO WHILE(ASSOCIATED(Elem))
     !Side ID
     SideInfo(SIDE_ID,iSide)=Side%ind
     IF(.NOT.ISORIENTED(Side)) SideInfo(SIDE_ID,iSide)=-SideInfo(SIDE_ID,iSide)           
-    !neighbor Element ID
-    IF(ASSOCIATED(Side%Connection))THEN
-      SideInfo(SIDE_nbElemID,iSide)=Side%Connection%Elem%ind                   ! Element ID of neighbor Element
-      SideInfo(SIDE_nbLocSide_flip,iSide)=10*Side%connection%locSide+Side%connection%flip
-    END IF
-    !BC ID 
-    IF(ASSOCIATED(Side%BC))THEN
-      SideInfo(SIDE_BCID,iSide)=Side%BC%BCIndex                            
+    !BCID
+    IF (ASSOCIATED(Side%BC)) THEN
+      SideInfo(SIDE_BCID,    iSide)= Side%BC%BCIndex
       IF(Side%BC%BCIndex.EQ.0) WRITE(*,*)'DEBUG, Warning, BC ind =0'
+    ELSE 
+      SideInfo(SIDE_BCID,    iSide)= 0
+    END IF
+      
+    IF (Side%MortarType.GT.0) THEN ! Mortar master side (only implemented for Quad-sides!!!)
+      IF(ASSOCIATED(Side%Connection)) CALL abort(__STAMP__,&
+                                                 'Mortar master with connection is not allowed')
+      IF(Side%flip.NE.0) STOP 'Problem with flip on mortar'
+      SideInfo(SIDE_nbElemID,iSide)= -Side%MortarType
+      SideInfo(SIDE_nbLocSide_flip,iSide)=0
+      DO iMortar=1,Side%nMortars 
+        iSide=iSide+1
+        SideInfo(SIDE_Type,    iSide)= MERGE(104,204,N.EQ.1) 
+        SideInfo(SIDE_ID,      iSide)= Side%MortarSide(iMortar)%sp%ind       ! small are always master
+        SideInfo(SIDE_nbElemID,iSide)= Side%MortarSide(iMortar)%sp%Elem%ind  ! neighbour Element ID
+        SideInfo(SIDE_nbLocSide_flip,iSide)=0
+        IF (ASSOCIATED(Side%MortarSide(iMortar)%sp%BC)) THEN
+          SideInfo(SIDE_BCID,    iSide)= Side%MortarSide(iMortar)%sp%BC%BCIndex
+        ELSE 
+          SideInfo(SIDE_BCID,    iSide)= 0
+        END IF
+      END DO
+    ELSE IF (Side%MortarType.LT.0) THEN ! small Mortar side (only implemented for Quad-sides!!!)
+       i=MERGE(104,204,N.EQ.1)          ! 104:bilinear,204:curved
+       SideInfo(SIDE_Type,iSide)= -i    ! mark side with mortar neighbour
+       SideInfo(SIDE_ID,  iSide)= -Side%ind ! neg. sideID for slaves
+       IF(ASSOCIATED(Side%Connection))THEN
+         SideInfo(SIDE_nbElemID,iSide)=Side%Connection%Elem%ind    ! neighbour Element ID
+       END IF
+       SideInfo(SIDE_nbLocSide_flip,iSide)=Side%flip
+    ELSE
+      !neighbor Element ID
+      IF(ASSOCIATED(Side%Connection))THEN
+        SideInfo(SIDE_nbElemID,iSide)=Side%Connection%Elem%ind                   ! Element ID of neighbor Element
+        SideInfo(SIDE_nbLocSide_flip,iSide)=10*Side%connection%locSide+Side%connection%flip
+      END IF
     END IF
     Side=>Side%nextElemSide
   END DO

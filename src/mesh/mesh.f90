@@ -104,6 +104,7 @@ IF (MeshMode .EQ. 1) THEN
     CartMeshes(i)%CM%l0      =GETREALARRAY('l0',3,'0.,0.,0.') ! first length (+/-) = direction
     CartMeshes(i)%CM%factor  =GETREALARRAY('factor',3,'0.,0.,0.') ! stretch factor (+/-) = direction
     CartMeshes(i)%CM%ElemType=GETINT('elemtype') ! Element type
+    CartMeshes(i)%CM%meshTemplate=GETINT('meshTemplate','1') ! Element type
   END DO
 ELSEIF (MeshMode .EQ. 11) THEN
   ! ---------- INTERNAL 1 BLOCK CURVED CARTESIAN MESH -----------------------------------------------------------------
@@ -249,6 +250,8 @@ IF(useCurveds) THEN
   ! 2-n: first n layers from the boundary are curved
   nCurvedBoundaryLayers=GETINT('nCurvedBoundaryLayers','-1')
 
+  ! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
+  doRebuildMortarGeometry=GETLOGICAL('doRebuildMortarGeometry','.TRUE.')
 END IF !usecurveds
 BoundaryOrder=N+1
 
@@ -330,6 +333,7 @@ CASE(1,2)
   PostDeform_Lz=GETREAL('PostDeform_Lz','1.')
   PostDeform_sq=GETINT('PostDeform_sq','0')
   PostDeform_Rtorus=GETREAL('PostDeform_Rtorus','-1.')
+CASE(3,4,5) ! cartbox [-1,1]^3 sin innercurved  
 CASE DEFAULT
   CALL abort(__STAMP__,&
              'This MeshPostDeform case is not implemented.',MeshPostDeform)
@@ -403,6 +407,7 @@ USE MOD_Curved,           ONLY: create3dSplines,curvedEdgesToSurf,curvedSurfaces
 USE MOD_Curved,           ONLY: buildCurvedElementsFromVolume,buildCurvedElementsFromBoundarySides
 USE MOD_Curved,           ONLY: readNormals
 USE MOD_Curved,           ONLY: ProjectToExactSurfaces
+USE MOD_Curved,           ONLY: RebuildMortarGeometry
 USE MOD_Mesh_Basis,       ONLY: BuildEdges,ElemGeometry,FindElemTypes
 USE MOD_Mesh_Connect,     ONLY: Connect
 USE MOD_Mesh_Connect,     ONLY: Connect2DMesh
@@ -452,7 +457,10 @@ SELECT CASE (MeshMode)
     CALL ReadMeshFromHDF5_OLD(MeshFileName(1)) ! meshfile
     meshIsAlreadyCurved=.TRUE.
   CASE(0)
-    CALL ReadMeshFromHDF5(MeshFileName(1)) ! meshfile
+    CALL ReadMeshFromHDF5(MeshFileName(1),.TRUE.) ! meshfile
+    meshIsAlreadyCurved=.TRUE.
+  CASE(100)
+    CALL ReadMeshFromHDF5(MeshFileName(1),.FALSE.) ! meshfile
     meshIsAlreadyCurved=.TRUE.
   CASE(1)
     CALL CartesianMesh()  ! Build cartesian mesh
@@ -548,7 +556,6 @@ DO WHILE(ASSOCIATED(Elem))
 END DO
 IF(.NOT.curvedFound) curvingMethod=-1
 
-
 IF(useCurveds)THEN
   IF(meshIsAlreadyCurved.AND..NOT.rebuildCurveds)THEN
     ! if curved nodes have been read in and mesh should not be modified, just distribute nodes
@@ -568,8 +575,8 @@ IF(useCurveds)THEN
         CALL readNormals()                ! Read normal vector file
       CASE(3)
         CALL getExactNormals()
-        CALL deleteDuplicateNormals()
       END SELECT
+      CALL deleteDuplicateNormals()
       CALL create3DSplines()              ! Reconstruct curved boundaries
       CALL curvedEdgesToSurf(keepExistingCurveds=.FALSE.)
     CASE(3) ! STAR/ANSA: generate curved mesh from subgrid
@@ -603,7 +610,7 @@ IF(useCurveds)THEN
 END IF ! useCurveds
 
 ! make all nodes unique
-CALL GlobalUniqueNodes()
+CALL GlobalUniqueNodes(.TRUE.)
 
 IF(doExactSurfProjection) CALL ProjectToExactSurfaces()
 ! get element types
@@ -620,6 +627,8 @@ IF(useSpaceFillingCurve)THEN
 END IF
 
 CALL PostDeform()
+
+IF(useCurveds.AND.doRebuildMortarGeometry) CALL RebuildMortarGeometry()
 
 
 ! apply meshscale before output (default)

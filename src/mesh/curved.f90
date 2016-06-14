@@ -87,9 +87,14 @@ INTERFACE splitToSpline
   MODULE PROCEDURE splitToSpline
 END INTERFACE
 
+INTERFACE RebuildMortarGeometry
+  MODULE PROCEDURE RebuildMortarGeometry
+END INTERFACE
+
 PUBLIC::SplitToSpline,ReconstructNormals,getExactNormals,deleteDuplicateNormals,create3DSplines,curvEdedgesToSurf
 PUBLIC::ProjectToExactSurfaces
 PUBLIC::CurvedSurfacesToElem,readNormals,buildCurvedElementsFromVolume,buildCurvedElementsFromBoundarySides
+PUBLIC::RebuildMortarGeometry
 !===================================================================================================================================
 
 CONTAINS
@@ -646,7 +651,7 @@ TYPE(tNode),POINTER       :: Node  ! ?
 TYPE(tNormal),POINTER     :: nv,nv2,nv3
 INTEGER                   :: iNode,nn  ! ?
 INTEGER                   :: prev1(4,3:4),next1(4,3:4)
-REAL                      :: v1(3),v2(3),n_tmp(3)  ! ?
+REAL                      :: v1(3),v2(3)  ! ?
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'RECONSTRUCT NORMALS ... '
@@ -1526,65 +1531,50 @@ TYPE(tElem),POINTER       :: aElem  ! ?
 TYPE(tSide),POINTER       :: aSide  ! ?
 TYPE(tEdge),POINTER       :: aEdge  ! ?
 INTEGER                   :: i  ! ?
-LOGICAL                   :: somethingToDo  ! ?
 REAL                      :: v(3,2)  ! ?
 INTEGER                   :: normalCaseCount(2)  ! ?
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'CREATE CURVED EDGES FROM NORMALS ... '
-CALL Timer(.TRUE.)
-somethingToDo = .FALSE.
-! Check if splines have to be built and get max curve index
+
+normalCaseCount=0
 aElem=>firstElem
 DO WHILE(ASSOCIATED(aElem))
-  aSide=>aElem%firstSide
+  aSide =>aElem%FirstSide
   DO WHILE(ASSOCIATED(aSide))
-    IF(aSide%curveIndex .GT. 0) THEN 
-      somethingToDo=.TRUE. 
+    IF (aSide%curveIndex .EQ. 0) THEN
+      aSide=>aSide%nextElemSide
+      CYCLE
     END IF
+    DO i=1,aSide%nNodes
+      aEdge=>aSide%Edge(i)%edp
+      IF(ASSOCIATED(aEdge%curvedNode))CYCLE
+      ALLOCATE(aEdge%curvedNode(4))
+      CALL getTangentialVectors(aSide,i,v,normalCaseCount) 
+      aEdge%CurvedNode(1)%np=>aEdge%Node(1)%np
+      aEdge%CurvedNode(4)%np=>aEdge%Node(2)%np
+      CALL getNewNode(aEdge%CurvedNode(2)%np,1)
+      CALL getNewNode(aEdge%CurvedNode(3)%np,1)
+      IF(aSide%EdgeOrientation(i))THEN !edge oriented Node1->Node2
+        aEdge%CurvedNode(2)%np%x=1./27.*(20.*aEdge%Node(1)%np%x+4.*v(:,1)+2.*v(:,2)+7.*aEdge%Node(2)%np%x)
+        aEdge%CurvedNode(3)%np%x=1./27.*(7.*aEdge%Node(1)%np%x+2.*v(:,1)+4.*v(:,2)+20.*aEdge%Node(2)%np%x)
+      ELSE
+        aEdge%CurvedNode(2)%np%x=1./27.*(20.*aEdge%Node(1)%np%x+4.*v(:,2)+2.*v(:,1)+7.*aEdge%Node(2)%np%x)
+        aEdge%CurvedNode(3)%np%x=1./27.*(7.*aEdge%Node(1)%np%x+2.*v(:,2)+4.*v(:,1)+20.*aEdge%Node(2)%np%x)
+      END IF !Edge oriented
+    END DO
+    aSide%isCurved=.TRUE.
     aSide=>aSide%nextElemSide
   END DO
   aElem=>aElem%nextElem
 END DO
-IF(somethingToDo) THEN
-  aElem=>firstElem
-  DO WHILE(ASSOCIATED(aElem))
-    aSide =>aElem%FirstSide
-    DO WHILE(ASSOCIATED(aSide))
-      IF (aSide%curveIndex .EQ. 0) THEN
-        aSide=>aSide%nextElemSide
-        CYCLE
-      END IF
-      DO i=1,aSide%nNodes
-        aEdge=>aSide%Edge(i)%edp
-        IF(ASSOCIATED(aEdge%curvedNode))CYCLE
-        ALLOCATE(aEdge%curvedNode(4))
-        CALL getTangentialVectors(aSide,i,v,normalCaseCount) 
-        aEdge%CurvedNode(1)%np=>aEdge%Node(1)%np
-        aEdge%CurvedNode(4)%np=>aEdge%Node(2)%np
-        CALL getNewNode(aEdge%CurvedNode(2)%np,1)
-        CALL getNewNode(aEdge%CurvedNode(3)%np,1)
-        IF(aSide%EdgeOrientation(i))THEN !edge oriented Node1->Node2
-          aEdge%CurvedNode(2)%np%x=1./27.*(20.*aEdge%Node(1)%np%x+4.*v(:,1)+2.*v(:,2)+7.*aEdge%Node(2)%np%x)
-          aEdge%CurvedNode(3)%np%x=1./27.*(7.*aEdge%Node(1)%np%x+2.*v(:,1)+4.*v(:,2)+20.*aEdge%Node(2)%np%x)
-        ELSE
-          aEdge%CurvedNode(2)%np%x=1./27.*(20.*aEdge%Node(1)%np%x+4.*v(:,2)+2.*v(:,1)+7.*aEdge%Node(2)%np%x)
-          aEdge%CurvedNode(3)%np%x=1./27.*(7.*aEdge%Node(1)%np%x+2.*v(:,2)+4.*v(:,1)+20.*aEdge%Node(2)%np%x)
-        END IF !Edge oriented
-      END DO
-      aSide%isCurved=.TRUE.
-      aSide=>aSide%nextElemSide
-    END DO
-    aElem=>aElem%nextElem
-  END DO
 
-  IF (SUM(normalCaseCount(:)) .GT. 0)  THEN
-    ERRWRITE(UNIT_stdOut,*)'The normal assignment by FaceID has failed for some elements.'
-    ERRWRITE(UNIT_stdOut,*)'Tangent calculation by projection:',normalCaseCount(1)
-    ERRWRITE(UNIT_stdOut,*)'Tangent calculation by cross product:',normalCaseCount(2)
-  END IF
-END IF !somethingstodo
-CALL Timer(.FALSE.)
+IF (SUM(normalCaseCount) .GT. 0)  THEN
+  ERRWRITE(UNIT_stdOut,*)'The normal assignment by FaceID has failed for some elements.'
+  ERRWRITE(UNIT_stdOut,*)'Tangent calculation by projection:',normalCaseCount(1)
+  ERRWRITE(UNIT_stdOut,*)'Tangent calculation by cross product:',normalCaseCount(2)
+END IF
+
 END SUBROUTINE create3DSplines
 
 
@@ -1696,12 +1686,13 @@ DO n=1,2
   IF (.NOT. tangentFound(n)) THEN
     SELECT CASE (iCounter(n))
       CASE (1) !one pair found: on face
-        v(:,n)=sideVect(:,n)-SUM(sideVect(:,n)*foundNormals(1,n)%np%normal(:))*foundNormals(1,n)%np%normal(:) 
+        v(:,n)=sideVect(:,n)-SUM(sideVect(:,n)*foundNormals(1,n)%np%normal)*foundNormals(1,n)%np%normal
         tangentFound(n)=.TRUE.
       CASE (2) !two pairs found: on edge
-        vTemp(:)=cross(foundNormals(1,n)%np%normal(:),foundNormals(2,n)%np%normal(:))
-        vTemp(:)=vTemp(:)/SQRT(SUM(vTemp(:)*vTemp(:)))
-        v(:,n)=vTemp(:)*SUM(vTemp(:)*sideVect(:,n))
+        vTemp=cross(foundNormals(1,n)%np%normal,foundNormals(2,n)%np%normal)
+        vTemp=vTemp/NORM2(vTemp)
+        v(:,n)=vTemp(:)*SUM(vTemp*sideVect(:,n))
+
         tangentFound(n)=.TRUE.
     END SELECT
   END IF
@@ -1749,8 +1740,8 @@ DO n=1,2
       DO WHILE (ASSOCIATED(aNormal(1)%np%nextNormal))
        aNormal(2)%np=>aNormal(1)%np%nextNormal
        DO WHILE (ASSOCIATED(aNormal(2)%np))
-         vTemp(:)=cross(aNormal(1)%np%normal,aNormal(2)%np%normal)
-         vTemp(:)=vTemp(:)/SQRT(SUM(vTemp(:)*vTemp(:)))
+         vTemp=cross(aNormal(1)%np%normal,aNormal(2)%np%normal)
+         vTemp=vTemp/NORM2(vTemp)
          AngleTmp=ABS(SUM(vTemp(:)*approxNormal(:))) !angle to approxnormal not too big
          IF (AngleTmp .LE. 0.4) THEN 
            AngleTmp=ABS(SUM(vTemp(:)*sideVect(:,n)))/length ! result is cos of angle
@@ -1869,7 +1860,7 @@ DO WHILE(ASSOCIATED(Elem))
     END IF
 
     !check connection, but for periodic BCs Splines are not copied!
-    IF(ASSOCIATED(Side%Connection))THEN
+    IF(ASSOCIATED(Side%Connection).AND.Side%MortarType.EQ.0)THEN
       IF(.NOT.ASSOCIATED(Side%BC)) THEN
         IF(ASSOCIATED(Side%Connection%CurvedNode).AND..NOT.keepExistingCurveds) THEN
           CALL ABORT(__STAMP__,'connection already curved...')
@@ -2616,6 +2607,221 @@ ELSE
   END DO
 END IF
 END FUNCTION GoToSide 
+
+
+SUBROUTINE RebuildMortarGeometry()
+!===================================================================================================================================
+! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
+!===================================================================================================================================
+! MODULES
+USE MOD_Globals  ,ONLY:abort
+USE MOD_Mesh_Vars,ONLY:tElem,FirstElem,tSide,tEdge
+USE MOD_Mesh_Vars,ONLY:M_0_2_T,M_0_1_T,N
+USE MOD_Basis1D,  ONLY:GetMortarVandermonde
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+TYPE(tElem),POINTER       :: Elem  ! ?
+TYPE(tSide),POINTER       :: Side  ! ?
+TYPE(tEdge),POINTER       :: Edge  ! ?
+INTEGER                   :: iEdge ! ?
+!-----------------------------------------------------------------------------------------------------------------------------------
+WRITE(UNIT_stdOut,'(132("~"))')
+WRITE(UNIT_stdOut,*)'REBUILDING CURVED MORTAR INTERFACES...'
+
+ALLOCATE(M_0_1_T(0:N,0:N))
+ALLOCATE(M_0_2_T(0:N,0:N))
+CALL GetMortarVandermonde(N, M_0_1_T, M_0_2_T) 
+M_0_1_T=TRANSPOSE(M_0_1_T)
+M_0_2_T=TRANSPOSE(M_0_2_T)
+
+Elem=>firstElem
+DO WHILE(ASSOCIATED(Elem))
+  Side=>Elem%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    IF(Side%MortarType.GT.0) &
+      CALL MapBigSideToSmall(Side)
+    Side=>Side%nextElemSide
+  END DO
+  Elem=>Elem%nextElem
+END DO
+
+Elem=>firstElem
+DO WHILE(ASSOCIATED(Elem))
+  Side=>Elem%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    IF(Side%MortarType.GT.0)THEN
+      DO iEdge=1,Side%nNodes
+        Edge=>Side%Edge(iEdge)%edp
+        IF(.NOT.ASSOCIATED(Edge%parentEdge).AND.ASSOCIATED(Edge%MortarEdge))THEN
+          IF(ASSOCIATED(Side%BC))THEN
+            IF(Side%BC%BCType.EQ.1) &
+            CALL abort(__STAMP__,&
+              'Rebuilding curved periodic mortar edges is not yet implemented.')
+          END IF
+          CALL MapBigEdgeToSmall(Edge)
+        END IF
+      END DO
+    END IF
+    Side=>Side%nextElemSide
+  END DO
+  Elem=>Elem%nextElem
+END DO
+END SUBROUTINE RebuildMortarGeometry
+
+
+SUBROUTINE MapBigSideToSmall(Side)
+!===================================================================================================================================
+! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars,ONLY:tSide,VV
+USE MOD_Mesh_Vars,ONLY:M_0_1_T,M_0_2_T,N
+USE MOD_Mesh_Basis,ONLY:PackGeo,UnpackGeo
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+TYPE(tSide),POINTER,INTENT(IN)   :: Side  ! ?
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER                          :: nMortars,p,q,l
+REAL                             :: XGeo2DBig(   3,0:N,0:N)
+REAL                             :: XGeo2DSmall4(3,0:N,0:N,4)
+REAL                             :: XGeo2DSmall2(3,0:N,0:N,2)
+!-----------------------------------------------------------------------------------------------------------------------------------
+XGeo2DBig=0.
+XGeo2DSmall4=0.
+XGeo2DSmall2=0.
+CALL PackGeo(N,Side,XGeo2DBig)
+
+! in case of periodic BCs add displacement vector
+IF(ASSOCIATED(Side%BC))THEN
+  IF(Side%BC%BCType.EQ.1.AND.Side%BC%BCalphaInd.GT.0)THEN
+    DO q=0,N; DO p=0,N
+      XGeo2DBig(:,p,q)=XGeo2DBig(:,p,q)+VV(:,ABS(Side%BC%BCalphaInd))
+    END DO; END DO
+  END IF
+END IF
+
+SELECT CASE(Side%MortarType)
+CASE(1) !1->4
+  nMortars=4
+  !first in eta
+  DO q=0,N; DO p=0,N
+      XGeo2DSmall2(:,p,q,1)=                      M_0_1_T(0,q)*XGeo2DBig(:,p,0)
+      XGeo2DSmall2(:,p,q,2)=                      M_0_2_T(0,q)*XGeo2DBig(:,p,0)
+    DO l=1,N
+      XGeo2DSmall2(:,p,q,1)=XGeo2DSmall2(:,p,q,1)+M_0_1_T(l,q)*XGeo2DBig(:,p,l)
+      XGeo2DSmall2(:,p,q,2)=XGeo2DSmall2(:,p,q,2)+M_0_2_T(l,q)*XGeo2DBig(:,p,l)
+    END DO
+  END DO; END DO
+  ! then in xi
+  DO q=0,N; DO p=0,N
+      XGeo2DSmall4(:,p,q,1)=                      M_0_1_T(0,p)*XGeo2DSmall2(:,0,q,1)
+      XGeo2DSmall4(:,p,q,2)=                      M_0_2_T(0,p)*XGeo2DSmall2(:,0,q,1)
+      XGeo2DSmall4(:,p,q,3)=                      M_0_1_T(0,p)*XGeo2DSmall2(:,0,q,2)
+      XGeo2DSmall4(:,p,q,4)=                      M_0_2_T(0,p)*XGeo2DSmall2(:,0,q,2)
+    DO l=1,N
+      XGeo2DSmall4(:,p,q,1)=XGeo2DSmall4(:,p,q,1)+M_0_1_T(l,p)*XGeo2DSmall2(:,l,q,1)
+      XGeo2DSmall4(:,p,q,2)=XGeo2DSmall4(:,p,q,2)+M_0_2_T(l,p)*XGeo2DSmall2(:,l,q,1)
+      XGeo2DSmall4(:,p,q,3)=XGeo2DSmall4(:,p,q,3)+M_0_1_T(l,p)*XGeo2DSmall2(:,l,q,2)
+      XGeo2DSmall4(:,p,q,4)=XGeo2DSmall4(:,p,q,4)+M_0_2_T(l,p)*XGeo2DSmall2(:,l,q,2)
+    END DO !l=1,N
+  END DO; END DO !p,q=0,N
+
+CASE(2) !1->2 in eta
+  nMortars=2
+  DO q=0,N; DO p=0,N
+      XGeo2DSmall4(:,p,q,1)=                      M_0_1_T(0,q)*XGeo2DBig(:,p,0)
+      XGeo2DSmall4(:,p,q,2)=                      M_0_2_T(0,q)*XGeo2DBig(:,p,0)
+    DO l=1,N
+      XGeo2DSmall4(:,p,q,1)=XGeo2DSmall4(:,p,q,1)+M_0_1_T(l,q)*XGeo2DBig(:,p,l)
+      XGeo2DSmall4(:,p,q,2)=XGeo2DSmall4(:,p,q,2)+M_0_2_T(l,q)*XGeo2DBig(:,p,l)
+    END DO
+  END DO; END DO
+
+CASE(3) !1->2 in xi
+  nMortars=2
+  DO q=0,N; DO p=0,N
+      XGeo2DSmall4(:,p,q,1)=                      M_0_1_T(0,p)*XGeo2DBig(:,0,q)
+      XGeo2DSmall4(:,p,q,2)=                      M_0_2_T(0,p)*XGeo2DBig(:,0,q)
+    DO l=1,N
+      XGeo2DSmall4(:,p,q,1)=XGeo2DSmall4(:,p,q,1)+M_0_1_T(l,p)*XGeo2DBig(:,l,q)
+      XGeo2DSmall4(:,p,q,2)=XGeo2DSmall4(:,p,q,2)+M_0_2_T(l,p)*XGeo2DBig(:,l,q)
+    END DO
+  END DO; END DO
+END SELECT ! mortarType(SideID)
+
+DO p=1,nMortars
+  CALL UnpackGeo(N,XGeo2DSmall4(:,:,:,p),Side%MortarSide(p)%sp)
+END DO
+
+END SUBROUTINE MapBigSideToSmall
+
+
+
+RECURSIVE SUBROUTINE MapBigEdgeToSmall(edge)
+!===================================================================================================================================
+! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars,ONLY:tEdge
+USE MOD_Mesh_Vars,ONLY:M_0_1_T,M_0_2_T,N
+USE MOD_Mesh_Basis,ONLY:PackGeo,UnpackGeo
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+TYPE(tEdge),POINTER,INTENT(IN)   :: Edge  ! ?
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER                          :: p,l
+REAL                             :: XGeo1DBig(  3,0:N)
+REAL                             :: XGeo1DTmp(  3,0:N)
+REAL                             :: XGeo1DSmall(3,0:N,2)
+TYPE(tEdge),POINTER              :: smallEdge  ! ?
+!-----------------------------------------------------------------------------------------------------------------------------------
+XGeo1DBig=0.
+XGeo1DSmall=0.
+CALL PackGeo(N,Edge,XGeo1DBig)
+
+! split edge into 2 in xi
+DO p=0,N
+    XGeo1DSmall(:,p,1)=                   M_0_1_T(0,p)*XGeo1DBig(:,0)
+    XGeo1DSmall(:,p,2)=                   M_0_2_T(0,p)*XGeo1DBig(:,0)
+  DO l=1,N
+    XGeo1DSmall(:,p,1)=XGeo1DSmall(:,p,1)+M_0_1_T(l,p)*XGeo1DBig(:,l)
+    XGeo1DSmall(:,p,2)=XGeo1DSmall(:,p,2)+M_0_2_T(l,p)*XGeo1DBig(:,l)
+  END DO
+END DO
+
+DO p=1,2
+  smallEdge=>Edge%MortarEdge(p)%edp
+  IF(ASSOCIATED(Edge%Node(p)%np,smallEdge%Node(p)%np))THEN
+  ELSEIF(ASSOCIATED(Edge%Node(p)%np,smallEdge%Node(3-p)%np))THEN
+    XGeo1DTmp=XGeo1Dsmall(:,:,p)
+    DO l=0,N
+      XGeo1Dsmall(:,N-l,p)=XGeo1DTmp(:,l) 
+    END DO
+  ELSE 
+    STOP "Error: Edges of mortar master and slave do not conform!"
+  END IF
+  CALL UnpackGeo(N,XGeo1DSmall(:,:,p),smallEdge)
+  IF(ASSOCIATED(smallEdge%MortarEdge)) &
+    CALL MapBigEdgeToSmall(smallEdge)
+END DO
+
+END SUBROUTINE MapBigEdgeToSmall
 
 
 END MODULE MOD_Curved
