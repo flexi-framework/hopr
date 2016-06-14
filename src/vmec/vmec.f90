@@ -540,21 +540,18 @@ DO iNode=1,nTotal
 !  Azeta  = phi_int*dldzeta-chi_int
 !
 !  !cylindrical components of A
-!  Ar   = (-dZdtheta*Arho + 0.5/rho_p*dZdrho*Atheta )*R/sqrtG
-!  Az   = ( dRdtheta*Arho - 0.5/rho_p*dRdrho*Atheta )*R/sqrtG
-!  Aphi = -Azeta/R
+!  
+!  Ar   = (-dZdtheta*Arho + (0.5/rho_p*dZdrho)*Atheta )*R/sqrtG
+!  Az   = ( dRdtheta*Arho - (0.5/rho_p*dRdrho)*Atheta )*R/sqrtG
+!  Aphi = ((dZdtheta*dRdzeta -dRdtheta*dZdzeta)*Arho-(0.5/rho_p*(dZdrho*dRdzeta-dRdrho*dZdzeta))*Atheta)/sqrtG-Azeta/R
 
   !directly cylindrical components of A
   Ar   = phi_int*(-dZdtheta*dldrho + dZdrho*(1+dldtheta) )/(dRdtheta*dZdrho-dRdrho*dZdtheta)
   Az   = phi_int*( dRdtheta*dldrho - dRdrho*(1+dldtheta) )/(dRdtheta*dZdrho-dRdrho*dZdtheta)
-  Aphi = (chi_int-phi_int*dldzeta)/R
+  Aphi = phi_int*( (dZdtheta*dRdzeta -dRdtheta*dZdzeta)*dldrho &
+                  -(dZdrho  *dRdzeta -dRdrho  *dZdzeta)*(1+dldtheta))/ (R*(dRdtheta*dZdrho-dRdrho*dZdtheta)) &
+         +(chi_int-phi_int*dldzeta)/R
   
-  !cylindrical components of A
-!  Ar   = phi_int*(-dZdtheta*(0.5*dldrho/rho_p) + (0.5*dZdrho/rho_p)*(1+dldtheta) )*R/sqrtG
-!  Az   = phi_int*( dRdtheta*(0.5*dldrho/rho_p) - (0.5*dRdrho/rho_p)*(1+dldtheta) )*R/sqrtG
-!  Aphi = (chi_int-phi_int*dldzeta)/R
-
-
 
   coszeta=COS(zeta)
   sinzeta=SIN(zeta)
@@ -579,10 +576,10 @@ DO iNode=1,nTotal
   vmecData(6:8,iNode)=Bcart(:)
   vmecData(  9,iNode)=pressure*mu0 !pressure transformed to mu0=1
   vmecData( 10,iNode)=Density
-  vmecData( 11,iNode)=lam
-  vmecData( 12,iNode)=dRdrho
-  vmecData( 13,iNode)=dldrho
-  vmecData( 14,iNode)=dZdrho
+  vmecData( 11,iNode)=dRdrho
+  vmecData( 12,iNode)=dldrho
+  vmecData( 13,iNode)=dRdtheta
+  vmecData( 14,iNode)=dZdtheta
 END DO !iNode=1,nTotal
 
 WRITE(UNIT_stdOut,'(A)')'  ...DONE.                             '
