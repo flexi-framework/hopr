@@ -54,7 +54,7 @@ USE MOD_Mesh_Vars   ,ONLY: N,nMeshElems
 USE MOD_Basis_Vars  ,ONLY: HexaMap
 USE MOD_Basis1D     ,ONLY: LegGaussLobNodesAndWeights,BarycentricWeights,InitializeVandermonde
 USE MOD_Basis       ,ONLY: ChangeBasisHexa
-USE MOD_VMEC_Vars   ,ONLY:useVMEC,nVarVMEC,nVarOutVMEC,VMECoutVarMap,VMECoutdataGL
+USE MOD_VMEC_Vars   ,ONLY:useVMEC,nVarVMEC,nVarOutVMEC,VMECoutVarMap,VMECoutdataGL,VMECdataEq
 USE MOD_VMEC        ,ONLY:MapToVMEC
 USE MOD_Output_vars ,ONLY:DebugVisu,DebugVisuLevel
 !MODULE OUTPUT VARIABLES
@@ -76,7 +76,6 @@ INTEGER                      :: i,iElem,ijk(3)
 REAL,DIMENSION(0:N)          :: xi_EQ,xi_GL,wBary_EQ,wBary_GL
 REAL,DIMENSION(0:N,0:N)      :: Vdm_EQtoGL, Vdm_GLtoEQ
 REAL                         :: xElem(3,0:N,0:N,0:N,nMeshElems)
-REAL                         :: VMECdata(nVarVMEC,0:N,0:N,0:N,nMeshElems)
 !===================================================================================================================================
 IF(MeshPostDeform.EQ.0) RETURN
 WRITE(UNIT_stdOut,'(132("~"))')
@@ -117,22 +116,22 @@ nTotal=(N+1)**3*nMeshElems
 CALL PostDeformFunc(nTotal,xElem,xElem)
 
 IF(useVMEC)THEN
-  CALL MapToVMEC(nTotal,xElem,0,xElem,VMECdata)
+  ALLOCATE(VMECdataEq(nVarVMEC,0:N,0:N,0:N,nMeshElems))
+  CALL MapToVMEC(nTotal,xElem,0,xElem,VMECdataEq)
+
   ALLOCATE(VMECoutdataGL(nVarOutVMEC,0:N,0:N,0:N,nMeshElems))
   IF(PostDeform_useGL)THEN
     !data is already on GL poitns 
-    VMECoutdataGL=VMECdata(VMECoutVarMap,:,:,:,:)
+    VMECoutdataGL=VMECdataEq(VMECoutVarMap,:,:,:,:)
     !change back to equidistant for visu output
     DO iElem=1,nMeshElems
-      CALL ChangeBasisHexa(nVarVMEC,N,N,Vdm_GLtoEQ,VMECdata(:,:,:,:,iElem),VMECdata(:,:,:,:,iElem))
+      CALL ChangeBasisHexa(nVarVMEC,N,N,Vdm_GLtoEQ,VMECdataEq(:,:,:,:,iElem),VMECdataEq(:,:,:,:,iElem))
     END DO !iElem
   ELSE
     DO iElem=1,nMeshElems
-      CALL ChangeBasisHexa(nVarOutVMEC,N,N,Vdm_EQtoGL,VMECdata(VMECoutVarMap,:,:,:,iElem),VMECoutdataGL(:,:,:,:,iElem))
+      CALL ChangeBasisHexa(nVarOutVMEC,N,N,Vdm_EQtoGL,VMECdataEq(VMECoutVarMap,:,:,:,iElem),VMECoutdataGL(:,:,:,:,iElem))
     END DO !iElem
   END IF!postDeform_useGL
-ELSE
-  VMECdata=0.
 END IF
 
 IF(PostDeform_useGL)THEN
@@ -149,11 +148,6 @@ DO iElem=1,nMeshElems
     IF(aElem%CurvedNode(iNode)%np%tmp.EQ.-1)THEN
       ijk(:)=HexaMap(iNode,:)
       aElem%CurvedNode(iNode)%np%x(:)= xElem(1:3,ijk(1),ijk(2),ijk(3),aElem%ind)
-      !for Debugvisu in splineVol
-      IF(DebugVisu.AND.(DebugVisuLevel.GE.2).AND.useVMEC)THEN
-        ALLOCATE(aElem%CurvedNode(iNode)%np%VMECdata(nVarVMEC))
-        aElem%CurvedNode(iNode)%np%VMECdata(:)= VMECdata(:,ijk(1),ijk(2),ijk(3),aElem%ind)
-      END IF
       aElem%CurvedNode(iNode)%np%tmp=0
     END IF
   END DO !iNode

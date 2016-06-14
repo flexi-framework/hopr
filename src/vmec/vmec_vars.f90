@@ -46,6 +46,7 @@ REAL,ALLOCATABLE    :: Zmns_Spl(:,:,:)                   !
 REAL,ALLOCATABLE    :: lmns_Spl(:,:,:)                   !
 REAL,ALLOCATABLE    :: gmnc_nyq_Spl(:,:,:)               !
 REAL,ALLOCATABLE    :: VMECoutdataGL(:,:,:,:,:)          ! VMEC data to be written to hdf5 file, on Gauss-Lobatto nodes
+REAL,ALLOCATABLE    :: VMECdataEq(:,:,:,:,:)          ! VMEC data on equidistant nodes 
 INTEGER             :: nRhoCoefs                        ! number of density coefficients 
 INTEGER             :: RhoFluxVar                        ! =0: rho(phinorm) Normalized toroidal flux variable, =1: rho(chinorm) 
 REAL,ALLOCATABLE    :: RhoCoefs(:)                      !density coefficients of the polynomial coefficients:

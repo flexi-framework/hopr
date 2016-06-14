@@ -462,10 +462,10 @@ USE MOD_Mesh_Vars ,ONLY:tElem
 USE MOD_Mesh_Vars ,ONLY:FirstElem
 USE MOD_Mesh_Vars ,ONLY:N
 USE MOD_Basis_Vars,ONLY:Vdm_Visu_Hexa,D_Visu_Hexa
-USE MOD_Basis_Vars,ONLY:VisuHexaMapInv
+USE MOD_Basis_Vars,ONLY:VisuHexaMapInv,HexaMap
 USE MOD_Basis_Vars,ONLY:nVisu
 USE MOD_Output    ,ONLY:Visualize
-USE MOD_VMEC_Vars ,ONLY:useVMEC,nVarVMEC,VMECvarnames
+USE MOD_VMEC_Vars ,ONLY:useVMEC,nVarVMEC,VMECvarnames,VMECdataEq
 USE MOD_Output_vars,ONLY:Visu_sJ_limit
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -551,7 +551,9 @@ DO WHILE(ASSOCIATED(Elem))
       DO iNode=1,nNodes
         IF(ASSOCIATED(Elem%curvedNode(iNode)%np))THEN
           xNode(iNode,:)=Elem%curvedNode(iNode)%np%x
-          IF(useVMEC) VMECdataNode(iNode,:)=Elem%curvedNode(iNode)%np%vmecData(:)
+          IF(useVMEC) THEN
+            VMECdataNode(iNode,:)=VMECdataEq(:,HexaMap(iNode,1),HexaMap(iNode,2),HexaMap(iNode,3),Elem%ind)
+          END IF
         ELSE
           CALL abort(__STAMP__, &
            'Curved node array has not the right size.',999,999.) ! check required due to intel compiler error (02)
