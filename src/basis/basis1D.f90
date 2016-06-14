@@ -20,7 +20,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "defines.f90"
+#include "hopr.h"
 MODULE MOD_Basis1D
 !===================================================================================================================================
 ! ?
@@ -800,8 +800,7 @@ REAL,INTENT(OUT)        :: M_0_1(0:Ngeo,0:Ngeo), M_0_2(0:Ngeo,0:Ngeo)
 ! LOCAL VARIABLES
 ! LOCAL VARIABLES
 INTEGER                       :: i
-REAL,DIMENSION(0:Ngeo)        :: x,w,wBary
-REAL,DIMENSION(0:Ngeo)        :: test1,test2
+REAL,DIMENSION(0:Ngeo)        :: x,wBary
 !===================================================================================================================================
 DO i=0,Ngeo
   x(i) = -1 + i*2./Ngeo  

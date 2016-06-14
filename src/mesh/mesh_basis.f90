@@ -20,7 +20,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "defines.f90"
+#include "hopr.h"
 MODULE MOD_Mesh_Basis
 !===================================================================================================================================
 ! ?
@@ -500,7 +500,7 @@ END SUBROUTINE CreateSides
 !! INPUT VARIABLES
 !! VV...periodic displacement vector for Cartmesh generator
 !! CALC%spaceQuandt...used to secure geometric operations
-!! RealTolerance is defined in defines.f90 and used to secure geometric operations
+!! RealTolerance is defined in hopr.h and used to secure geometric operations
 !TYPE(tSide),POINTER,INTENT(IN) :: Side     ! pointer to the actual considered Side
 !LOGICAL,INTENT(IN)             :: countRef ! determines if the Node%countref counter has to be updated
 !!----------------------------------------------------------------------------------------------------------------------------------

@@ -20,7 +20,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "defines.f90"
+#include "hopr.h"
 MODULE MOD_Readin_HDF5
 !===================================================================================================================================
 ! ?
@@ -75,7 +75,7 @@ LOGICAL,INTENT(IN)           :: doConnection
 TYPE(tElem),POINTER            :: Elem  ! ?
 TYPE(tSide),POINTER            :: aSide,aaSide,bSide,bbSide  ! ?
 INTEGER                        :: i1,j1,k1,l1,nBCSides,nPeriodicSides  ! ?
-INTEGER                        :: NodeID,SideID,ElemID,iBC  ! ?
+INTEGER                        :: NodeID,ElemID,iBC  ! ?
 INTEGER                        :: iNode,iSide,iElem,i,j,k
 INTEGER                        :: offset,first,last  ! ?
 INTEGER                        :: Ngeo 

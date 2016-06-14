@@ -20,7 +20,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "defines.f90"
+#include "hopr.h"
 MODULE MOD_Output_HDF5
 !===================================================================================================================================
 ! ?
@@ -45,7 +45,11 @@ INTERFACE SpaceFillingCurve
   MODULE PROCEDURE SpaceFillingCurve
 END INTERFACE
 
-PUBLIC::WriteMeshToHDF5,SpaceFillingCurve
+INTERFACE WriteAttribute
+  MODULE PROCEDURE WriteAttribute
+END INTERFACE
+
+PUBLIC::WriteMeshToHDF5,SpaceFillingCurve,WriteAttribute
 !===================================================================================================================================
 
 CONTAINS
@@ -276,13 +280,13 @@ CALL getMeshInfo() !allocates and fills ElemInfo,SideInfo,NodeInfo,NodeCoords
 CALL OpenHDF5File(FileString,create=.TRUE.)  
 
 !attributes 
-CALL WriteAttributeToHDF5(File_ID,'Version',1,RealScalar=1.0)
-CALL WriteAttributeToHDF5(File_ID,'Ngeo',1,IntegerScalar=N)
-CALL WriteAttributeToHDF5(File_ID,'nElems',1,IntegerScalar=nElems)
-CALL WriteAttributeToHDF5(File_ID,'nSides',1,IntegerScalar=nSides)
-CALL WriteAttributeToHDF5(File_ID,'nNodes',1,IntegerScalar=nNodes)
-CALL WriteAttributeToHDF5(File_ID,'nUniqueSides',1,IntegerScalar=nSideIDs)
-CALL WriteAttributeToHDF5(File_ID,'nUniqueNodes',1,IntegerScalar=nNodeIDs)
+CALL WriteAttribute(File_ID,'Version',1,RealScalar=1.0)
+CALL WriteAttribute(File_ID,'Ngeo',1,IntScalar=N)
+CALL WriteAttribute(File_ID,'nElems',1,IntScalar=nElems)
+CALL WriteAttribute(File_ID,'nSides',1,IntScalar=nSides)
+CALL WriteAttribute(File_ID,'nNodes',1,IntScalar=nNodes)
+CALL WriteAttribute(File_ID,'nUniqueSides',1,IntScalar=nSideIDs)
+CALL WriteAttribute(File_ID,'nUniqueNodes',1,IntScalar=nNodeIDs)
 
 !WRITE ElemInfo,into (1,nElems)  
 CALL WriteArrayToHDF5(File_ID,'ElemInfo',2,(/ElemInfoSize,nElems/),IntegerArray=ElemInfo)
@@ -306,7 +310,7 @@ DO i=1,nBCs
   BCType(:,i)=BoundaryType(i,:) 
 END DO
 ! WRITE BC 
-CALL WriteAttributeToHDF5(File_ID,'nBCs',1,IntegerScalar=nBCs)
+CALL WriteAttribute(File_ID,'nBCs',1,IntScalar=nBCs)
 
 CALL WriteArrayToHDF5(File_ID,'BCNames',1,(/nBCs/),StrArray=BCNames)
 CALL WriteArrayToHDF5(File_ID,'BCType',2,(/4,nBcs/),IntegerArray=BCType)
@@ -335,13 +339,9 @@ IF(dosortIJK)THEN
   DEALLOCATE(Elem_IJK)
 END IF
 
-
-
-
 ! Close the file.
 CALL CloseHDF5File()
 CALL Timer(.FALSE.)
-
 
 END SUBROUTINE WriteMeshToHDF5
 
@@ -713,95 +713,109 @@ END SUBROUTINE WriteArrayToHDF5
 
 
 
-
-SUBROUTINE WriteAttributeToHDF5(Loc_ID_in,AttribName,nVal,DataSetname,RealScalar,IntegerScalar,StrScalar,LogicalScalar, &
-                                                                      RealArray,IntegerArray)
-!===================================================================================================================================
-! Subroutine to write Attributes to HDF5 format of a given Loc_ID, which can be the File_ID,datasetID,goupID. This must be opened
-! outside of the routine. If you directly want to write an attribute to a dataset, just provide the name of the dataset
-!===================================================================================================================================
+!==================================================================================================================================
+!> Subroutine to write Attributes to HDF5 format of a given Loc_ID, which can be the File_ID,datasetID,groupID. This must be opened
+!> outside of the routine. If you directly want to write an attribute to a dataset, just provide the name of the dataset
+!==================================================================================================================================
+SUBROUTINE WriteAttribute(Loc_ID_in,AttribName,nVal,DataSetname,&
+                          RealScalar,IntScalar,StrScalar,LogicalScalar, &
+                          RealArray,IntArray,StrArray)
 ! MODULES
-! IMPLICIT VARIABLE HANDLING
+USE MOD_Globals
+USE,INTRINSIC :: ISO_C_BINDING
 IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-INTEGER(HID_T),INTENT(IN)              :: Loc_ID_in  ! ?
-CHARACTER(LEN=*), INTENT(IN)           :: AttribName  ! ?
-INTEGER,INTENT(IN)                     :: nVal  ! ?
-CHARACTER(LEN=*),OPTIONAL,INTENT(IN)   :: DatasetName  ! ?
-REAL,OPTIONAL,INTENT(IN)               :: RealArray(nVal)  ! ?
-INTEGER,OPTIONAL,INTENT(IN)            :: IntegerArray(nVal)  ! ?
-REAL,OPTIONAL,INTENT(IN)               :: RealScalar  ! ?
-INTEGER,OPTIONAL,INTENT(IN)            :: IntegerScalar  ! ?
-CHARACTER(LEN=255),OPTIONAL,INTENT(IN) :: StrScalar  ! ?
-LOGICAL,OPTIONAL,INTENT(IN)            :: LogicalScalar  ! ?
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+INTEGER(HID_T)    ,INTENT(IN)           :: Loc_ID_in              !< Dataset ID (only if already open)
+CHARACTER(LEN=*)  ,INTENT(IN)           :: AttribName             !< name of the attribute to be written
+INTEGER           ,INTENT(IN)           :: nVal                   !< number of array entries if array is written
+CHARACTER(LEN=*)  ,INTENT(IN),OPTIONAL  :: DatasetName            !< name of the dataset created
+REAL              ,INTENT(IN),OPTIONAL,TARGET :: RealScalar       !< real scalar
+INTEGER           ,INTENT(IN),OPTIONAL,TARGET :: IntScalar        !< integer scalar
+CHARACTER(LEN=*)  ,INTENT(IN),OPTIONAL,TARGET :: StrScalar(1)     !< scalar string
+LOGICAL           ,INTENT(IN),OPTIONAL        :: LogicalScalar    !< logical scalar
+REAL              ,INTENT(IN),OPTIONAL,TARGET :: RealArray(nVal)  !< real array of length nVal
+INTEGER           ,INTENT(IN),OPTIONAL,TARGET :: IntArray(nVal)   !< integer array of length nVal
+CHARACTER(LEN=*)  ,INTENT(IN),OPTIONAL,TARGET :: StrArray(nVal)   !< string array of length nVal
+!----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER                        :: Rank  ! ?
-INTEGER(HID_T)                 :: DataSpace, Attr_ID,Loc_ID,aType_ID  ! ?
-INTEGER(HSIZE_T), DIMENSION(1) :: Dimsf  ! ?
-INTEGER(SIZE_T)                :: AttrLen  ! ?
-INTEGER                        :: logtoint  ! ?
-!===================================================================================================================================
-LOGWRITE(UNIT_stdOut,*)' WRITE ATTRIBUTE "',TRIM(AttribName),'" TO HDF5 FILE...'
+INTEGER                        :: Rank
+INTEGER(HID_T)                 :: DataSpace,Attr_ID,Loc_ID,Type_ID
+INTEGER(HSIZE_T), DIMENSION(1) :: Dimsf
+INTEGER(SIZE_T)                :: AttrLen
+INTEGER,TARGET                 :: logtoint
+#ifndef HDF5_F90
+TYPE(C_PTR)                    :: buf
+#endif
+!==================================================================================================================================
+LOGWRITE(*,*)' WRITE ATTRIBUTE "',TRIM(AttribName),'" TO HDF5 FILE...'
 IF(PRESENT(DataSetName))THEN
- ! Open dataset
-  CALL H5DOPEN_F(File_ID, TRIM(DatasetName),Loc_ID, iError)
+  ! Open dataset
+  IF(TRIM(DataSetName).NE.'') CALL H5DOPEN_F(File_ID, TRIM(DatasetName),Loc_ID, iError)
 ELSE
   Loc_ID=Loc_ID_in
 END IF
 ! Create scalar data space for the attribute.
 Rank=1
-Dimsf(:)=0
+Dimsf(:)=0 !???
 Dimsf(1)=nVal
 CALL H5SCREATE_SIMPLE_F(Rank, Dimsf, DataSpace, iError)
 ! Create the attribute for group Loc_ID.
-! Write the attribute data.
-IF(PRESENT(RealArray))THEN
-  CALL H5ACREATE_F(Loc_ID, TRIM(AttribName), H5T_NATIVE_DOUBLE, DataSpace, Attr_ID, iError)
-  CALL H5AWRITE_F(Attr_ID, H5T_NATIVE_DOUBLE, RealArray , Dimsf, iError)
-END IF
-IF(PRESENT(RealScalar))THEN
-  CALL H5ACREATE_F(Loc_ID, TRIM(AttribName), H5T_NATIVE_DOUBLE, DataSpace, Attr_ID, iError)
-  CALL H5AWRITE_F(Attr_ID, H5T_NATIVE_DOUBLE, RealScalar , Dimsf, iError)
-END IF
-IF(PRESENT(IntegerArray))THEN
-  CALL H5ACREATE_F(Loc_ID, TRIM(AttribName), H5T_NATIVE_INTEGER, DataSpace, Attr_ID, iError)
-  CALL H5AWRITE_F(Attr_ID, H5T_NATIVE_INTEGER, IntegerArray , Dimsf, iError)
-END IF
-IF(PRESENT(IntegerScalar))THEN
-  CALL H5ACREATE_F(Loc_ID, TRIM(AttribName), H5T_NATIVE_INTEGER, DataSpace, Attr_ID, iError)
-  CALL H5AWRITE_F(Attr_ID, H5T_NATIVE_INTEGER, IntegerScalar , Dimsf, iError)
-END IF
+IF(PRESENT(RealScalar)) Type_ID=H5T_NATIVE_DOUBLE
+IF(PRESENT(RealArray))  Type_ID=H5T_NATIVE_DOUBLE
+IF(PRESENT(IntScalar))  Type_ID=H5T_NATIVE_INTEGER
+IF(PRESENT(IntArray))   Type_ID=H5T_NATIVE_INTEGER
 IF(PRESENT(LogicalScalar))THEN
-  IF(logicalScalar)THEN
-    logtoint=1
-  ELSE
-    logtoint=0
-  END IF
-  CALL H5ACREATE_F(Loc_ID, TRIM(AttribName), H5T_NATIVE_INTEGER, DataSpace, Attr_ID, iError)
-  CALL H5AWRITE_F(Attr_ID, H5T_NATIVE_INTEGER, logtoint , Dimsf, iError)
+  LogToInt=MERGE(1,0,LogicalScalar)
+  Type_ID=H5T_NATIVE_INTEGER
 END IF
+
+! Create character string datatype for the attribute.
+! For a attribute character, we have to build our own type with corresponding attribute length
 IF(PRESENT(StrScalar))THEN
-  ! Create character string datatype for the attribute.
-  ! For a attribute character, we have to build our own type with corresponding attribute length
-  CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype_id, iError)
-  AttrLen=255
-  CALL H5TSET_SIZE_F(aType_ID, AttrLen, iError)
-  CALL H5ACREATE_F(Loc_ID, TRIM(AttribName), aType_ID, DataSpace, Attr_ID, iError)
-  CALL H5AWRITE_F(Attr_ID, aType_ID, StrScalar , Dimsf, iError)
+  AttrLen=LEN(StrScalar(1))
+  CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, Type_ID, iError)
+  CALL H5TSET_SIZE_F(Type_ID, AttrLen, iError)
 END IF
+IF(PRESENT(StrArray))THEN
+  AttrLen=LEN(StrArray(1))
+  CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, Type_ID, iError)
+  CALL H5TSET_SIZE_F(Type_ID, AttrLen, iError)
+ENDIF
+
+CALL H5ACREATE_F(Loc_ID, TRIM(AttribName), Type_ID, DataSpace, Attr_ID, iError)
+! Write the attribute data.
+#ifdef HDF5_F90 /* HDF5 compiled without fortran2003 flag */
+IF(PRESENT(RealArray))     CALL H5AWRITE_F(Attr_ID, Type_ID, RealArray,  Dimsf, iError)
+IF(PRESENT(RealScalar))    CALL H5AWRITE_F(Attr_ID, Type_ID, RealScalar, Dimsf, iError)
+IF(PRESENT(IntArray))      CALL H5AWRITE_F(Attr_ID, Type_ID, IntArray,   Dimsf, iError)
+IF(PRESENT(IntScalar))     CALL H5AWRITE_F(Attr_ID, Type_ID, IntScalar,  Dimsf, iError)
+IF(PRESENT(LogicalScalar)) CALL H5AWRITE_F(Attr_ID, Type_ID, LogToInt,   Dimsf, iError)
+IF(PRESENT(StrScalar))     CALL H5AWRITE_F(Attr_ID, Type_ID, StrScalar,  Dimsf, iError)
+IF(PRESENT(StrArray))      CALL H5AWRITE_F(Attr_ID, Type_ID, StrArray,   Dimsf, iError)
+#else /* HDF5_F90 */
+IF(PRESENT(RealArray))     buf=C_LOC(RealArray)
+IF(PRESENT(RealScalar))    buf=C_LOC(RealScalar)
+IF(PRESENT(IntArray))      buf=C_LOC(IntArray)
+IF(PRESENT(IntScalar))     buf=C_LOC(IntScalar)
+IF(PRESENT(LogicalScalar)) buf=C_LOC(LogToInt)
+IF(PRESENT(StrScalar))     buf=C_LOC(StrScalar(1))
+IF(PRESENT(StrArray))      buf=C_LOC(StrArray(1))
+CALL H5AWRITE_F(Attr_ID, Type_ID, buf, iError)
+#endif /* HDF5_F90 */
+
+! Close datatype
+IF(PRESENT(StrScalar).OR.PRESENT(StrArray)) CALL H5TCLOSE_F(Type_ID, iError)
 ! Close dataspace
 CALL H5SCLOSE_F(DataSpace, iError)
 ! Close the attribute.
 CALL H5ACLOSE_F(Attr_ID, iError)
-IF(PRESENT(DataSetName))THEN
+IF(Loc_ID.NE.Loc_ID_in)THEN
   ! Close the dataset and property list.
   CALL H5DCLOSE_F(Loc_ID, iError)
 END IF
-LOGWRITE(UNIT_stdOut,*)'...DONE!'
-END SUBROUTINE WriteAttributeToHDF5
+LOGWRITE(*,*)'...DONE!'
+END SUBROUTINE WriteAttribute
+
 
 END MODULE MOD_Output_HDF5
