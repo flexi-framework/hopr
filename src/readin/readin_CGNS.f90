@@ -570,11 +570,13 @@ SUBROUTINE ReadCGNSMeshStruct(FirstElem_in,CGNSFile,CGNSBase,iZone,nZonesGlob,nN
 USE MOD_CartMesh ,ONLY:GetNewHexahedron
 USE MOD_Mesh_Vars,ONLY:tElem,tElemPtr,tSide,tNodePtr
 USE MOD_Mesh_Vars,ONLY:DZ,nMeshElems,meshDim
-USE MOD_Mesh_Vars,ONLY:BoundaryType,useCurveds,N,MeshIsAlreadyCurved
+USE MOD_Mesh_Vars,ONLY:BoundaryType,useCurveds,N,NBlock,MeshIsAlreadyCurved
 USE MOD_Mesh_Vars,ONLY:nSkip,nSkipZ
 USE MOD_Mesh_Vars,ONLY:getNewElem,getNewNode,getNewBC,GETNEWQUAD,deleteNode
 USE MOD_Mesh_Basis,ONLY:createSides,GetBoundaryIndex
 USE MOD_Basis_Vars,ONLY:HexaMapInv
+USE MOD_Basis     ,ONLY:GetVandermonde
+USE MOD_ChangeBasis,ONLY:ChangeBasis2D,ChangeBasis3D
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -594,7 +596,7 @@ TYPE(tNodePtr)                :: CornerNode(8)  ! temporary corner nodes of the 
 TYPE(tElem),POINTER           :: aElem  ! ?
 TYPE(tSide),POINTER           :: aSide  ! ?
 PP_CGNS_INT_TYPE ,ALLOCATABLE :: DimVec(:,:)  ! ?
-PP_CGNS_INT_TYPE              :: irmin(3),irmax(3)  ! ?
+PP_CGNS_INT_TYPE              :: irmin(3),irmax(3),irmaxorg(3)  ! ?
 PP_CGNS_INT_TYPE              :: nCGNSBC,iBC,iBCFace  ! Number of Boundary Conditions
 PP_CGNS_INT_TYPE ,ALLOCATABLE :: isize(:,:)  ! ?
 PP_CGNS_INT_TYPE              :: iSide,nBCElems,PntSetType  ! ?
@@ -602,14 +604,16 @@ PP_CGNS_INT_TYPE ,ALLOCATABLE :: BCIndex(:,:),BCTypeIndex(:),countBCs(:),nBCFace
 PP_CGNS_INT_TYPE              :: BCTypeI  ! ?
 PP_CGNS_INT_TYPE              :: NormalListFlag,DataType,nDataSet  ! ?
 PP_CGNS_INT_TYPE              :: iError                                 ! Error flag
-PP_CGNS_INT_TYPE              :: k,l,m,step,kk,ll,mm  ! ?
+PP_CGNS_INT_TYPE              :: i,j,k,l,m,step,kk,ll,mm  ! ?
 PP_CGNS_INT_TYPE              :: k2,k3  ! ?
 PP_CGNS_INT_TYPE              :: stepk,stepl,stepm  ! ?
 PP_CGNS_INT_TYPE              :: nSkipk,nSkipl,nSkipm,whichdir  ! ?
+PP_CGNS_INT_TYPE              :: nElems(3)
 REAL                          :: dir(3,3),scalprod  ! ?
-PP_CGNS_INT_TYPE              :: N_loc  ! ?
+INTEGER                       :: N_loc  ! ?
 PP_CGNS_INT_TYPE              :: SideMap(3,2)                        ! xi/eta/zeta plus/minus -> localSideInd
-REAL,ALLOCATABLE              :: nodeCoordinates(:,:,:,:)            ! Coordinates of the Nodes in x,y,z direktion
+REAL,ALLOCATABLE              :: NodeCoords(:,:,:,:),NodeCoordsTmp(:,:,:,:) ! Coordinates of the Nodes in x,y,z direktion
+REAL,ALLOCATABLE              :: Vdm_NBlock_N(:,:) ! Vdm from NBlock to N (if curved)
 CHARACTER(LEN=32)             :: CGName, FamilyName,ZoneName  ! ?
 LOGICAL                       :: onbnd  ! ?
 PP_CGNS_INT_TYPE              :: one   ! ?
@@ -626,18 +630,20 @@ CALL CG_ZONE_READ_F(CGNSfile,CGNSBase,iZone,CGname,iSize,iError)
 ZoneName=CGname
 IF(useCurveds.AND.MeshIsAlreadyCurved)THEN 
   N_loc=N
+  IF(NBlock.NE.-1) N_loc=NBlock
 ELSE
   N_loc=1
 END IF
-Step=N_loc*nSkip
+Step=N_loc
 
-irmin(:)=1
+irmin=1
 IF(meshdim.EQ.3)THEN
-  irmax(:)=isize(:,1)
+  irmax=isize(:,1)
 ELSE
   irmax(1:2)=isize(:,1)
   irmax(3)=(N_loc+1)*nSkip
 END IF
+irmaxorg=irmax
 WRITE(UNIT_stdOut,'(A,A,A,3I8)')'Read Zone ',TRIM(CGname),', with block elem size:',irmax(:)-1
 
 DO k=1,meshDim
@@ -653,17 +659,97 @@ END DO
 
 ! Allocate list for node Coordinates
 IF(meshdim.EQ.3) THEN
-  ALLOCATE(NodeCoordinates(3,1:irmax(1),1:irmax(2),1:irmax(3)))
+  ALLOCATE(NodeCoords(3,1:irmax(1),1:irmax(2),1:irmax(3)))
 ELSEIF(meshdim.EQ.2) THEN
-  ALLOCATE(nodeCoordinates(3,1:irmax(1),1:irmax(2),1))
+  ALLOCATE(nodeCoords(3,1:irmax(1),1:irmax(2),1))
 ELSE
   STOP 'Incompatible meshDimension'
 END IF
 
 ! Read Coordinates
-CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateX',REALDOUBLE,irmin,irmax,NodeCoordinates(1,:,:,:),iError)
-CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateY',REALDOUBLE,irmin,irmax,NodeCoordinates(2,:,:,:),iError)
-CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateZ',REALDOUBLE,irmin,irmax,NodeCoordinates(3,:,:,:),iError)
+CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateX',REALDOUBLE,irmin,irmax,NodeCoords(1,:,:,:),iError)
+CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateY',REALDOUBLE,irmin,irmax,NodeCoords(2,:,:,:),iError)
+CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateZ',REALDOUBLE,irmin,irmax,NodeCoords(3,:,:,:),iError)
+
+! Apply skip only in z-DIrection
+IF(nSkipZ.NE.1)THEN
+  stepk=1
+  stepl=1
+  stepm=1
+  !find z direction
+  dir(1,:)=NORMALIZE(NodeCoords(:,2,1,1)-NodeCoords(:,1,1,1),3)
+  dir(2,:)=NORMALIZE(NodeCoords(:,1,2,1)-NodeCoords(:,1,1,1),3)
+  dir(3,:)=NORMALIZE(NodeCoords(:,1,1,2)-NodeCoords(:,1,1,1),3)
+  DO whichdir=1,3
+    scalprod=SUM(dir(whichdir,:)*(/0.,0.,1./))
+    IF(ABS(scalprod).GT.0.95) EXIT
+  END DO
+  SELECT CASE(whichDir)
+  CASE(1)
+    stepk=nSkipZ
+    zFit=.NOT.(MOD((irmax(1)-1),(stepk)).NE.0)
+  CASE(2)
+    stepl=nSkipZ
+    zFit=.NOT.(MOD((irmax(2)-1),(stepl)).NE.0)
+  CASE(3)
+    stepm=nSkipZ
+    zFit=.NOT.(MOD((irmax(3)-1),(stepm)).NE.0)
+  END SELECT 
+  IF(.NOT.zfit)THEN
+    IF(useCurveds)THEN
+      WRITE(UNIT_StdOut,'(A)') 'WARNING: cannot read block, step=(order-1)*nSkipZ does not fit with block elem size.'
+    ELSE
+      WRITE(UNIT_StdOut,'(A)') 'WARNING: cannot read block, nSkipZ does not fit with block elem size.'
+    END IF
+    RETURN
+  END IF !zfit
+
+  ! Now apply nSkip in z-dir
+  ALLOCATE(NodeCoordsTmp(3,1:((irmax(1)-1)/stepk)+1,1:((irmax(2)-1)/stepl)+1,1:((irmax(3)-1)/stepm)+1))
+  DO k=1,irmax(1),stepk; DO l=1,irmax(2),stepl; DO m=1,irmax(3),stepm
+    NodeCoordsTmp(:,1+(k-1)/stepk,1+(l-1)/stepl,1+(m-1)/stepm)=NodeCoords(:,k,l,m)
+  END DO; END DO; END DO !k,l,m
+  DEALLOCATE(NodeCoords)
+  irmax=(/SIZE(NodeCoordsTmp,2),SIZE(NodeCoordsTmp,3),SIZE(NodeCoordsTmp,4)/)
+  ALLOCATE(NodeCoords(3,irmax(1),irmax(2),irmax(3)))
+  NodeCoords=NodeCoordsTmp
+  DEALLOCATE(NodeCoordsTmp)
+END IF !nSkipZ NE 1
+
+IF(useCurveds.AND.MeshIsAlreadyCurved.AND.N_loc.NE.N)THEN ! change basis to N
+  nElems(1:3)=(irmax(1:3)-1)/NBlock
+  ALLOCATE(Vdm_NBlock_N(0:N,0:NBlock))
+  CALL GetVandermonde(N_loc,'VISU',N,'VISU',Vdm_NBlock_N,modal=.FALSE.)
+  IF(meshdim.EQ.3) THEN
+    ALLOCATE(NodeCoordsTmp(3,1:nElems(1)*N+1,1:nElems(2)*N+1,1:nElems(3)*N+1))
+    DO k=0,nElems(3)-1; DO j=0,nElems(2)-1; DO i=0,nElems(1)-1
+      CALL ChangeBasis3D(3,N_loc,N,Vdm_NBlock_N,                   &
+                         NodeCoords(   :,i*N_loc+1:(i+1)*N_loc+1,  &
+                                         j*N_loc+1:(j+1)*N_loc+1,  &
+                                         k*N_loc+1:(k+1)*N_loc+1), &
+                         NodeCoordsTmp(:,i*N    +1:(i+1)*N    +1,  &
+                                         j*N    +1:(j+1)*N    +1,  &
+                                         k*N    +1:(k+1)*N    +1))
+    END DO; END DO; END DO
+  ELSEIF(meshdim.EQ.2) THEN
+    ALLOCATE(NodeCoordsTmp(3,1:nElems(1)*N+1,1:nElems(2)*N+1,1))
+    DO j=0,nElems(2)-1; DO i=0,nElems(1)-1
+      CALL ChangeBasis2D(3,N_loc,N,Vdm_NBlock_N,                     &
+                         NodeCoords(   :,i*N_loc+1:(i+1)*N_loc+1,    &
+                                         j*N_loc+1:(j+1)*N_loc+1, 1),&
+                         NodeCoordsTmp(:,i*N    +1:(i+1)*N    +1,    &
+                                         j*N    +1:(j+1)*N    +1, 1))
+    END DO; END DO
+  END IF
+  DEALLOCATE(Vdm_NBlock_N)
+  DEALLOCATE(NodeCoords)
+  irmax=(/SIZE(NodeCoordsTmp,2),SIZE(NodeCoordsTmp,3),SIZE(NodeCoordsTmp,4)/)
+  ALLOCATE(NodeCoords(3,irmax(1),irmax(2),irmax(3)))
+  NodeCoords=NodeCoordsTmp
+  DEALLOCATE(NodeCoordsTmp)
+  N_loc=N
+END IF
+
 
 ! Building temporary nodes
 ALLOCATE(Mnodes(irmax(1),irmax(2),irmax(3)))
@@ -672,9 +758,9 @@ DO k=1,irmax(1)
     DO m=1,irmax(3)
       CALL GetNewNode(Mnodes(k,l,m)%np)
       IF(meshDim.EQ.3)THEN
-        Mnodes(k,l,m)%np%x      =NodeCoordinates(:,k,l,m)      ! Node coordinates are assigned
+        Mnodes(k,l,m)%np%x      =NodeCoords(:,k,l,m)      ! Node coordinates are assigned
       ELSE
-        Mnodes(k,l,m)%np%x(1:2) =NodeCoordinates(1:2,k,l,1)    ! Node coordinates are assigned
+        Mnodes(k,l,m)%np%x(1:2) =NodeCoords(1:2,k,l,1)    ! Node coordinates are assigned
         Mnodes(k,l,m)%np%x(3)   =REAL(m-1)*REAL(DZ)/REAL(step) ! Node coordinates are assigned       
       END IF
       nNodesGlob=nNodesGlob+1
@@ -691,58 +777,19 @@ DO k=1,irmax(1)
     END DO
   END DO
 END DO
-DEALLOCATE(NodeCoordinates)
-stepk=step
-stepl=step
-stepm=step
-nSkipk=nSkip
-nSkipl=nSkip
-nSkipm=nSkip
-IF(nSkipZ.NE.nSkip)THEN
-  !find z direction
-  dir(1,:)=NORMALIZE(Mnodes(2,1,1)%np%x-Mnodes(1,1,1)%np%x,3)
-  dir(2,:)=NORMALIZE(Mnodes(1,2,1)%np%x-Mnodes(1,1,1)%np%x,3)
-  dir(3,:)=NORMALIZE(Mnodes(1,1,2)%np%x-Mnodes(1,1,1)%np%x,3)
-  DO whichdir=1,3
-    scalprod=SUM(dir(whichdir,:)*(/0.,0.,1./))
-    IF(ABS(scalprod).GT.0.95) EXIT
-  END DO
-  SELECT CASE(whichDir)
-  CASE(1)
-    stepk=step*nSkipZ/nSkip
-    nSkipk=nSkipZ
-    zFit=.NOT.(MOD((irmax(1)-1),(stepk)).NE.0)
-  CASE(2)
-    stepl=step*nSkipZ/nSkip
-    nSkipl=nSkipZ
-    zFit=.NOT.(MOD((irmax(2)-1),(stepl)).NE.0)
-  CASE(3)
-    stepm=step*nSkipZ/nSkip
-    nSkipm=nSkipZ
-    zFit=.NOT.(MOD((irmax(3)-1),(stepm)).NE.0)
-  END SELECT 
-  IF(.NOT.zfit)THEN
-    IF(useCurveds)THEN
-      WRITE(UNIT_StdOut,'(A)') 'WARNING: cannot read block, step=(order-1)*nSkipZ does not fit with block elem size.'
-    ELSE
-      WRITE(UNIT_StdOut,'(A)') 'WARNING: cannot read block, nSkipZ does not fit with block elem size.'
-    END IF
-    RETURN
-  END IF !zfit
-END IF !nSkipZ NE nSkip
+DEALLOCATE(NodeCoords)
 
-
-DO k=1,irmax(1)-stepk,stepk
-  DO l=1,irmax(2)-stepl,stepl
-    DO m=1,irmax(3)-stepm,stepm
-      CornerNode(1)%np=>Mnodes(k      ,l      ,m)%np
-      CornerNode(2)%np=>Mnodes(k+stepk,l      ,m)%np
-      CornerNode(3)%np=>Mnodes(k+stepk,l+stepl,m)%np
-      CornerNode(4)%np=>Mnodes(k      ,l+stepl,m)%np
-      CornerNode(5)%np=>Mnodes(k      ,l      ,m+stepm)%np
-      CornerNode(6)%np=>Mnodes(k+stepk,l      ,m+stepm)%np
-      CornerNode(7)%np=>Mnodes(k+stepk,l+stepl,m+stepm)%np
-      CornerNode(8)%np=>Mnodes(k      ,l+stepl,m+stepm)%np
+DO k=1,irmax(1)-N,N
+  DO l=1,irmax(2)-N,N
+    DO m=1,irmax(3)-N,N
+      CornerNode(1)%np=>Mnodes(k  ,l  ,m  )%np
+      CornerNode(2)%np=>Mnodes(k+N,l  ,m  )%np
+      CornerNode(3)%np=>Mnodes(k+N,l+N,m  )%np
+      CornerNode(4)%np=>Mnodes(k  ,l+N,m  )%np
+      CornerNode(5)%np=>Mnodes(k  ,l  ,m+N)%np
+      CornerNode(6)%np=>Mnodes(k+N,l  ,m+N)%np
+      CornerNode(7)%np=>Mnodes(k+N,l+N,m+N)%np
+      CornerNode(8)%np=>Mnodes(k  ,l+N,m+N)%np
       IF(meshdim.EQ.3)THEN
         CALL GetNewHexahedron(CornerNode)
         CALL CreateSides(FirstElem_in,.TRUE.)
@@ -758,18 +805,18 @@ DO k=1,irmax(1)-stepk,stepk
       nMeshElems=nMeshElems+1
       FirstElem_in%ind =nMeshElems
       FirstElem_in%zone=nZonesGlob
-!      WRITE(*,*)'ielem',FirstElem_in%ind
+
       IF(useCurveds.AND.MeshIsAlreadyCurved)THEN !read in curvedNodes
-        FirstElem_in%nCurvedNodes=(N+1)**3
+        FirstElem_in%nCurvedNodes=(N_loc+1)**3
         ALLOCATE(FirstElem_in%curvedNode(FirstElem_in%nCurvedNodes))
         DO kk=0,N; DO ll=0,N; DO mm=0,N
-          FirstElem_in%curvedNode(HexaMapInv(kk,ll,mm))%np=>Mnodes(k+kk*nSkipk,l+ll*nSkipl,m+mm*nSkipm)%np
+          FirstElem_in%curvedNode(HexaMapInv(kk,ll,mm))%np=>Mnodes(k+kk,l+ll,m+mm)%np
         END DO; END DO; END DO
       END IF!useCurveds
     END DO !m
   END DO !l
 END DO !k
-!DEALLOCATE(Mnodes)
+DEALLOCATE(Mnodes)
 
 !------------------ READ BCs ------------------------------------!
 ! Check for number of Boundary Conditions nCGNSBC 
@@ -824,8 +871,8 @@ DO iBC=1,nCGNSBC !Loop over all BCs
       nBCFaces(iBC)  = 1
       IF(nBCElems.NE.2) STOP 'PointRange has only 2 entries!'
       DO k=1,meshDim
-        IF(((BCElems(k,1).NE.irmax(k)).AND.(BCElems(k,1).NE.1)).AND. &
-           ((BCElems(k,2).NE.irmax(k)).AND.(BCElems(k,2).NE.1))) THEN
+        IF(((BCElems(k,1).NE.irmaxorg(k)).AND.(BCElems(k,1).NE.1)).AND. &
+           ((BCElems(k,2).NE.irmaxorg(k)).AND.(BCElems(k,2).NE.1))) THEN
           WRITE(UNIT_StdOut,*)'WARNING: Block face has multiple boundary faces, BoundaryName: ',TRIM(FamilyName)
         END IF
         IF(BCElems(k,1).EQ.BCElems(k,2))&
@@ -848,8 +895,8 @@ DO iBC=1,nCGNSBC !Loop over all BCs
         ! 1 side
         DO l=1,nBCElems
           IF(BCElems(k,l) .EQ. 1) THEN
-            IF((BCElems(k2,l).GT. 1) .AND. (BCElems(k2,l).LT.irmax(k2))) THEN
-              IF((BCElems(k3,l).GT. 1) .AND. (BCElems(k3,l).LT.irmax(k3))) THEN
+            IF((BCElems(k2,l).GT. 1) .AND. (BCElems(k2,l).LT.irmaxorg(k2))) THEN
+              IF((BCElems(k3,l).GT. 1) .AND. (BCElems(k3,l).LT.irmaxorg(k3))) THEN
                 ! Inner Point (not on edge or corner) on Side defines BC
                 nBCFaces(iBC)=nBCFaces(iBC)+1
                 BCIndex(iBC,nBCFaces(iBC)) = SideMap(k,1)
@@ -860,9 +907,9 @@ DO iBC=1,nCGNSBC !Loop over all BCs
         END DO  ! l 
         ! irmax side
         DO l=1,nBCElems
-          IF(BCElems(k,l) .EQ. irmax(k)) THEN
-            IF((BCElems(k2,l).GT. 1) .AND. (BCElems(k2,l).LT.irmax(k2))) THEN
-              IF((BCElems(k3,l).GT. 1) .AND. (BCElems(k3,l).LT.irmax(k3))) THEN
+          IF(BCElems(k,l) .EQ. irmaxorg(k)) THEN
+            IF((BCElems(k2,l).GT. 1) .AND. (BCElems(k2,l).LT.irmaxorg(k2))) THEN
+              IF((BCElems(k3,l).GT. 1) .AND. (BCElems(k3,l).LT.irmaxorg(k3))) THEN
                 ! Inner Point (not on edge or corner) on Side defines BC
                 nBCFaces(iBC)=nBCFaces(iBC)+1
                 BCIndex(iBC,nBCFaces(iBC)) = SideMap(k,2)

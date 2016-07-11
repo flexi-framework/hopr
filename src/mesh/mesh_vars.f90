@@ -239,6 +239,7 @@ INTEGER                        :: normalsType            ! source of normals vec
 INTEGER,ALLOCATABLE            :: ExactNormals(:)        ! for 3D spline patches, an analytical normal can be used 
 INTEGER                        :: N                      ! polynomial degree of boundary element discretization 
 INTEGER                        :: BoundaryOrder          ! N+1
+INTEGER                        :: NBlock                 ! for structured CGNS readin
 INTEGER                        :: nSkip                  ! for structured CGNS readin
 INTEGER                        :: nSkipZ                 ! for structured CGNS readin
 INTEGER                        :: nBoundarySplines=0     ! Counter for boundary splines

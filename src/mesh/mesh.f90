@@ -175,9 +175,10 @@ ELSE
     useBinary =GETLOGICAL('useBinary','.FALSE.')  ! Read binary mesh file (.halo files) instead of ASCII
   CASE(3)   ! CGNS mesh
     meshIsAlreadyCurved = GETLOGICAL('meshIsAlreadyCurved','.FALSE.')  ! build curveds by agglomeration (only block structured)
-    nskip=GETINT('nskip','1') !skip every nskip point (=1, nothing is skipped)
-    WRITE(DefStr,*)nSkip
-    nskipZ=GETINT('nskipZ',TRIM(DefStr)) !skip every nskipZ point in z direction
+    nskipZ=GETINT('nskipZ','1') !skip every nskip point (=1, nothing is skipped)
+    WRITE(DefStr,*) N
+    NBlock=GETINT('NBlock',TRIM(DefStr)) !initial polynomial degree of block structured mesh
+    nSkip=1 ! TODO: integrate into reader or remove
     nMeshFiles=GETINT('nMeshFiles','1') ! Number of mesh files: each mesh file = one zone
     BugFix_ANSA_CGNS=GETLOGICAL('BugFix_ANSA_CGNS','.FALSE.')
   CASE(5)   ! GMSH file
