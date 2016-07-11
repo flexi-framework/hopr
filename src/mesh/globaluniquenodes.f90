@@ -51,7 +51,8 @@ SUBROUTINE GlobalUniqueNodes(withOrientedOpt)
 ! MODULES
 USE MOD_Mesh_Vars, ONLY:tElem,tSide,tEdge,tNode,tNodePtr,FirstElem
 USE MOD_Mesh_Vars, ONLY:N,deleteNode
-USE MOD_Mesh_Vars,ONLY:SpaceQuandt
+USE MOD_Mesh_Vars, ONLY:SpaceQuandt
+USE MOD_Mesh_Tools,ONLY:SetTempMarker
 USE MOD_Mesh_Tolerances,ONLY:COMPAREPOINT
 USE MOD_SpaceFillingCurve,ONLY:EVAL_MORTON,EVAL_MORTON_ARR
 USE MOD_SortingTools,ONLY: Qsort1DoubleInt1Pint  
@@ -85,6 +86,7 @@ INTEGER                     :: nRanges  ! ?
 INTEGER                     :: percent  ! ?
 INTEGER                     :: lastNode,nextNode  ! ?
 LOGICAL                     :: withOriented
+LOGICAL,PARAMETER           :: T=.TRUE.
 !===================================================================================================================================
 CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("~"))')
@@ -96,42 +98,7 @@ IF(PRESENT(withOrientedOpt)) withOriented=withOrientedOpt
 ! First step: set node marker=0 
 Elem=>FirstElem
 DO WHILE(ASSOCIATED(Elem))
-  DO iNode=1,Elem%nNodes
-    Elem%Node(iNode)%np%tmp = 0
-  END DO !iNodes
-  IF(ASSOCIATED(Elem%CurvedNode))THEN
-    DO iNode=1,Elem%nCurvedNodes
-      Elem%curvedNode(iNode)%np%tmp = 0
-    END DO
-  END IF
-  Side=>Elem%firstSide
-  DO WHILE(ASSOCIATED(Side))
-    DO iNode=1,Side%nNodes
-      Side%Node(iNode)%np%tmp=0
-      IF(withOriented) Side%OrientedNode(iNode)%np%tmp=0
-      IF(ASSOCIATED(Side%edge(iNode)%edp))THEN
-        Edge=>Side%edge(iNode)%edp
-        Edge%Node(1)%np%tmp=0
-        Edge%Node(2)%np%tmp=0
-        IF(ASSOCIATED(Edge%CurvedNode))THEN
-          DO i=1,N+1
-            Edge%curvedNode(i)%np%tmp=0
-          END DO
-        END IF
-      END IF
-    END DO
-    DO iNode=1,Side%nCurvedNodes
-      Side%curvedNode(iNode)%np%tmp=0
-    END DO
-    !periodic side, only /= for connect!
-    IF(Side%tmp2.GT.0)THEN
-      !dummy side found
-      DO iNode=1,Side%nNodes
-        Side%connection%Node(iNode)%np%tmp=0
-      END DO
-    END IF
-    Side=>Side%nextElemSide
-  END DO !associated(side)
+  CALL SetTempMarker(Elem,0,(/T,T,T,T,T,T,withOriented,T/))
   Elem=>Elem%nextElem
 END DO
 

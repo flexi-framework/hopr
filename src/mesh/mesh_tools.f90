@@ -54,8 +54,13 @@ INTERFACE chkSpl_vol
   MODULE PROCEDURE chkSpl_vol
 END INTERFACE
 
+INTERFACE SetTempMarker
+  MODULE PROCEDURE SetTempMarker
+END INTERFACE
+
 PUBLIC::CountSplines,NetVisu,BCVisu
 PUBLIC::chkspl_surf,chkspl_vol
+PUBLIC::SetTempMarker
 !===================================================================================================================================
 
 CONTAINS
@@ -604,6 +609,81 @@ END IF !Visu_sJ_limit < 1
 DEALLOCATE(VarNames,Coord,Values,xNode,x,xt1,xt2,xt3,Jac)
 CALL Timer(.FALSE.)
 END SUBROUTINE chkSpl_Vol
+
+
+SUBROUTINE SetTempMarker(Elem,value,whichMarker)
+!===================================================================================================================================
+! Set temp markers equal to zero for a given element (corner nodes, sides, edges, curveds)
+!===================================================================================================================================
+! MODULES
+USE MOD_Globals
+USE MOD_Mesh_Vars,ONLY:tElem,tSide,tEdge,N
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+TYPE(tElem),POINTER,INTENT(IN) :: Elem  ! ?
+INTEGER,INTENT(IN)             :: value ! value to set tmp to
+LOGICAL,INTENT(IN),OPTIONAL    :: whichMarker(8) ! 1/2: elem corner/curved, 3/4: side corner/curved, 5/6: edge corner/curved
+                                                 ! 7: oriented nodes, 8: connection
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+TYPE(tSide),POINTER         :: Side  ! ?
+TYPE(tEdge),POINTER         :: Edge  ! ?
+INTEGER                     :: iNode,i ! ?
+LOGICAL                     :: whichMarkerLoc(8)
+!===================================================================================================================================
+whichMarkerLoc=.TRUE.
+whichMarkerLoc(7:8)=.FALSE.
+IF(PRESENT(whichMarker)) whichMarkerLoc=whichMarker
+
+IF(whichMarkerLoc(1))THEN
+  DO iNode=1,Elem%nNodes
+    Elem%Node(iNode)%np%tmp = value
+  END DO !iNodes
+END IF
+IF(whichMarkerLoc(2).AND.ASSOCIATED(Elem%CurvedNode))THEN
+  DO iNode=1,Elem%nCurvedNodes
+    Elem%curvedNode(iNode)%np%tmp = value
+  END DO
+END IF
+
+Side=>Elem%firstSide
+DO WHILE(ASSOCIATED(Side))
+  DO iNode=1,Side%nNodes
+    IF(WhichMarkerLoc(3)) Side%Node(iNode)%np%tmp=value
+    IF(WhichMarkerLoc(7)) Side%OrientedNode(iNode)%np%tmp=value
+    IF(ASSOCIATED(Side%edge(iNode)%edp))THEN
+      Edge=>Side%edge(iNode)%edp
+      IF(WhichMarkerLoc(5))THEN
+        Edge%Node(1)%np%tmp=value
+        Edge%Node(2)%np%tmp=value
+      END IF
+      IF(WhichMarkerLoc(6).AND.ASSOCIATED(Edge%CurvedNode))THEN
+        DO i=1,N+1
+          Edge%curvedNode(i)%np%tmp=value
+        END DO
+      END IF
+    END IF
+  END DO
+
+  IF(whichMarkerLoc(4).AND.ASSOCIATED(Side%CurvedNode))THEN
+    DO iNode=1,Side%nCurvedNodes
+      Side%curvedNode(iNode)%np%tmp=value
+    END DO
+  END IF
+  !periodic side, only /= for connect!
+  IF(Side%tmp2.GT.0.AND.ASSOCIATED(Side%Connection).AND.WhichMarkerLoc(8))THEN
+    !dummy side found
+    DO iNode=1,Side%nNodes
+      Side%connection%Node(iNode)%np%tmp=value
+    END DO
+  END IF
+  Side=>Side%nextElemSide
+END DO !associated(side)
+END SUBROUTINE SetTempMarker
 
 
 END MODULE MOD_Mesh_Tools
