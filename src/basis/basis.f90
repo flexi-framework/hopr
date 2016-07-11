@@ -43,7 +43,16 @@ INTERFACE InitBasis
    MODULE PROCEDURE InitBasis
 END INTERFACE
 
-PUBLIC:: InitBasis
+INTERFACE GetNodesAndWeights
+   MODULE PROCEDURE GetNodesAndWeights
+END INTERFACE
+
+INTERFACE GetVandermonde
+   MODULE PROCEDURE GetVandermonde
+END INTERFACE
+
+
+PUBLIC:: InitBasis, GetNodesAndWeights, GetVandermonde
 !===================================================================================================================================
 
 CONTAINS
@@ -229,5 +238,150 @@ DO q=0,N
   END DO !p
 END DO !q
 END SUBROUTINE fillBasisMapping
+
+
+SUBROUTINE GetNodesAndWeights(N_in,NodeType_in,xIP,wIP,wIPBary)
+!==================================================================================================================================
+! Compute 1D nodes and weights and build the Vandermonde-Matrix
+!==================================================================================================================================
+! MODULES
+USE MOD_Globals
+USE MOD_Basis1D, ONLY: LegendreGaussNodesAndWeights,LegGaussLobNodesAndWeights,ChebyshevGaussNodesAndWeights,ChebyGaussLobNodesAndWeights,BarycentricWeights
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+INTEGER,INTENT(IN)                 :: N_in         ! Number of 1D points
+CHARACTER(LEN=*),INTENT(IN)        :: NodeType_in  ! Type of 1D points
+REAL,INTENT(OUT)                   :: xIP(0:N_in)
+REAL,INTENT(OUT),OPTIONAL          :: wIP(0:N_in)
+REAL,INTENT(OUT),OPTIONAL          :: wIPBary(0:N_in)
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER                            :: i
+!==================================================================================================================================
+IF(PRESENT(wIP))THEN
+  SELECT CASE(TRIM(NodeType_in))
+  CASE('GAUSS')
+    CALL LegendreGaussNodesAndWeights( N_in,xIP,wIP)
+  CASE('GAUSS-LOBATTO')
+    CALL LegGaussLobNodesAndWeights(   N_in,xIP,wIP)
+  CASE('CHEBYSHEV-GAUSS')
+    CALL ChebyshevGaussNodesAndWeights(N_in,xIP,wIP)
+  CASE('CHEBYSHEV-GAUSS-LOBATTO')
+    CALL ChebyGaussLobNodesAndWeights( N_in,xIP,wIP)
+  CASE('VISU')
+    DO i=0,N_in
+      xIP(i) = 2.*REAL(i)/REAL(N_in) - 1.
+    END DO
+    ! Trapez rule for integration !!!
+    wIP(:) = 2./REAL(N_in)
+    wIP(0) = 0.5*wIP(0)
+    wIP(N_in) = 0.5*wIP(N_in)
+  CASE('VISU_INNER')
+    DO i=0,N_in
+      xIP(i) = 1./REAL(N_in+1)+2.*REAL(i)/REAL(N_in+1) - 1.
+    END DO
+    ! first order intergration !!!
+    wIP=2./REAL(N_in+1)
+  CASE DEFAULT
+    CALL Abort(__STAMP__,&
+      'NodeType "'//TRIM(NodeType_in)//'" in GetNodesAndWeights not found!')
+  END SELECT
+ELSE
+  SELECT CASE(TRIM(NodeType_in))
+  CASE('GAUSS')
+    CALL LegendreGaussNodesAndWeights(N_in,xIP)
+  CASE('GAUSS-LOBATTO')
+    CALL LegGaussLobNodesAndWeights(N_in,xIP)
+  CASE('CHEBYSHEV-GAUSS')
+    CALL ChebyshevGaussNodesAndWeights(N_in,xIP)
+  CASE('CHEBYSHEV-GAUSS-LOBATTO')
+    CALL ChebyGaussLobNodesAndWeights(N_in,xIP)
+  CASE('VISU')
+    DO i=0,N_in
+      xIP(i) = 2.*REAL(i)/REAL(N_in) - 1.
+    END DO
+  CASE('VISU_INNER')
+    DO i=0,N_in
+      xIP(i) = 1./REAL(N_in+1)+2.*REAL(i)/REAL(N_in+1) - 1.
+    END DO
+  CASE DEFAULT
+    CALL Abort(__STAMP__,&
+      'NodeType "'//TRIM(NodeType_in)//'" in GetNodesAndWeights not found!')
+  END SELECT
+END IF !present wIP
+IF(PRESENT(wIPBary)) CALL BarycentricWeights(N_in,xIP,wIPBary)
+END SUBROUTINE GetNodesAndWeights
+
+
+SUBROUTINE GetVandermonde(N_in,NodeType_in,N_out,NodeType_out,Vdm_In_Out,Vdm_Out_In,modal)
+!==================================================================================================================================
+! Compute 1D nodes and weights and build the Vandermonde-Matrix
+!==================================================================================================================================
+! MODULES
+USE MOD_Basis1D, ONLY:BarycentricWeights,InitializeVandermonde,BuildLegendreVdm
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+INTEGER,INTENT(IN)                 :: N_in,N_out                 ! Number of 1D input points / output points
+CHARACTER(LEN=*),INTENT(IN)        :: NodeType_in,NodeType_out   ! Type of 1D input points / output points
+LOGICAL,INTENT(IN),OPTIONAL        :: modal                      !
+REAL,INTENT(OUT)                   :: Vdm_In_out(0:N_out,0:N_in)
+REAL,INTENT(OUT),OPTIONAL          :: Vdm_Out_In(0:N_in,0:N_out)
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER                            :: i
+REAL                               :: xIP_in(0:N_in)
+REAL                               :: xIP_out(0:N_out)
+REAL                               :: wBary_in(0:N_in)
+REAL                               ::  Vdm_Leg_in( 0:N_in,0:N_in)
+REAL                               :: sVdm_Leg_in( 0:N_in,0:N_in)
+REAL                               ::  Vdm_Leg_out(0:N_out,0:N_out)
+REAL                               :: sVdm_Leg_out(0:N_out,0:N_out)
+LOGICAL                            :: modalLoc
+!==================================================================================================================================
+modalLoc=.FALSE.
+IF(PRESENT(modal)) modalLoc=modal
+
+! Check if change Basis is needed
+IF((TRIM(NodeType_out).EQ.TRIM(NodeType_in)).AND.(N_in.EQ.N_out))THEN
+  Vdm_In_Out=0.
+  DO i=0,N_in
+    Vdm_In_out(i,i)=1.
+  END DO
+  IF(PRESENT(Vdm_Out_In))THEN
+    Vdm_Out_In=0.
+    DO i=0,N_Out
+      Vdm_Out_In(i,i)=1.
+    END DO
+  END IF
+ELSE
+  ! Input points
+  CALL GetNodesAndWeights(N_in,NodeType_in,xIP_in)
+  CALL BarycentricWeights(N_in,xIP_in,wBary_in)
+  ! Output points
+  CALL GetNodesAndWeights(N_out,NodeType_out,xIP_out)
+
+  IF(modalLoc)THEN
+    CALL BuildLegendreVdm(N_In, xIP_in, Vdm_Leg_in, sVdm_Leg_in)
+    CALL BuildLegendreVdm(N_Out,xIP_out,Vdm_Leg_out,sVdm_Leg_out)
+  END IF
+
+  IF((N_Out.LT.N_In).AND.modalLoc)THEN
+    Vdm_In_Out=MATMUL(Vdm_Leg_Out(0:N_Out,0:N_Out),sVdm_Leg_In(0:N_Out,0:N_In))
+  ELSE
+    CALL InitializeVandermonde(N_in,N_out,wBary_in,xIP_in,xIP_out,Vdm_In_Out)
+  END IF
+  IF(PRESENT(Vdm_Out_In))THEN
+    IF((N_In.LT.N_Out).AND.modalLoc)THEN
+      Vdm_Out_In=MATMUL(Vdm_Leg_In(0:N_In,0:N_In),sVdm_Leg_Out(0:N_In,0:N_Out))
+    ELSE
+      CALL BarycentricWeights(N_out,xIP_out,wBary_in)
+      CALL InitializeVandermonde(N_out,N_in,wBary_in,xIP_out,xIP_in,Vdm_Out_In)
+    END IF
+  END IF
+END IF
+END SUBROUTINE GetVandermonde
+
 
 END MODULE MOD_Basis
