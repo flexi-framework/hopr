@@ -96,10 +96,10 @@ IF(Logging)THEN
   WRITE(UNIT_logOut,*)'STARTED LOGGING ON ',StrDate(7:8),'.',StrDate(5:6),'.',StrDate(1:4),' | ',&
                       StrTime(1:2),':',StrTime(3:4),':',StrTime(5:10)
 END IF  ! Logging
-DebugVisu  =GETLOGICAL('DebugVisu','.FALSE.')
+DebugVisu   =GETLOGICAL('DebugVisu','.FALSE.')
+OutputFormat=GETINT('OutputFormat','0')  
 IF(DebugVisu) THEN
   DebugVisuLevel=GETINT('DebugVisuLevel','0')  
-  OutputFormat  =GETINT('OutputFormat','0')  
   IF(DebugVisuLevel.GE.2) &
     Visu_sJ_limit  =GETREAL('Visu_sJ_limit','1.')  
 END IF
