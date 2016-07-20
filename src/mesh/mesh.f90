@@ -93,7 +93,11 @@ meshIsAlreadyCurved=.FALSE.
 IF (MeshMode .EQ. 1) THEN
   ! ---------- INTERNAL CARTESIAN MESH ---------------------------------------------------------------------------------------------
   IF(useCurveds) THEN
+<<<<<<< HEAD
     InnerElemStretch = GETLOGICAL('InnerElemStretch','.TRUE.')
+=======
+    InnerElemStretch = GETLOGICAL('InnerElemStretch','F')
+>>>>>>> bitbucket/master
   ELSE
     InnerElemStretch = .FALSE.
   END IF
@@ -422,7 +426,7 @@ USE MOD_Mesh_Tools,       ONLY: CountSplines,Netvisu,BCvisu,chkspl_surf,chkspl_v
 USE MOD_Mesh_PostDeform,  ONLY: PostDeform
 USE MOD_Output_HDF5,      ONLY: WriteMeshToHDF5
 USE MOD_Mesh_Jacobians,   ONLY: CheckJacobians
-USE MOD_Output_Vars,      ONLY:useSpaceFillingCurve
+USE MOD_Output_Vars,      ONLY: useSpaceFillingCurve
 USE MOD_Output_HDF5,      ONLY: SpaceFillingCurve
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
