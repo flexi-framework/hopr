@@ -480,7 +480,9 @@ USE MOD_Mesh_Vars,ONLY:FirstElem
 USE MOD_Mesh_Vars,ONLY:nZones,BoundaryType
 USE MOD_Mesh_Vars,ONLY:getNewSide,getNewNode,getNewBC
 USE MOD_Mesh_Vars,ONLY:deleteSide,deleteNode
+USE MOD_Mesh_Vars,ONLY:BoundaryOrder,InnerElemStretch
 USE MOD_Mesh_Basis,ONLY:CreateSides
+USE MOD_CurvedCartMesh,ONLY:GetNewCurvedHexahedron
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -503,13 +505,15 @@ TYPE(tNodePtr)               :: CornerNode(8)   ! ?
 TYPE(tNodePtr),POINTER       :: Mnodes(:,:,:)   ! ?
 TYPE(tElem),POINTER          :: aElem   ! ?
 TYPE(tSide),POINTER          :: aSide  ! ?
+TYPE(tNodePtr),POINTER       :: CurvedNode(:,:,:)  ! ?
 REAL                         :: x1(3),x2(3),e1(3)  ! ?
 REAL                         :: Co(3,8) ,dx(3),fac(3)   ! ?
 REAL                         :: F, dF  ! ?
 INTEGER                      :: iZone,i_Dim,iSide,iter  ! ?
-INTEGER                      :: i,l,m,n  ! ?
+INTEGER                      :: i,j,k,l,m,n  ! ?
 INTEGER                      :: nElems(3),NodeInd  ! ?
 INTEGER                      :: ne(3)  ! ?
+INTEGER                      :: Ngeo
 LOGICAL                      :: onBnd  ! ?
 CHARACTER(LEN=32)            :: formatstr
 !===================================================================================================================================
@@ -596,10 +600,25 @@ DO iZone=1,nZones
     WRITE(UNIT_stdOut,formatstr) '      -factor(:) : ', fac(:)
   END IF
 
+  IF(InnerElemStretch)THEN 
+    Ngeo=BoundaryOrder-1
+    ALLOCATE(CurvedNode(0:Ngeo,0:Ngeo,0:Ngeo))
+  ELSE
+    Ngeo=1
+  END IF
   ! The low / up stuff is a remainder of the mpi version and could be replaced...
-  ne(:) =CartMesh%nElems
+  ne(:) =CartMesh%nElems*Ngeo
   ALLOCATE(Mnodes(0:ne(1),0:ne(2),0:ne(3)))
   Co=CartMesh%Corner
+  !recompute factor for high order mesh
+  fac(:)=fac(:)**(1./REAL(Ngeo))
+  DO i_dim=1,3
+    IF(fac(i_dim).NE.1.)THEN
+      dx(i_dim)=dx(i_dim)*(1.-fac(i_dim))/(1.-fac(i_dim)**Ngeo)
+    ELSE
+      dx(i_dim)=dx(i_dim)/REAL(Ngeo)
+    END IF
+  END DO
   ! Build nodes
   e1(:)=dx(:)/fac(:) !container for dx
   !start position x2 in unit square grid
@@ -631,17 +650,17 @@ DO iZone=1,nZones
     dx(1)=dx(1)*fac(1)
     x1(1)=x1(1)+dx(1)
   END DO
-  DO l=1,ne(1)
-    DO m=1,ne(2)
-      DO n=1,ne(3)
-        CornerNode(1)%np=>Mnodes(l-1,m-1,n-1)%np  ! (-,-,-)
-        CornerNode(2)%np=>Mnodes(l,m-1,n-1)%np    ! (+,-,-)
-        CornerNode(3)%np=>Mnodes(l,m,n-1)%np      ! (+,+,-)
-        CornerNode(4)%np=>Mnodes(l-1,m,n-1)%np    ! (-,+,-)
-        CornerNode(5)%np=>Mnodes(l-1,m-1,n)%np    ! (-,-,+)
-        CornerNode(6)%np=>Mnodes(l,m-1,n)%np      ! (+,-,+)
-        CornerNode(7)%np=>Mnodes(l,m,n)%np        ! (+,+,+)
-        CornerNode(8)%np=>Mnodes(l-1,m,n)%np      ! (-,+,+)
+  DO l=0,ne(1)-1,Ngeo
+    DO m=0,ne(2)-1,Ngeo
+      DO n=0,ne(3)-1,Ngeo
+        CornerNode(1)%np=>Mnodes(l     ,m     ,n     )%np ! (-,-,-)
+        CornerNode(2)%np=>Mnodes(l+Ngeo,m     ,n     )%np ! (+,-,-)
+        CornerNode(3)%np=>Mnodes(l+Ngeo,m+Ngeo,n     )%np ! (+,+,-)
+        CornerNode(4)%np=>Mnodes(l     ,m+Ngeo,n     )%np ! (-,+,-)
+        CornerNode(5)%np=>Mnodes(l     ,m     ,n+Ngeo)%np ! (-,-,+)
+        CornerNode(6)%np=>Mnodes(l+Ngeo,m     ,n+Ngeo)%np ! (+,-,+)
+        CornerNode(7)%np=>Mnodes(l+Ngeo,m+Ngeo,n+Ngeo)%np ! (+,+,+)
+        CornerNode(8)%np=>Mnodes(l     ,m+Ngeo,n+Ngeo)%np ! (-,+,+)
         SELECT CASE(CartMesh%ElemType)
         CASE(104) ! Tetrahedron
           CALL GetNewTetrahedron(CornerNode,CartMesh,l,m,n,ind=NodeInd)
@@ -650,7 +669,14 @@ DO iZone=1,nZones
         CASE(106) ! Dreiecks-prismon
           CALL GetNewPrism(CornerNode)
         CASE(108) ! Hexaeder
-          CALL GetNewHexahedron(CornerNode)
+          IF(InnerElemStretch)THEN
+            DO i=0,Ngeo; DO j=0,Ngeo; DO k=0,Ngeo
+              CurvedNode(i,j,k)%np=>Mnodes(l+i,m+j,n+k)%np
+            END DO; END DO; END DO; 
+            CALL GetNewCurvedHexahedron(CurvedNode,Ngeo,iZone)
+          ELSE 
+            CALL GetNewHexahedron(CornerNode)
+          END IF
         CASE DEFAULT
           CALL abort(__STAMP__,&
             'The specified element type is not known. Valid types: 104,105,106,108',CartMesh%ElemType)
@@ -659,9 +685,9 @@ DO iZone=1,nZones
     END DO !m
   END DO !l
   !for Boundary Conditions
-  DO l=0,ne(1)
-    DO m=0,ne(2)
-      DO n=0,ne(3)
+  DO l=0,ne(1),Ngeo
+    DO m=0,ne(2),Ngeo
+      DO n=0,ne(3),Ngeo
         Mnodes(l,m,n)%np%tmp=0 
         IF(n.EQ.0) Mnodes(l,m,n)%np%tmp=Mnodes(l,m,n)%np%tmp+1 !zeta minus
         IF(m.EQ.0) Mnodes(l,m,n)%np%tmp=Mnodes(l,m,n)%np%tmp+20 !eta minus

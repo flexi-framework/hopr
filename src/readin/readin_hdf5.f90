@@ -72,6 +72,9 @@ LOGICAL,INTENT(IN)           :: doConnection
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+TYPE(tNodePtr),POINTER         :: Nodes(:)
+TYPE(tSidePtr),POINTER         :: Sides(:)
+TYPE(tElemPtr),POINTER         :: Elems(:)
 TYPE(tElem),POINTER            :: Elem  ! ?
 TYPE(tSide),POINTER            :: aSide,aaSide,bSide,bbSide  ! ?
 INTEGER                        :: i1,j1,k1,l1,nBCSides,nPeriodicSides  ! ?
