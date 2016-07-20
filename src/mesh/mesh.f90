@@ -92,6 +92,12 @@ nZones  =GETINT('nZones')
 meshIsAlreadyCurved=.FALSE.
 IF (MeshMode .EQ. 1) THEN
   ! ---------- INTERNAL CARTESIAN MESH ---------------------------------------------------------------------------------------------
+  IF(useCurveds) THEN
+    InnerElemStretch = GETLOGICAL('InnerElemStretch','F')
+  ELSE
+    InnerElemStretch = .FALSE.
+  END IF
+  IF(InnerElemStretch) MeshIsAlreadyCurved=.TRUE.
   ALLOCATE(CartMeshes(nZones))
   DO i=1,nZones
     ALLOCATE(CartMeshes(i)%CM)
@@ -323,22 +329,13 @@ nFineHexa=GETINT('nFineHexa','1')               ! split all hexa by a factor
 
 
 meshPostDeform=GETINT('MeshPostDeform','0')
-SELECT CASE(MeshPostDeform)
-CASE(0) !do nothing
-CASE(1) 
+IF(meshPostDeform.GT.0) THEN
+  PostDeform_useGL=GETLOGICAL('PostDeform_useGL','.TRUE.')
   PostDeform_R0=GETREAL('PostDeform_R0','1.')
   PostDeform_Lz=GETREAL('PostDeform_Lz','1.')
-  PostDeform_sq=GETINT('PostDeform_sq','0')
+  PostDeform_sq=GETREAL('PostDeform_sq','0.')
   PostDeform_Rtorus=GETREAL('PostDeform_Rtorus','-1.')
-CASE(3) 
-  PostDeform_R0=GETREAL('PostDeform_R0','1.')
-  PostDeform_Lz=GETREAL('PostDeform_Lz','1.')
-CASE(2,4,21) 
-  PostDeform_R0=GETREAL('PostDeform_R0','1.')
-CASE DEFAULT
-  CALL abort(__STAMP__,&
-             'This MeshPostDeform case is not implemented.',MeshPostDeform)
-END SELECT
+END IF !PostDeform
 
 ! Connect
 ConformConnect=GETLOGICAL('ConformConnect','.TRUE.') ! Fast connect for conform mesh
@@ -399,6 +396,13 @@ SUBROUTINE fillMesh()
 !===================================================================================================================================
 ! MODULES
 USE MOD_Mesh_Vars
+USE MOD_Readin_ANSA
+USE MOD_Readin_CGNS
+USE MOD_Readin_Gambit
+USE MOD_Readin_GMSH
+USE MOD_Readin_HDF5
+USE MOD_Readin_HDF5_OLD
+USE MOD_Readin_ICEM
 USE MOD_zcorrection,      ONLY: zcorrection
 USE MOD_zcorrection,      ONLY: OrientElemsToZ
 USE MOD_SplitToHex,       ONLY: SplitElementsToHex,SplitAllHexa
@@ -418,14 +422,7 @@ USE MOD_Mesh_Tools,       ONLY: CountSplines,Netvisu,BCvisu,chkspl_surf,chkspl_v
 USE MOD_Mesh_PostDeform,  ONLY: PostDeform
 USE MOD_Output_HDF5,      ONLY: WriteMeshToHDF5
 USE MOD_Mesh_Jacobians,   ONLY: CheckJacobians
-USE MOD_Readin_ANSA
-USE MOD_Readin_CGNS
-USE MOD_Readin_Gambit
-USE MOD_Readin_GMSH
-USE MOD_Readin_HDF5
-USE MOD_Readin_HDF5_OLD
-USE MOD_Readin_ICEM
-USE MOD_Output_Vars,ONLY:useSpaceFillingCurve
+USE MOD_Output_Vars,      ONLY: useSpaceFillingCurve
 USE MOD_Output_HDF5,      ONLY: SpaceFillingCurve
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -440,6 +437,7 @@ IMPLICIT NONE
 TYPE(tElem),POINTER :: Elem  ! ?
 TYPE(tSide),POINTER :: Side    ! ?
 LOGICAL             :: curvedFound  ! ?
+INTEGER             :: iElem  ! ?
 !===================================================================================================================================
 CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("="))')
@@ -498,11 +496,28 @@ IF(nFineHexa.GT.1) THEN
   AdaptedMesh=.TRUE.
 END IF
 
+! Count elements 
+nMeshElems=0
+Elem=>FirstElem
+DO WHILE(ASSOCIATED(Elem))
+  nMeshElems=nMeshElems+1
+  Elem=>Elem%nextElem
+END DO
+WRITE(UNIT_stdOut,*)'Number of Elements: ',nMeshElems
+ALLOCATE(Elems(nMeshElems))
+iElem=0
+Elem=>FirstElem
+DO WHILE(ASSOCIATED(Elem))
+  iElem=iElem+1
+  Elems(iElem)%ep=>Elem
+  Elem%ind=iElem
+  Elem=>Elem%nextElem
+END DO
+
 ! Set local and global mesh maxDX (will be used in ALL following searchmeshes unless redefined)
 maxDX=0.
-Elem=>FirstElem
-DO WHILE (ASSOCIATED(Elem))
-  Side=>Elem%firstSide
+DO iElem=1,nMeshElems
+  Side=>Elems(iElem)%ep%firstSide
   DO WHILE(ASSOCIATED(Side))
     !determine local max dx
     maxDX=MAX(maxDX,ABS(Side%Node(2)%np%x-Side%Node(1)%np%x))
@@ -511,18 +526,9 @@ DO WHILE (ASSOCIATED(Elem))
     IF(Side%nNodes.EQ.4) maxDX=MAX(maxDX,ABS(Side%Node(4)%np%x-Side%Node(3)%np%x))
     Side=>Side%nextElemSide
   END DO
-  Elem=>Elem%nextElem
-END DO
+END DO !iElem
 
-! Count elements 
-nMeshElems=0
-Elem=>FirstElem
-DO WHILE(ASSOCIATED(Elem))
-  nMeshElems=nMeshElems+1
-  Elem%ind=nMeshElems
-  Elem=>Elem%nextElem
-END DO
-WRITE(UNIT_stdOut,*)'Number of Elements: ',nMeshElems
+  
 
 
 ! WRITE some visualization, build connectivity and build edge data structure
@@ -542,15 +548,13 @@ CALL buildEdges()
 
 ! check if sides to be curved exist
 curvedFound=.FALSE.
-Elem=>FirstElem
-DO WHILE(ASSOCIATED(Elem))
-  Side=>Elem%firstSide
+DO iElem=1,nMeshElems
+  Side=>Elems(iElem)%ep%firstSide
   DO WHILE(ASSOCIATED(Side))
     IF(Side%curveIndex.GT.0) curvedFound=.TRUE.
     Side=>Side%nextElemSide
   END DO
-  Elem=>Elem%nextElem
-END DO
+END DO !iElem
 IF(.NOT.curvedFound) curvingMethod=-1
 
 

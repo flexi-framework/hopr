@@ -40,7 +40,12 @@ INTERFACE CurvedCartesianMesh
   MODULE PROCEDURE CurvedCartesianMesh
 END INTERFACE
 
+INTERFACE GetNewCurvedHexahedron
+  MODULE PROCEDURE GetNewCurvedHexahedron
+END INTERFACE
+
 PUBLIC::CurvedCartesianMesh
+PUBLIC::GetNewCurvedHexahedron
 !===================================================================================================================================
 
 CONTAINS
