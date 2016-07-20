@@ -19,6 +19,7 @@
 COMPILER=GNU_MPI
 MACHINE=AUTO  # AUTO, CRAY, NEHALEM or leave empty
 CGNS_INT=32
+BUILD_CGNS=T
 BLAS_LAPACK=T
 BUILD_HDF5=
 
@@ -63,19 +64,27 @@ PREPROC +=-DPP_CGNS_INT=$(CGNS_INT)
 HDF5_LIBS  = -lhdf5_fortran -lhdf5
 
 ifeq ($(MACHINE),)
-  ifeq ($(HDF5_DIR),)
-    BUILD_HDF5=T
-  else
-    HDF5_BASE = $(HDF5_DIR)
+  ifneq ($(HDF5_DIR),)
+    ifneq ($(wildcard $(HDF5_DIR)/lib/libhdf5.a), )
+      HDF5_BASE = $(HDF5_DIR)
+    endif
+  endif
+  ifneq ($(HDF5_ROOT),)
+    ifneq ($(wildcard $(HDF5_ROOT)/lib/libhdf5.a), )
+      HDF5_BASE = $(HDF5_ROOT)
+    endif
   endif
   ifneq ($(BUILD_HDF5),)
-    HDF5_VERSION = 1.8.14
+    HDF5_VERSION = 1.8.16
     HDF5_BASE = ../share/$(SHARECOMP)/hdf5-$(HDF5_VERSION)/hdf5
   endif
 endif
 
-#check for hdf5 compiled with CMake
+#check for hdf5 compiled with CMake (check for characteristic FindHDF5.cmake)
 ifneq ($(wildcard $(HDF5_BASE)/share/cmake/hdf5/FindHDF5.cmake), )
+  HDF5_LIBS  = -lhdf5_fortran -lhdf5_f90cstub -lhdf5
+endif
+ifneq ($(wildcard $(HDF5_BASE)/share/cmake/FindHDF5.cmake), )
   HDF5_LIBS  = -lhdf5_fortran -lhdf5_f90cstub -lhdf5
 endif
 
@@ -120,11 +129,20 @@ NETCDF_LIBS = -Wl,-rpath,$(NETCDF_DIR)/lib -lnetcdff -lnetcdf
 #---------------------------------------------------------------------------------------------------------------------------------#
 # CGNS
 #---------------------------------------------------------------------------------------------------------------------------------#
-CGNS_VERSION=3.2.1
-CGNS_DIR    =../share/$(SHARECOMP)/CGNS-$(CGNS_VERSION)/src
-CGNS_LIBDIR =../share/$(SHARECOMP)/CGNS-$(CGNS_VERSION)/src/lib
+ifneq ($(CGNS_DIR),)
+  ifneq ($(wildcard $(CGNS_DIR)/lib/libcgns.a), )
+    CGNS_LIBDIR =$(CGNS_DIR)/lib
+    CGNS_INCDIR =$(CGNS_DIR)/include
+  endif
+endif
+ifneq ($(BUILD_CGNS),)
+  CGNS_VERSION=3.2.1
+  CGNS_DIR    =../share/$(SHARECOMP)/CGNS-$(CGNS_VERSION)/src
+  CGNS_LIBDIR =../share/$(SHARECOMP)/CGNS-$(CGNS_VERSION)/build/lib
+  CGNS_INCDIR =../share/$(SHARECOMP)/CGNS-$(CGNS_VERSION)/build/include
+endif
 CGNS_LIB    =-L$(CGNS_LIBDIR)
-CGNS_INC    =-I$(CGNS_DIR)
+CGNS_INC    =-I$(CGNS_INCDIR)
 CGNS_LIBS   =-lcgns
 
 #---------------------------------------------------------------------------------------------------------------------------------#

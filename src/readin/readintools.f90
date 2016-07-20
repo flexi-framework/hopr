@@ -478,6 +478,7 @@ IF (ReadInDone) RETURN
 IF (PRESENT(IniFile)) THEN
   File = TRIM(IniFile)
 ELSE
+  IF(COMMAND_ARGUMENT_COUNT().LT.1) STOP 'Parameter file not specified! Usage: "hopr <parameter.ini>"'
   CALL GET_COMMAND_ARGUMENT(1,File)
 END IF
 SWRITE(UNIT_StdOut,*)'| Reading from file "',TRIM(File),'":'
