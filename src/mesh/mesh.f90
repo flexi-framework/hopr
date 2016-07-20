@@ -333,7 +333,7 @@ CASE(1)
 CASE(3) 
   PostDeform_R0=GETREAL('PostDeform_R0','1.')
   PostDeform_Lz=GETREAL('PostDeform_Lz','1.')
-CASE(2,4,11) 
+CASE(2,4,21) 
   PostDeform_R0=GETREAL('PostDeform_R0','1.')
 CASE DEFAULT
   CALL abort(__STAMP__,&
