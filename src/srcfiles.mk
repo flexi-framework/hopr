@@ -2,6 +2,7 @@ basis/basis.f90
 basis/basis1D.f90
 basis/basis_vars.f90
 basis/hexaBasis.f90
+basis/changeBasis.f90
 basis/prismBasis.f90
 basis/pyraBasis.f90
 basis/quadBasis.f90
