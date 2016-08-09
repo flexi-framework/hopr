@@ -246,7 +246,8 @@ SUBROUTINE GetNodesAndWeights(N_in,NodeType_in,xIP,wIP,wIPBary)
 !==================================================================================================================================
 ! MODULES
 USE MOD_Globals
-USE MOD_Basis1D, ONLY: LegendreGaussNodesAndWeights,LegGaussLobNodesAndWeights,ChebyshevGaussNodesAndWeights,ChebyGaussLobNodesAndWeights,BarycentricWeights
+USE MOD_Basis1D, ONLY: LegendreGaussNodesAndWeights,LegGaussLobNodesAndWeights,ChebyshevGaussNodesAndWeights
+USE MOD_Basis1D, ONLY: ChebyGaussLobNodesAndWeights,BarycentricWeights
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
