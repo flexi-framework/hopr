@@ -20,7 +20,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "defines.f90"
+#include "hopr.h"
 MODULE MOD_SplitToHex
 !===================================================================================================================================
 ! ?
@@ -164,7 +164,7 @@ SUBROUTINE SplitHexa8(Elem,M,maxInd)
 USE MOD_Mesh_Vars,  ONLY:tElem,tElemPtr,tSide,tSidePtr,tNodePtr
 USE MOD_Mesh_Vars,  ONLY:FirstElem
 USE MOD_Mesh_Vars,  ONLY:deleteElem
-USE MOD_Mesh_Vars,  ONLY:getNewNodeAndIndex,copyBC
+USE MOD_Mesh_Vars,  ONLY:getNewNode,copyBC
 USE MOD_Mesh_Basis, ONLY:getNewHexa
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -198,25 +198,25 @@ NewNodes(0,M,M)%np=>Elem%Node(8)%np
 
 !midnodes at edges
 DO i=0,M,M ; DO j=0,M,M; DO l=1,M-1
-  CALL GetNewNodeAndIndex(NewNodes(l,i,j)%np,maxInd)
-  CALL GetNewNodeAndIndex(NewNodes(i,l,j)%np,maxInd)
-  CALL GetNewNodeAndIndex(NewNodes(i,j,l)%np,maxInd)
+  CALL GetNewNode(NewNodes(l,i,j)%np,ind=maxInd)
+  CALL GetNewNode(NewNodes(i,l,j)%np,ind=maxInd)
+  CALL GetNewNode(NewNodes(i,j,l)%np,ind=maxInd)
   NewNodes(l,i,j)%np%x=sM*(REAL(M-l)*NewNodes(0,i,j)%np%x + REAL(l)*NewNodes(M,i,j)%np%x) 
   NewNodes(i,l,j)%np%x=sM*(REAL(M-l)*NewNodes(i,0,j)%np%x + REAL(l)*NewNodes(i,M,j)%np%x) 
   NewNodes(i,j,l)%np%x=sM*(REAL(M-l)*NewNodes(i,j,0)%np%x + REAL(l)*NewNodes(i,j,M)%np%x) 
 END DO; END DO; END DO
 ! midnodes at faces
 DO i=0,M,M; DO k=1,M-1; DO l=1,M-1 
-  CALL GetNewNodeAndIndex(NewNodes(i,k,l)%np,maxInd)
-  CALL GetNewNodeAndIndex(NewNodes(k,i,l)%np,maxInd)
-  CALL GetNewNodeAndIndex(NewNodes(k,l,i)%np,maxInd)
+  CALL GetNewNode(NewNodes(i,k,l)%np,ind=maxInd)
+  CALL GetNewNode(NewNodes(k,i,l)%np,ind=maxInd)
+  CALL GetNewNode(NewNodes(k,l,i)%np,ind=maxInd)
   NewNodes(i,k,l)%np%x=sM*(REAL(M-k)*NewNodes(i,0,l)%np%x + REAL(k)*NewNodes(i,M,l)%np%x) 
   NewNodes(k,i,l)%np%x=sM*(REAL(M-k)*NewNodes(0,i,l)%np%x + REAL(k)*NewNodes(M,i,l)%np%x) 
   NewNodes(k,l,i)%np%x=sM*(REAL(M-k)*NewNodes(0,l,i)%np%x + REAL(k)*NewNodes(M,l,i)%np%x) 
 END DO; END DO; END DO
 ! inner element nodes
 DO i=1,M-1; DO j=1,M-1; DO k=1,M-1 
-  CALL GetNewNodeAndIndex(NewNodes(i,j,k)%np,maxInd)
+  CALL GetNewNode(NewNodes(i,j,k)%np,ind=maxInd)
   NewNodes(i,j,k)%np%x=sM*(REAL(M-i)*NewNodes(0,j,k)%np%x + REAL(i)*NewNodes(M,j,k)%np%x) 
 END DO; END DO; END DO;
 
@@ -292,7 +292,7 @@ SUBROUTINE SplitTetraToHexa(Elem,maxInd)
 ! MODULES
 USE MOD_Mesh_Vars,  ONLY:tElem,tElemPtr,tSide,tNodePtr,tSidePtr
 USE MOD_Mesh_Vars,  ONLY:FirstElem
-USE MOD_Mesh_Vars,  ONLY:getNewNodeAndIndex,copyBC
+USE MOD_Mesh_Vars,  ONLY:getNewNode,copyBC
 USE MOD_Mesh_Vars,  ONLY:deleteElem
 USE MOD_Mesh_Basis, ONLY:getNewHexa
 ! IMPLICIT VARIABLE HANDLING
@@ -319,12 +319,12 @@ NewNodes(3)%np=>Elem%Node(3)%np
 NewNodes(4)%np=>Elem%Node(4)%np
 
 !nodes on edges
-CALL GetNewNodeAndIndex(NewNodes( 5)%np,maxInd)
-CALL GetNewNodeAndIndex(NewNodes( 6)%np,maxInd)
-CALL GetNewNodeAndIndex(NewNodes( 7)%np,maxInd)
-CALL GetNewNodeAndIndex(NewNodes( 8)%np,maxInd)
-CALL GetNewNodeAndIndex(NewNodes( 9)%np,maxInd)
-CALL GetNewNodeAndIndex(NewNodes(10)%np,maxInd)
+CALL GetNewNode(NewNodes( 5)%np,ind=maxInd)
+CALL GetNewNode(NewNodes( 6)%np,ind=maxInd)
+CALL GetNewNode(NewNodes( 7)%np,ind=maxInd)
+CALL GetNewNode(NewNodes( 8)%np,ind=maxInd)
+CALL GetNewNode(NewNodes( 9)%np,ind=maxInd)
+CALL GetNewNode(NewNodes(10)%np,ind=maxInd)
 NewNodes( 5)%np%x=0.5*(NewNodes(1)%np%x+NewNodes(2)%np%x)
 NewNodes( 6)%np%x=0.5*(NewNodes(2)%np%x+NewNodes(3)%np%x)
 NewNodes( 7)%np%x=0.5*(NewNodes(1)%np%x+NewNodes(3)%np%x)
@@ -333,17 +333,17 @@ NewNodes( 9)%np%x=0.5*(NewNodes(2)%np%x+NewNodes(4)%np%x)
 NewNodes(10)%np%x=0.5*(NewNodes(3)%np%x+NewNodes(4)%np%x)
 
 !nodes on faces
-CALL GetNewNodeAndIndex(NewNodes(11)%np,maxInd)
-CALL GetNewNodeAndIndex(NewNodes(12)%np,maxInd)
-CALL GetNewNodeAndIndex(NewNodes(13)%np,maxInd)
-CALL GetNewNodeAndIndex(NewNodes(14)%np,maxInd)
+CALL GetNewNode(NewNodes(11)%np,ind=maxInd)
+CALL GetNewNode(NewNodes(12)%np,ind=maxInd)
+CALL GetNewNode(NewNodes(13)%np,ind=maxInd)
+CALL GetNewNode(NewNodes(14)%np,ind=maxInd)
 NewNodes(11)%np%x=(NewNodes(1)%np%x+NewNodes(2)%np%x+NewNodes(3)%np%x)/3.
 NewNodes(12)%np%x=(NewNodes(1)%np%x+NewNodes(2)%np%x+NewNodes(4)%np%x)/3.
 NewNodes(13)%np%x=(NewNodes(2)%np%x+NewNodes(3)%np%x+NewNodes(4)%np%x)/3.
 NewNodes(14)%np%x=(NewNodes(1)%np%x+NewNodes(3)%np%x+NewNodes(4)%np%x)/3.
 
 !node inside
-CALL GetNewNodeAndIndex(NewNodes(15)%np,maxInd)
+CALL GetNewNode(NewNodes(15)%np,ind=maxInd)
 NewNodes(15)%np%x=(NewNodes(1)%np%x+NewNodes(2)%np%x+NewNodes(3)%np%x+NewNodes(4)%np%x)*0.25
 
 !build new elements, corner node is always origin
@@ -431,7 +431,7 @@ SUBROUTINE SplitPentaToHexa(Elem,M,maxInd)
 ! MODULES
 USE MOD_Mesh_Vars,  ONLY:tElem,tElemPtr,tSide,tSidePtr,tNodePtr
 USE MOD_Mesh_Vars,  ONLY:FirstElem
-USE MOD_Mesh_Vars,  ONLY:getNewNodeAndIndex,copyBC
+USE MOD_Mesh_Vars,  ONLY:getNewNode,copyBC
 USE MOD_Mesh_Vars,  ONLY:deleteElem
 USE MOD_Mesh_Basis, ONLY:getNewHexa
 ! IMPLICIT VARIABLE HANDLING
@@ -464,10 +464,10 @@ NewNodes(3,M)%np=>Elem%Node(6)%np
 
 !midnodes at edges and triangle face
 DO l=0,M,M
-  CALL GetNewNodeAndIndex(NewNodes(4,l)%np,maxInd)
-  CALL GetNewNodeAndIndex(NewNodes(5,l)%np,maxInd)
-  CALL GetNewNodeAndIndex(NewNodes(6,l)%np,maxInd)
-  CALL GetNewNodeAndIndex(NewNodes(7,l)%np,maxInd)
+  CALL GetNewNode(NewNodes(4,l)%np,ind=maxInd)
+  CALL GetNewNode(NewNodes(5,l)%np,ind=maxInd)
+  CALL GetNewNode(NewNodes(6,l)%np,ind=maxInd)
+  CALL GetNewNode(NewNodes(7,l)%np,ind=maxInd)
   NewNodes(4,l)%np%x=0.5*(NewNodes(1,l)%np%x+NewNodes(2,l)%np%x)
   NewNodes(5,l)%np%x=0.5*(NewNodes(2,l)%np%x+NewNodes(3,l)%np%x)
   NewNodes(6,l)%np%x=0.5*(NewNodes(1,l)%np%x+NewNodes(3,l)%np%x)
@@ -475,7 +475,7 @@ DO l=0,M,M
 END DO
 DO l=1,M-1
   DO i=1,7
-    CALL GetNewNodeAndIndex(NewNodes(i,l)%np,maxInd)
+    CALL GetNewNode(NewNodes(i,l)%np,ind=maxInd)
     NewNodes(i,l)%np%x=sM*(REAL(M-l)*NewNodes(i,0)%np%x + REAL(l)*NewNodes(i,M)%np%x) 
   END DO
 END DO

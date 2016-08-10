@@ -20,7 +20,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "defines.f90"
+#include "hopr.h"
 MODULE MOD_Mesh_Vars
 !===================================================================================================================================
 ! ?
@@ -59,6 +59,7 @@ TYPE tElem ! provides data structure for local element
   TYPE(tNodePtr),POINTER              ::       curvedNode(:)          ! ? 
   TYPE(tElem),POINTER                 ::       nextElem               ! pointer to next     element in order to continue a loop
   TYPE(tElem),POINTER                 ::       prevElem               ! pointer to previous element in order to continue a loop   
+  TYPE(tElem),POINTER                 ::       tree                   ! pointer to tree if MortarMesh=1
   REAL                                ::       DetT                   ! element mapping depandant on the element type
   ! INTEGER ----------------------------------------------------------!
   INTEGER                             ::       TYPE                   ! element type, for memory efficiency (involved tolerance) 
@@ -82,6 +83,7 @@ TYPE tSide ! provides data structure for local side
   TYPE(tElem),POINTER                 ::       elem                   ! Local element pointer 
   TYPE(tSide),POINTER                 ::       connection             ! pointer to connected side
   TYPE(tSide),POINTER                 ::       nextElemSide           ! pointer to next element's side
+  TYPE(tSidePtr),POINTER              ::       MortarSide(:)          ! array of side pointers to slave mortar sides
   ! INTEGER ----------------------------------------------------------!
   INTEGER                             ::       nNodes                 ! total number of nodes on that side
   INTEGER                             ::       nCurvedNodes           ! Used for writing curveds to hdf5 mesh format
@@ -93,6 +95,8 @@ TYPE tSide ! provides data structure for local side
   INTEGER                             ::       tmp2
   INTEGER                             ::       flip                   ! orientation of side-to-side connection
                                                                       ! (node corresponding to first neighbor node)
+  INTEGER                             ::       nMortars               ! number of slave mortar sides associated with master mortar
+  INTEGER                             ::       MortarType             ! Type of mortar: 1 : 1-4 , 2: 1-2 in eta, 3: 1-2 in xi
   ! CHARACTER --------------------------------------------------------!
   ! LOGICAL ----------------------------------------------------------!
   LOGICAL,ALLOCATABLE                 ::       edgeOrientation(:)     ! size: nEdges(=nNodes)
@@ -103,6 +107,8 @@ TYPE tEdge ! provides data structure for local edge
   TYPE(tNodePtr)                      ::       Node(2)                ! pointer to node always 2
   TYPE(tNodePtr),POINTER              ::       CurvedNode(:)          ! pointer to interpolation nodes of curved sides
   TYPE(tEdge),POINTER                 ::       nextEdge               ! only used to assign edges 
+  TYPE(tEdgePtr),POINTER              ::       MortarEdge(:)          ! array of edge pointers to slave mortar edges
+  TYPE(tEdge),POINTER                 ::       parentEdge             ! parentEdge in case of non-conforming meshes
 END TYPE tEdge
 
 TYPE tNode ! provides data structure for local node
@@ -179,7 +185,7 @@ LOGICAL                        :: BugFix_ANSA_CGNS       ! for ANSA unstructured
                                                          ! PointList always to an ElementList, default is false
 LOGICAL                        :: MeshInitDone=.FALSE.
 LOGICAL                        :: checkElemJacobians     ! check if Jacobians are positiv over curved Elements 
-! REAL -----------------------------------------------------------------!
+
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GEOMETRY
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -195,6 +201,7 @@ REAL                           :: maxDX(3)               ! Used for search mesh
 REAL                           :: jacobianTolerance      ! smallest value of jacobian permitted (e.g. 1.e-16)
 INTEGER                        :: nMeshElems    =0       ! number of elements in the mesh
 INTEGER                        :: nInnerSides   =0       ! number of unique innner sides in the mesh 
+INTEGER                        :: nConformingSides=0     ! number of unique innner sides in the mesh 
 INTEGER                        :: nBoundarySides=0       ! number of boundary sides in the mesh
 INTEGER                        :: NodeCount=0,SideCount=0,ElemCount=0  ! Counter for nodes,sides and elements.
 INTEGER                        :: nNodesElemSideMapping(8,6) ! mapping matrix for Elem side mappings following the CGNS standard
@@ -203,6 +210,23 @@ INTEGER                        :: TypeIndex(8)           ! typeIndex mapping of 
 !                                                        !  used for urElem administration
 INTEGER                        :: TypeIndex_surf(4)      ! typeIndex_surf(nNodes) determines the typeIndex of the Surface(nNodes)
 !                                                        !
+!-----------------------------------------------------------------------------------------------------------------------------------
+! MORTAR VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+INTEGER             :: MortarMesh             ! 0: conforming, 1: non-conforming octree based
+INTEGER             :: nNonconformingSides    ! number of small and big mortar sides
+! MoratarMesh==1
+INTEGER             :: NGeoTree              ! polynomial degree of trees geometric transformation
+INTEGER             :: nGlobalTrees          ! global number of trees
+REAL,ALLOCATABLE    :: xiMinMax(:,:,:)       ! Position of the 2 bounding nodes of a quadrant in its tree
+INTEGER,ALLOCATABLE :: ElemToTree(:)         ! index of the tree corresponding to an element
+REAL,ALLOCATABLE    :: TreeCoords(:,:,:,:,:) ! XYZ positions (equidistant,NGeoTree) of tree interpolation points from meshfile
+INTEGER             :: nTrees                ! local number of trees
+INTEGER             :: offsetTree            ! tree offset
+LOGICAL             :: doRebuildMortarGeometry ! for curved mortarmeshes ensure that small mortar geometry is identical
+REAL,ALLOCATABLE    :: M_0_1_T(:,:),M_0_2_T(:,:) 
+                                             ! to big mortar geometry
+
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! CURVED
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -215,6 +239,7 @@ INTEGER                        :: normalsType            ! source of normals vec
 INTEGER,ALLOCATABLE            :: ExactNormals(:)        ! for 3D spline patches, an analytical normal can be used 
 INTEGER                        :: N                      ! polynomial degree of boundary element discretization 
 INTEGER                        :: BoundaryOrder          ! N+1
+INTEGER                        :: NBlock                 ! for structured CGNS readin
 INTEGER                        :: nSkip                  ! for structured CGNS readin
 INTEGER                        :: nSkipZ                 ! for structured CGNS readin
 INTEGER                        :: nBoundarySplines=0     ! Counter for boundary splines
@@ -320,10 +345,6 @@ INTERFACE getNewSuperNode
   MODULE PROCEDURE getNewSuperNode
 END INTERFACE
 
-INTERFACE getNewNodeAndIndex
-  MODULE PROCEDURE getNewNodeAndIndex
-END INTERFACE
-
 INTERFACE copyBC
   MODULE PROCEDURE copyBC
 END INTERFACE
@@ -383,6 +404,7 @@ ALLOCATE(Elem)
 NULLIFY(Elem%Node,&
         Elem%prevElem,Elem%nextElem,Elem%firstSide)
 NULLIFY(Elem%CurvedNode)
+NULLIFY(Elem%tree)
 Elem%nCurvedNodes  = 0
 Elem%ind           = 0
 Elem%detT          = 0.
@@ -414,7 +436,8 @@ ALLOCATE(Side%orientedNode(nNodes),Side%Node(nNodes))
 ALLOCATE(Side%Edge(nNodes),Side%EdgeOrientation(nNodes))
 NULLIFY(Side%BC, &
         Side%Connection, &
-        Side%Elem,Side%nextElemSide)
+        Side%Elem,Side%nextElemSide, &
+        Side%MortarSide)
 DO iNode=1,nNodes
   NULLIFY(Side%Node(iNode)%np,Side%orientedNode(iNode)%np,Side%Edge(iNode)%edp)
 END DO
@@ -424,9 +447,12 @@ Side%LocSide = 0
 Side%ind          = 0
 Side%tmp          = 0
 Side%tmp2         = 0
+Side%flip         = 0
 Side%EdgeOrientation = .FALSE.
 SideCount=SideCount+1
 Side%nCurvedNodes=0
+Side%nMortars=0
+Side%MortarType=0
 NULLIFY(Side%CurvedNode)
 END SUBROUTINE getNewSide
 
@@ -453,10 +479,12 @@ Edge%Node(1)%np=>Node1
 Edge%Node(2)%np=>Node2
 NULLIFY(Edge%nextEdge)
 NULLIFY(Edge%curvedNode)
+NULLIFY(Edge%MortarEdge)
+NULLIFY(Edge%parentEdge)
 END SUBROUTINE getNewEdge
 
 
-SUBROUTINE getNewNode(Node,refCount)
+SUBROUTINE getNewNode(Node,refCount,ind)
 !===================================================================================================================================
 ! Allocate and initialize new node "Node"
 !===================================================================================================================================
@@ -466,6 +494,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 INTEGER,OPTIONAL,INTENT(IN)    :: refCount ! number of sides / elements that use this node
+INTEGER,OPTIONAL,INTENT(INOUT) :: ind      ! nodeind
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 TYPE(tNode),POINTER,INTENT(INOUT) :: Node     ! New node
@@ -474,11 +503,12 @@ TYPE(tNode),POINTER,INTENT(INOUT) :: Node     ! New node
 !===================================================================================================================================
 ALLOCATE(Node)
 Node%ind=0
-IF(PRESENT(refCount)) THEN
-  Node%refCount=refCount
-ELSE
-  Node%refCount=0
+Node%refCount=0
+IF(PRESENT(ind))THEN
+  ind=ind+1
+  Node%ind=ind
 END IF
+IF(PRESENT(refCount)) Node%refCount=refCount
 NodeCount=NodeCount+1
 NULLIFY(Node%firstNormal)
 NULLIFY(Node%firstEdge)
@@ -605,26 +635,6 @@ ELSE
 END IF
 END SUBROUTINE getNewSuperNode
 
-SUBROUTINE getNewNodeAndIndex(Node,maxInd)
-!===================================================================================================================================
-! ?
-!===================================================================================================================================
-! MODULES
-! IMPLICIT VARIABLE HANDLING
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-TYPE(tNode),POINTER,INTENT(INOUT)            :: Node  ! ?
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-INTEGER,INTENT(INOUT)          :: maxInd  ! ?
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
-!===================================================================================================================================
-CALL getNewNode(node)
-maxInd=maxInd+1
-node%ind=maxInd
-END SUBROUTINE getNewNodeAndIndex
 
 SUBROUTINE copyBC(BCSide,Side)
 !===================================================================================================================================
@@ -740,7 +750,7 @@ TYPE(tSide),POINTER,INTENT(INOUT) :: Side      ! Side that will be deleted
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 TYPE(tSide),POINTER :: firstOut   ! ?
-INTEGER             :: iNode   ! ?
+INTEGER             :: iNode,iSide  ! ?
 !===================================================================================================================================
 IF(.NOT. ASSOCIATED(Side)) RETURN
 firstOut=>firstSide  ! Save first side
@@ -761,10 +771,15 @@ IF(ASSOCIATED(Side%orientedNode)) THEN
   END DO
   DEALLOCATE(Side%orientedNode)
 END IF
-IF (ASSOCIATED(Side%Connection)) THEN
+IF(ASSOCIATED(Side%Connection))THEN
   NULLIFY(Side%Connection%Connection)
 END IF
+DO iSide=1,Side%nMortars
+  IF(ASSOCIATED(Side%MortarSide(iSide)%sp)) &
+    NULLIFY(Side%MortarSide(iSide)%sp%connection)
+END DO
 NULLIFY(Side%elem)
+SDEALLOCATE(Side%MortarSide)
 SDEALLOCATE(Side)
 SideCount=SideCount-1
 firstSide=>firstOut  ! Restore first side
@@ -819,7 +834,17 @@ TYPE(tEdge),POINTER,INTENT(INOUT) :: Edge   ! ?
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
+INTEGER                           :: iEdge
 !===================================================================================================================================
+IF(ASSOCIATED(Edge%MortarEdge))THEN
+  DO iEdge=1,2
+    IF(ASSOCIATED(Edge%MortarEdge(iEdge)%edp%parentEdge))THEN
+      NULLIFY(Edge%MortarEdge(iEdge)%edp%parentEdge)
+    END IF
+  END DO
+END IF
+SDEALLOCATE(Edge%MortarEdge)
+SDEALLOCATE(Edge%parentEdge)
 SDEALLOCATE(Edge)
 END SUBROUTINE deleteEdge
 

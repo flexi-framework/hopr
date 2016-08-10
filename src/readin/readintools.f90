@@ -20,7 +20,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "defines.f90"
+#include "hopr.h"
 #define SWRITE WRITE
 MODULE MOD_ReadInTools
 !===================================================================================================================================
@@ -478,6 +478,7 @@ IF (ReadInDone) RETURN
 IF (PRESENT(IniFile)) THEN
   File = TRIM(IniFile)
 ELSE
+  IF(COMMAND_ARGUMENT_COUNT().LT.1) STOP 'Parameter file not specified! Usage: "hopr <parameter.ini>"'
   CALL GET_COMMAND_ARGUMENT(1,File)
 END IF
 SWRITE(UNIT_StdOut,*)'| Reading from file "',TRIM(File),'":'

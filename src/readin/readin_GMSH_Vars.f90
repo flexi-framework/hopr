@@ -20,7 +20,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "defines.f90"
+#include "hopr.h"
 MODULE MOD_Readin_GMSH_Vars
 !===================================================================================================================================
 ! ?
@@ -40,7 +40,8 @@ INTEGER                            :: bOrd
 INTEGER,ALLOCATABLE                :: tetMapGMSH(:,:,:),  pyrMapGMSH(:,:,:),  priMapGMSH(:,:,:),  hexMapGMSH(:,:,:)
 INTEGER                            :: tetMapCGNSToGMSH(4),pyrMapCGNSToGMSH(5),priMapCGNSToGMSH(6),hexMapCGNSToGMSH(8)
 INTEGER                            :: GMSH_TYPES(6,131)
-INTEGER,ALLOCATABLE                :: MapBC(:)
+INTEGER                            :: nBCs_GMSH
+INTEGER,ALLOCATABLE                :: MapBC(:),MapBCInd(:)
 
 CONTAINS
 SUBROUTINE buildTypes()

@@ -8,5 +8,6 @@ bin/h5diff
 bin/hopr
 bin/preproctool
 src/libpreproc.a
+tutorials/
 *.mod
 *.o

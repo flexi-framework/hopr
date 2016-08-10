@@ -20,7 +20,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "defines.f90"
+#include "hopr.h"
 MODULE MOD_CartMesh
 !===================================================================================================================================
 ! ?
@@ -41,6 +41,8 @@ TYPE tCartesianMesh ! provides data structure for Cartesian mesh
   INTEGER                             ::       BCIndex(6)             ! index in UserdefinedBoundaries
   INTEGER                             ::       elemType               ! Element type in zone
   INTEGER                             ::       nElems(3)              ! number of elements in zone
+  INTEGER                             ::       meshTemplate           ! defines which template is used to build the cartmesh
+ ! especially for tetras
 END TYPE tCartesianMesh
 
 TYPE tCartesianMeshPtr
@@ -64,83 +66,177 @@ PUBLIC::CartesianMesh, GetNewHexahedron
 !===================================================================================================================================
 
 CONTAINS
-SUBROUTINE GetNewTetrahedron(CornerNode)
+SUBROUTINE GetNewTetrahedron(CornerNode,cartMesh,l,m,n,ind)
 !===================================================================================================================================
 ! Build new tetrahedron for cartesian mesh.
 !===================================================================================================================================
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:tNodePtr,tElem
 USE MOD_Mesh_Vars,ONLY:FirstElem
-USE MOD_Mesh_Vars,ONLY:getNewElem
+USE MOD_Mesh_Vars,ONLY:getNewElem,getNewNode
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-TYPE(tNodePtr),INTENT(IN)                  :: CornerNode(8)  ! ?
+TYPE(tNodePtr),INTENT(IN)       :: CornerNode(8)  ! corner nodes of box
+TYPE(tCartesianMesh),INTENT(IN) :: cartMesh       ! cartmesh in use
+INTEGER,INTENT(IN)              :: l,m,n          ! position in mesh
+INTEGER,INTENT(INOUT)           :: ind            ! max node ind
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 TYPE(tElem),POINTER             :: aElem   ! ?
+INTEGER                         :: tetMap(4,24)
+INTEGER                         :: i,nTets
+TYPE(tNodePtr)                  :: node(14)
 !===================================================================================================================================
-! 1. Tetrahedron
-CALL GetNewElem(aElem)
-aElem%nNodes=4
-ALLOCATE(aElem%Node(aElem%nNodes))
-aElem%Node(1)%NP=>CornerNode(1)%NP
-aElem%Node(2)%NP=>CornerNode(3)%NP
-aElem%Node(3)%NP=>CornerNode(4)%NP
-aElem%Node(4)%NP=>CornerNode(5)%NP
-! 2. Tetrahedron
-CALL GetNewElem(aElem%nextElem)
-aElem%nextElem%prevElem => aElem
-aElem                   => aElem%nextElem
-aElem%nNodes=4
-ALLOCATE(aElem%Node(aElem%nNodes))
-aElem%Node(1)%NP=>CornerNode(1)%NP
-aElem%Node(2)%NP=>CornerNode(2)%NP
-aElem%Node(3)%NP=>CornerNode(3)%NP
-aElem%Node(4)%NP=>CornerNode(5)%NP
-! 3. Tetrahedron
-CALL GetNewElem(aElem%nextElem)
-aElem%nextElem%prevElem => aElem
-aElem                   => aElem%nextElem
-aElem%nNodes=4
-ALLOCATE(aElem%Node(aElem%nNodes))
-aElem%Node(1)%NP=>CornerNode(3)%NP
-aElem%Node(2)%NP=>CornerNode(5)%NP
-aElem%Node(3)%NP=>CornerNode(7)%NP
-aElem%Node(4)%NP=>CornerNode(8)%NP
-! 4. Tetrahedron
-CALL GetNewElem(aElem%nextElem)
-aElem%nextElem%prevElem => aElem
-aElem                   => aElem%nextElem
-aElem%nNodes=4
-ALLOCATE(aElem%Node(aElem%nNodes))
-aElem%Node(1)%NP=>CornerNode(3)%NP
-aElem%Node(2)%NP=>CornerNode(5)%NP
-aElem%Node(3)%NP=>CornerNode(6)%NP
-aElem%Node(4)%NP=>CornerNode(7)%NP
-! 5. Tetrahedron
-CALL GetNewElem(aElem%nextElem)
-aElem%nextElem%prevElem => aElem
-aElem                   => aElem%nextElem
-aElem%nNodes=4
-ALLOCATE(aElem%Node(aElem%nNodes))
-aElem%Node(1)%NP=>CornerNode(2)%NP
-aElem%Node(2)%NP=>CornerNode(3)%NP
-aElem%Node(3)%NP=>CornerNode(5)%NP
-aElem%Node(4)%NP=>CornerNode(6)%NP
-! 6. Tetrahedron
-CALL GetNewElem(aElem%nextElem)
-aElem%nextElem%prevElem => aElem
-aElem                   => aElem%nextElem
-aElem%nNodes=4
-ALLOCATE(aElem%Node(aElem%nNodes))
-aElem%Node(1)%NP=>CornerNode(3)%NP
-aElem%Node(2)%NP=>CornerNode(4)%NP
-aElem%Node(3)%NP=>CornerNode(5)%NP
-aElem%Node(4)%NP=>CornerNode(8)%NP
+! Three different tet strategies are implemented
+! 1. strategy: 6 tets per box, all tets have same volume and angle, not periodic but isotropic
+! 2. strategy: 6 tets per box, split hex into two prisms and each prism into 3 tets, periodic but strongly anisotropic
+! 3. strategy: 5 tets per box (minimum number of tets), 4 small tets at the edges one big in the middle, not periodic not isotropic
+! 4. strategy: 24 tets per box: one tet per edge (12), 4 in the center and 8 at the edges, fully symmetric and periodic mesh
+! 5. strategy: 12 tets per box: one pyramid per face, each of them splitted into to tets
+! Corner node ordering:
+! 1. (-,-,-)
+! 2. (+,-,-)
+! 3. (+,+,-)
+! 4. (-,+,-)
+! 5. (-,-,+)
+! 6. (+,-,+)
+! 7. (+,+,+)
+! 8. (-,+,+)
+
+DO i=1,8
+  node(i)%np=>CornerNode(i)%np
+END DO
+
+SELECT CASE(cartmesh%meshTemplate)
+CASE(1)
+  nTets=6
+  tetMap(:,1)=(/1,3,4,5/)
+  tetMap(:,2)=(/1,2,3,5/)
+  tetMap(:,3)=(/3,5,7,8/)
+  tetMap(:,4)=(/3,5,6,7/)
+  tetMap(:,5)=(/2,3,5,6/)
+  tetMap(:,6)=(/3,4,5,8/)
+CASE(2)
+  nTets=6
+  tetMap(:,1)=(/1,2,4,5/)
+  tetMap(:,2)=(/2,5,6,8/)
+  tetMap(:,3)=(/2,4,5,8/)
+  tetMap(:,4)=(/2,3,6,8/)
+  tetMap(:,5)=(/2,3,4,8/)
+  tetMap(:,6)=(/3,6,7,8/)
+CASE(3)
+  nTets=24
+  ! center nodes of the box faces are required
+  ! 9.  (-,o,o) XI_MINUS
+  ! 10. (+,o,o) XI_PLUS
+  ! 11. (o,-,o) ETA_MINUS
+  ! 12. (o,+,o) ETA_PLUS
+  ! 13. (o,o,-) ZETA_MINUS
+  ! 14. (o,o,+) ZETA_PLUS
+
+  CALL getNewNode(node(9 )%np,ind=ind)
+  CALL getNewNode(node(10)%np,ind=ind)
+  CALL getNewNode(node(11)%np,ind=ind)
+  CALL getNewNode(node(12)%np,ind=ind)
+  CALL getNewNode(node(13)%np,ind=ind)
+  CALL getNewNode(node(14)%np,ind=ind)
+  node(9 )%np%x=(node(1)%np%x+node(4)%np%x+node(5)%np%x+node(8)%np%x)/4.
+  node(10)%np%x=(node(2)%np%x+node(3)%np%x+node(6)%np%x+node(7)%np%x)/4.
+  node(11)%np%x=(node(1)%np%x+node(2)%np%x+node(5)%np%x+node(6)%np%x)/4.
+  node(12)%np%x=(node(3)%np%x+node(4)%np%x+node(7)%np%x+node(8)%np%x)/4.
+  node(13)%np%x=(node(1)%np%x+node(2)%np%x+node(3)%np%x+node(4)%np%x)/4.
+  node(14)%np%x=(node(5)%np%x+node(6)%np%x+node(7)%np%x+node(8)%np%x)/4.
+  IF(l.EQ.1)                  node(9 )%np%tmp=50000  !xi minus
+  IF(l.EQ.cartmesh%nElems(1)) node(10)%np%tmp=300    !xi plus
+  IF(m.EQ.1)                  node(11)%np%tmp=20     !eta minus
+  IF(m.EQ.cartmesh%nElems(2)) node(12)%np%tmp=4000   !eta plus
+  IF(n.EQ.1)                  node(13)%np%tmp=1      !zeta minus
+  IF(n.EQ.cartmesh%nElems(3)) node(14)%np%tmp=600000 !zeta plus
+
+  ! first the edges
+  tetMap(:,1 )=(/1,2,13,11/)
+  tetMap(:,2 )=(/2,3,13,10/)
+  tetMap(:,3 )=(/3,4,13,12/)
+  tetMap(:,4 )=(/4,1,13,9/)
+  tetMap(:,5 )=(/5,6,14,11/)
+  tetMap(:,6 )=(/6,7,14,10/)
+  tetMap(:,7 )=(/7,8,14,12/)
+  tetMap(:,8 )=(/8,5,14,9/)
+  tetMap(:,9 )=(/1,5,11,9/)
+  tetMap(:,10)=(/2,6,11,10/)
+  tetMap(:,11)=(/3,7,10,12/)
+  tetMap(:,12)=(/4,8,12,9/)
+  ! now split the 2 pyras in the middle into 4 tets
+  tetMap(:,13)=(/9,10,11,13/)
+  tetMap(:,14)=(/9,10,11,14/)
+  tetMap(:,15)=(/9,10,12,13/)
+  tetMap(:,16)=(/9,10,12,14/)
+  ! now the connect edges to 8 pyra faces (corner node+adjacent center nodes)
+  tetMap(:,17)=(/1,9, 11,13/)
+  tetMap(:,18)=(/2,10,11,13/)
+  tetMap(:,19)=(/3,10,12,13/)
+  tetMap(:,20)=(/4,9 ,12,13/)
+  tetMap(:,21)=(/5,9 ,11,14/)
+  tetMap(:,22)=(/6,10,11,14/)
+  tetMap(:,23)=(/7,10,12,14/)
+  tetMap(:,24)=(/8,9 ,12,14/)
+CASE(4)   ! template is not periodic only use for single element
+  nTets=5
+  tetMap(:,1)=(/1,2,4,5/)
+  tetMap(:,2)=(/2,3,4,7/)
+  tetMap(:,3)=(/5,6,7,2/)
+  tetMap(:,4)=(/7,8,5,4/)
+  tetMap(:,5)=(/2,4,5,7/)
+  IF(ANY(cartmesh%nElems.GT.1)) STOP 'The selected mesh template is not periodic and can only be used for a single element.'
+CASE(5)
+  nTets=12
+  !Center node of box is required
+  CALL getNewNode(node(9)%np,ind=ind)
+  node(9 )%np%x=(node(1)%np%x+node(2)%np%x+node(3)%np%x+node(4)%np%x+node(5)%np%x+node(6)%np%x+node(7)%np%x+node(8)%np%x)/8.
+
+  !x_minus
+  tetMap(:,1) =(/1,2,6,9/)
+  tetMap(:,2) =(/1,5,6,9/)
+  !y_plus
+  tetMap(:,3) =(/2,3,7,9/)
+  tetMap(:,4) =(/2,6,7,9/)
+  !x_plus
+  tetMap(:,5) =(/3,4,7,9/)
+  tetMap(:,6) =(/4,7,8,9/)
+  !y_minus
+  tetMap(:,7) =(/1,5,8,9/)
+  tetMap(:,8) =(/1,4,8,9/)
+  !z_plus
+  tetMap(:,9) =(/5,6,8,9/)
+  tetMap(:,10)=(/6,7,8,9/)
+  !z_minus
+  tetMap(:,11)=(/1,2,4,9/)
+  tetMap(:,12)=(/2,3,4,9/)
+
+
+CASE DEFAULT
+  STOP 'The selected mesh template does not exist for tetrahedra.'
+END SELECT
+
+DO i=1,nTets
+  IF(i.EQ.1)THEN
+    CALL GetNewElem(aElem)
+  ELSE
+    CALL GetNewElem(aElem%nextElem)
+    aElem%nextElem%prevElem => aElem
+    aElem                   => aElem%nextElem
+  END IF
+  aElem%nNodes=4
+  ALLOCATE(aElem%Node(aElem%nNodes))
+  aElem%Node(1)%np=>node(tetMap(1,i))%np
+  aElem%Node(2)%np=>node(tetMap(2,i))%np
+  aElem%Node(3)%np=>node(tetMap(3,i))%np
+  aElem%Node(4)%np=>node(tetMap(4,i))%np
+END DO
 
 ! Add elements to list
 IF(.NOT.ASSOCIATED(FirstElem))THEN
@@ -540,9 +636,7 @@ DO iZone=1,nZones
       dx(3)=e1(3)
       DO n=0,ne(3)
 !        x1(3)=REAL(n)/REAL(nSplit(3))
-        CALL GetNewNode(Mnodes(l,m,n)%np)
-        NodeInd=NodeInd+1
-        Mnodes(l,m,n)%np%ind=NodeInd 
+        CALL GetNewNode(Mnodes(l,m,n)%np,ind=NodeInd)
         Mnodes(l,m,n)%np%x=Co(:,1)+x1(1)*(Co(:,2)-Co(:,1))+x1(2)*(Co(:,4)-Co(:,1))+x1(3)*(Co(:,5)-Co(:,1))+ &
                          (Co(:,3)-Co(:,4)-Co(:,2)+Co(:,1))*x1(1)*x1(2)+(Co(:,6)-Co(:,5)-Co(:,2)+Co(:,1))*x1(1)*x1(3)+&
                             (Co(:,8)-Co(:,4)-Co(:,5)+Co(:,1))*x1(2)*x1(3)+(Co(:,7)-Co(:,1)+Co(:,4)+Co(:,5)+Co(:,2)-  &
@@ -569,7 +663,7 @@ DO iZone=1,nZones
         CornerNode(8)%np=>Mnodes(l     ,m+Ngeo,n+Ngeo)%np
         SELECT CASE(CartMesh%ElemType)
         CASE(104) ! Tetrahedron
-          CALL GetNewTetrahedron(CornerNode)
+          CALL GetNewTetrahedron(CornerNode,CartMesh,l,m,n,ind=NodeInd)
         CASE(105) ! Pyramid
           CALL GetNewPyramid(CornerNode)
         CASE(106) ! Dreiecks-prismon

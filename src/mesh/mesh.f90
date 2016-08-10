@@ -20,7 +20,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "defines.f90"
+#include "hopr.h"
 MODULE MOD_Mesh
 !===================================================================================================================================
 ! ?
@@ -110,6 +110,7 @@ IF (MeshMode .EQ. 1) THEN
     CartMeshes(i)%CM%l0      =GETREALARRAY('l0',3,'0.,0.,0.') ! first length (+/-) = direction
     CartMeshes(i)%CM%factor  =GETREALARRAY('factor',3,'0.,0.,0.') ! stretch factor (+/-) = direction
     CartMeshes(i)%CM%ElemType=GETINT('elemtype') ! Element type
+    CartMeshes(i)%CM%meshTemplate=GETINT('meshTemplate','1') ! Element type
   END DO
 ELSEIF (MeshMode .EQ. 11) THEN
   ! ---------- INTERNAL 1 BLOCK CURVED CARTESIAN MESH -----------------------------------------------------------------
@@ -180,9 +181,10 @@ ELSE
     useBinary =GETLOGICAL('useBinary','.FALSE.')  ! Read binary mesh file (.halo files) instead of ASCII
   CASE(3)   ! CGNS mesh
     meshIsAlreadyCurved = GETLOGICAL('meshIsAlreadyCurved','.FALSE.')  ! build curveds by agglomeration (only block structured)
-    nskip=GETINT('nskip','1') !skip every nskip point (=1, nothing is skipped)
-    WRITE(DefStr,*)nSkip
-    nskipZ=GETINT('nskipZ',TRIM(DefStr)) !skip every nskipZ point in z direction
+    nskipZ=GETINT('nskipZ','1') !skip every nskip point (=1, nothing is skipped)
+    WRITE(DefStr,*) N
+    NBlock=GETINT('NBlock',TRIM(DefStr)) !initial polynomial degree of block structured mesh
+    nSkip=1 ! TODO: integrate into reader or remove
     nMeshFiles=GETINT('nMeshFiles','1') ! Number of mesh files: each mesh file = one zone
     BugFix_ANSA_CGNS=GETLOGICAL('BugFix_ANSA_CGNS','.FALSE.')
   CASE(5)   ! GMSH file
@@ -255,6 +257,8 @@ IF(useCurveds) THEN
   ! 2-n: first n layers from the boundary are curved
   nCurvedBoundaryLayers=GETINT('nCurvedBoundaryLayers','-1')
 
+  ! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
+  doRebuildMortarGeometry=GETLOGICAL('doRebuildMortarGeometry','.TRUE.')
 END IF !usecurveds
 BoundaryOrder=N+1
 
@@ -412,6 +416,7 @@ USE MOD_Curved,           ONLY: create3dSplines,curvedEdgesToSurf,curvedSurfaces
 USE MOD_Curved,           ONLY: buildCurvedElementsFromVolume,buildCurvedElementsFromBoundarySides
 USE MOD_Curved,           ONLY: readNormals
 USE MOD_Curved,           ONLY: ProjectToExactSurfaces
+USE MOD_Curved,           ONLY: RebuildMortarGeometry
 USE MOD_Mesh_Basis,       ONLY: BuildEdges,ElemGeometry,FindElemTypes
 USE MOD_Mesh_Connect,     ONLY: Connect
 USE MOD_Mesh_Connect,     ONLY: Connect2DMesh
@@ -422,7 +427,7 @@ USE MOD_Mesh_Tools,       ONLY: CountSplines,Netvisu,BCvisu,chkspl_surf,chkspl_v
 USE MOD_Mesh_PostDeform,  ONLY: PostDeform
 USE MOD_Output_HDF5,      ONLY: WriteMeshToHDF5
 USE MOD_Mesh_Jacobians,   ONLY: CheckJacobians
-USE MOD_Output_Vars,      ONLY:useSpaceFillingCurve
+USE MOD_Output_Vars,      ONLY: useSpaceFillingCurve
 USE MOD_Output_HDF5,      ONLY: SpaceFillingCurve
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -455,7 +460,10 @@ SELECT CASE (MeshMode)
     CALL ReadMeshFromHDF5_OLD(MeshFileName(1)) ! meshfile
     meshIsAlreadyCurved=.TRUE.
   CASE(0)
-    CALL ReadMeshFromHDF5(MeshFileName(1)) ! meshfile
+    CALL ReadMeshFromHDF5(MeshFileName(1),.TRUE.) ! meshfile
+    meshIsAlreadyCurved=.TRUE.
+  CASE(100)
+    CALL ReadMeshFromHDF5(MeshFileName(1),.FALSE.) ! meshfile
     meshIsAlreadyCurved=.TRUE.
   CASE(1)
     CALL CartesianMesh()  ! Build cartesian mesh
@@ -557,7 +565,6 @@ DO iElem=1,nMeshElems
 END DO !iElem
 IF(.NOT.curvedFound) curvingMethod=-1
 
-
 IF(useCurveds)THEN
   IF(meshIsAlreadyCurved.AND..NOT.rebuildCurveds)THEN
     ! if curved nodes have been read in and mesh should not be modified, just distribute nodes
@@ -577,8 +584,8 @@ IF(useCurveds)THEN
         CALL readNormals()                ! Read normal vector file
       CASE(3)
         CALL getExactNormals()
-        CALL deleteDuplicateNormals()
       END SELECT
+      CALL deleteDuplicateNormals()
       CALL create3DSplines()              ! Reconstruct curved boundaries
       CALL curvedEdgesToSurf(keepExistingCurveds=.FALSE.)
     CASE(3) ! STAR/ANSA: generate curved mesh from subgrid
@@ -612,7 +619,7 @@ IF(useCurveds)THEN
 END IF ! useCurveds
 
 ! make all nodes unique
-CALL GlobalUniqueNodes()
+CALL GlobalUniqueNodes(.TRUE.)
 
 IF(doExactSurfProjection) CALL ProjectToExactSurfaces()
 ! get element types
@@ -629,6 +636,8 @@ IF(useSpaceFillingCurve)THEN
 END IF
 
 CALL PostDeform()
+
+IF(useCurveds.AND.doRebuildMortarGeometry) CALL RebuildMortarGeometry()
 
 
 ! apply meshscale before output (default)

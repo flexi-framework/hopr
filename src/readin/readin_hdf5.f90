@@ -20,7 +20,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "defines.f90"
+#include "hopr.h"
 MODULE MOD_Readin_HDF5
 !===================================================================================================================================
 ! ?
@@ -48,7 +48,7 @@ PUBLIC::ReadMeshFromHDF5,DatasetExists
 !===================================================================================================================================
 
 CONTAINS
-SUBROUTINE ReadMeshFromHDF5(FileString)
+SUBROUTINE ReadMeshFromHDF5(FileString,doConnection)
 !===================================================================================================================================
 ! Subroutine to read the mesh from HDF5 format
 !===================================================================================================================================
@@ -59,12 +59,15 @@ USE MOD_Mesh_Vars,ONLY:usecurveds,N
 USE MOD_Mesh_Vars,ONLY:nMeshElems
 USE MOD_Mesh_Vars,ONLY:nNodesElemSideMapping,ElemSideMapping
 USE MOD_Mesh_Vars,ONLY:BoundaryType
-USE MOD_Mesh_Vars,ONLY:getNewElem,getNewNode,getNewBC,getNewSide
+USE MOD_Mesh_Vars,ONLY:getNewElem,getNewNode,getNewBC,getNewSide,deleteSide
+USE MOD_Mesh_Vars,ONLY:xiMinMax,ElemToTree,TreeCoords,NGeoTree,nGlobalTrees,MortarMesh,nTrees,offsetTree
+!USE MOD_Mesh_Connect,ONLY:SetMortarOrientedNodes
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 CHARACTER(LEN=*),INTENT(IN)  :: FileString  ! ?
+LOGICAL,INTENT(IN)           :: doConnection
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -73,9 +76,9 @@ TYPE(tNodePtr),POINTER         :: Nodes(:)
 TYPE(tSidePtr),POINTER         :: Sides(:)
 TYPE(tElemPtr),POINTER         :: Elems(:)
 TYPE(tElem),POINTER            :: Elem  ! ?
-TYPE(tSide),POINTER            :: aSide,bSide  ! ?
-INTEGER                        :: i1,j1,k1,nBCSides,nPeriodicSides  ! ?
-INTEGER                        :: NodeID,SideID,ElemID,iBC  ! ?
+TYPE(tSide),POINTER            :: aSide,aaSide,bSide,bbSide  ! ?
+INTEGER                        :: i1,j1,k1,l1,nBCSides,nPeriodicSides  ! ?
+INTEGER                        :: NodeID,ElemID,iBC  ! ?
 INTEGER                        :: iNode,iSide,iElem,i,j,k
 INTEGER                        :: offset,first,last  ! ?
 INTEGER                        :: Ngeo 
@@ -83,12 +86,17 @@ INTEGER                        :: locnNodes
 INTEGER                        :: locnSides 
 LOGICAL                        :: oriented  ! ?
 LOGICAL                        :: fileExists  ! ?
-LOGICAL                        :: doConnection  ! ?
+LOGICAL                        :: doConnection_loc  ! ?
+! Mortar
+LOGICAL                        :: dsExists
+INTEGER                        :: iMortar,jMortar,nMortars,nMortarSides
+INTEGER(HSIZE_T),POINTER       :: HSize(:)
+INTEGER                        :: nDims
 !===================================================================================================================================
 IF(initMesh) RETURN
 INQUIRE (FILE=TRIM(FileString), EXIST=fileExists)
 IF(.NOT.FileExists)  CALL abort(__STAMP__, &
-        'readMesh from HDF5, file "'//TRIM(FileString)//'" does not exist',999,999.)
+        'readMesh from HDF5, file "'//TRIM(FileString)//'" does not exist')
 
 WRITE(UNIT_stdOut,'(132("~"))')
 CALL Timer(.TRUE.)
@@ -96,7 +104,10 @@ WRITE(UNIT_stdOut,'(A)')'READ MESH FROM HDF5 FILE "'//TRIM(FileString)//'" ...'
 ! Open HDF5 file
 CALL OpenHDF5File(FileString,create=.FALSE.)
 
-CALL GetHDF5Attribute(File_ID,'nElems',1,IntegerScalar=nGlobalElems)
+CALL GetHDF5DataSize(File_ID,'ElemInfo',nDims,HSize)
+nGlobalElems=HSize(2) !global number of elements
+DEALLOCATE(HSize)
+
 nElems=nGlobalElems   !local number of Elements 
 
 
@@ -130,7 +141,6 @@ ALLOCATE(Elems(1:nElems))
 nMeshElems=nElems
 DO iElem=1,nElems
   iSide=ElemInfo(ELEM_FirstSideInd,iElem) !first index -1 in Sideinfo
-  iNode=ElemInfo(ELEM_FirstNodeInd,iElem) !first index -1 in NodeInfo
   CALL getNewElem(Elems(iElem)%ep)
   Elem=>Elems(iElem)%ep
   Elem%Ind    = iElem
@@ -155,10 +165,10 @@ CALL ReadArrayFromHDF5(File_ID,'GlobalNodeIDs',1,(/nNodes/),offset,IntegerArray=
 CALL ReadArrayFromHDF5(File_ID,'NodeCoords',2,(/3,nNodes/),offset,RealArray=NodeCoords)
 
 
-CALL GetHDF5Attribute(File_ID,'nUniqueNodes',1,IntegerScalar=nNodeIDs)
+!CALL GetHDF5Attribute(File_ID,'nUniqueNodes',1,IntegerScalar=nNodeIDs)
 
-ALLOCATE(Nodes(1:nNodeIDs)) ! pointer list of unique nodes
-DO i=1,nNodeIDs
+ALLOCATE(Nodes(1:nNodes)) ! pointer list of unique nodes
+DO i=1,nNodes
   NULLIFY(Nodes(i)%np)
 END DO
 
@@ -168,8 +178,11 @@ DO iElem=1,nElems
   iNode=ElemInfo(ELEM_FirstNodeInd,iElem) !first index -1 in NodeCoords
   locnNodes=ElemInfo(Elem_LastNodeInd,iElem)-ElemInfo(Elem_FirstNodeInd,iElem)
   IF(N.EQ.1)THEN
-    IF(Elem%nNodes.NE.locnNodes) CALL abort(__STAMP__, &
+    IF(Elem%nNodes.NE.locnNodes) THEN
+      write(*,*) Elem%nNodes, locnNodes
+      CALL abort(__STAMP__, &
             ' Sanity check, number of element nodes do not fit for Ngeo=1')
+    END IF
     DO i=1,Elem%nNodes
       iNode=iNode+1
       NodeID=GlobalNodeIDs(iNode)     !global, unique NodeID
@@ -269,34 +282,75 @@ DO iElem=1,nElems
     NULLIFY(aSide)
   END DO
 
-  IF(locnSides.NE.ElemInfo(ELEM_LastSideInd,iElem)-ElemInfo(ELEM_FirstSideInd,iElem))THEN
-    ! we have hanging sides
-    WRITE(*,*)'DEBUG, more sides in element as standard, not implemented yet!!!'
-    STOP 
-  END IF
+  !IF(locnSides.NE.ElemInfo(ELEM_LastSideInd,iElem)-ElemInfo(ELEM_FirstSideInd,iElem))THEN
+    !write(*,*) locnSides , ElemInfo(ELEM_LastSideInd,iElem), ElemInfo(ELEM_FirstSideInd,iElem)
+    !! we have hanging sides
+    !CALL Abort(__STAMP__, &
+       !'DEBUG, more sides in element as standard, not implemented yet!!!')
+  !END IF
   ! assign oriented nodes
   DO i=1,locnSides
     aSide=>Sides(i)%sp
     iSide=iSide+1
+
+    ! ALLOCATE MORTAR
+    ElemID=SideInfo(SIDE_nbElemID,iSide) !IF nbElemID <0, this marks a mortar master side. 
+                                         ! The number (-1,-2,-3) is the Type of mortar
+    IF(ElemID.LT.0)THEN ! mortar Sides attached!
+      aSide%MortarType=ABS(ElemID)
+      SELECT CASE(aSide%MortarType)
+      CASE(1)
+        aSide%nMortars=4
+      CASE(2,3)
+        aSide%nMortars=2
+      END SELECT
+      ALLOCATE(aSide%MortarSide(aSide%nMortars))
+      DO iMortar=1,aSide%nMortars
+        CALL getNewSide(aSide%MortarSide(iMortar)%sp,4)
+      END DO
+    ELSE
+      aSide%nMortars=0
+      aSide%MortarType=0 
+    END IF
+    IF(SideInfo(SIDE_Type,iSide).LT.0) aSide%MortarType=-1 !marks side as belonging to a mortar
+
     aSide%Elem=>Elem
-    oriented=(Sideinfo(SIDE_ID,iSide).GT.0)
-    
-    aSide%Ind=ABS(SideInfo(SIDE_ID,iSide))
-    aSide%flip=MOD(SideInfo(SIDE_nbLocSide_flip,iSide),10)  !this entry is 10*nbLocSide+Flip
-    IF(oriented)THEN !oriented side
+    IF(aSide%MortarType.LE.0)THEN
+      oriented=(Sideinfo(SIDE_ID,iSide).GT.0)
+      aSide%Ind=ABS(SideInfo(SIDE_ID,iSide))
+      IF(oriented)THEN !oriented side
+        aSide%flip=0
+        DO j=1,aSide%nNodes
+          aSide%OrientedNode(j)%np=>aSide%Node(j)%np
+          aSide%OrientedNode(j)%np%RefCount=aSide%OrientedNode(j)%np%RefCount+1
+        END DO !j=1,Side%nNodes
+      ELSE !not oriented
+        aSide%flip=MOD(Sideinfo(SIDE_nbLocSide_Flip,iSide),10)
+        IF((aSide%flip.LT.0).OR.(aSide%flip.GT.4)) STOP 'NodeID doesnt belong to side'
+        k=aSide%flip
+        DO j=1,aSide%nNodes
+          aSide%OrientedNode(j)%np=>aSide%Node(k)%np
+          aSide%OrientedNode(j)%np%RefCount=aSide%OrientedNode(j)%np%RefCount+1
+          k=k-1
+          IF(k.EQ.0)k=aSide%nNodes
+        END DO !j=1,Side%nNodes
+      END IF
+    ELSE !mortartype>0
+      aSide%flip = 0
+      DO iMortar=1,aSide%nMortars
+        iSide=iSide+1
+        aSide%mortarSide(iMortar)%sp%Elem=>Elem
+        IF(SideInfo(SIDE_ID,iSide).LT.0) STOP 'Problem in Mortar readin,should be flip=0'
+        aSide%mortarSide(iMortar)%sp%flip=0
+        aSide%mortarSide(iMortar)%sp%Ind=ABS(SideInfo(SIDE_ID,iSide))
+      END DO !iMortar
       DO j=1,aSide%nNodes
         aSide%OrientedNode(j)%np=>aSide%Node(j)%np
         aSide%OrientedNode(j)%np%RefCount=aSide%OrientedNode(j)%np%RefCount+1
       END DO !j=1,Side%nNodes
-    ELSE !not oriented
-      k=aSide%flip
-      DO j=1,aSide%nNodes
-        aSide%OrientedNode(j)%np=>aSide%Node(k)%np
-        aSide%OrientedNode(j)%np%RefCount=aSide%OrientedNode(j)%np%RefCount+1
-        k=k-1
-        IF(k.EQ.0)k=aSide%nNodes
-      END DO !j=1,Side%nNodes
     END IF
+
+
   END DO !i=1,locnSides
   !transform to side pointer list
   Elem%firstSide=>Sides(1)%sp
@@ -309,46 +363,67 @@ DO iElem=1,nElems
   DEALLOCATE(Sides)
 END DO !iElem
 
-
 ! build up side connection 
 DO iElem=1,nElems
   Elem=>Elems(iElem)%ep
   iSide=ElemInfo(ELEM_FirstSideInd,iElem) !first index -1 in Sideinfo
-  aSide=>Elem%firstSide
-  DO WHILE(ASSOCIATED(aSide))
+  aaSide=>Elem%firstSide
+  DO WHILE(ASSOCIATED(aaSide))
+    aSide => aaSide
     iSide=iSide+1
-    sideID = ABS(SideInfo(SIDE_ID,iSide))
-    elemID = SideInfo(SIDE_nbElemID,iSide)
-    iBC    = SideInfo(SIDE_BCID,iSide)
-    doConnection=.TRUE. ! for periodic sides if BC is reassigned as non periodic
-    IF(iBC.NE.0)THEN !BC
-      CALL getNewBC(aSide%BC)
-      aSide%BC%BCType     = BoundaryType(iBC,1)
-      aSide%curveIndex    = BoundaryType(iBC,2)
-      aSide%BC%BCState    = BoundaryType(iBC,3)
-      aSide%BC%BCalphaInd = BoundaryType(iBC,4)
-      aSide%BC%BCindex    = iBC
-      IF(aSide%BC%BCType.NE.1)doConnection=.FALSE. 
-    END IF
-    IF(.NOT.ASSOCIATED(aSide%connection))THEN
-      IF((elemID.NE.0).AND.doConnection)THEN !connection 
+    ! LOOP over mortars, if no mortar, then LOOP is executed once
+    nMortars=aSide%nMortars 
+    DO iMortar=0,nMortars
+      IF(iMortar.GT.0)THEN
+        iSide=iSide+1
+        aSide=>aaSide%mortarSide(iMortar)%sp
+      END IF  
+      elemID = SideInfo(SIDE_nbElemID,iSide)
+      iBC    = SideInfo(SIDE_BCID,iSide)
+      
+      doConnection_loc=doConnection ! for periodic sides if BC is reassigned as non periodic
+      IF(iBC.NE.0)THEN !BC
+        CALL getNewBC(aSide%BC)
+        aSide%BC%BCType     = BoundaryType(iBC,1)
+        aSide%curveIndex    = BoundaryType(iBC,2)
+        aSide%BC%BCState    = BoundaryType(iBC,3)
+        aSide%BC%BCalphaInd = BoundaryType(iBC,4)
+        aSide%BC%BCindex    = iBC
+        IF(aSide%BC%BCType.NE.1)doConnection_loc=.FALSE. 
+      END IF
+
+      !no connection for mortar master
+      IF(aSide%mortarType.GT.0) CYCLE
+      IF(.NOT.doConnection_loc) CYCLE
+      IF(ASSOCIATED(aSide%connection)) CYCLE
+
+
+      IF(elemID.NE.0)THEN !connection 
         IF((elemID.LE.nElems).AND.(elemID.GE.1))THEN !local connection
-          bSide=>Elems(elemID)%ep%firstSide
-          DO WHILE(ASSOCIATED(bSide))
-            IF(bSide%ind.EQ.aSide%ind)THEN
-              aSide%connection=>bSide
-              bSide%connection=>aSide
-              EXIT
-            END IF
-            bSide=>bSide%nextElemSide
+          bbSide=>Elems(elemID)%ep%firstSide
+          DO WHILE(ASSOCIATED(bbSide))
+            bSide => bbSide
+
+            ! LOOP over mortars, if no mortar, then LOOP is executed once
+            nMortars=bSide%nMortars 
+            DO jMortar=0,nMortars
+              IF(jMortar.GT.0) bSide=>bbSide%mortarSide(jMortar)%sp
+
+              IF(bSide%ind.EQ.aSide%ind)THEN
+                aSide%connection=>bSide
+                bSide%connection=>aSide
+                EXIT
+              END IF !bSide%ind.EQ.aSide%ind
+            END DO !jMortar 
+            bbSide=>bbSide%nextElemSide
           END DO
         ELSE !MPI connection
           CALL abort(__STAMP__, &
-            ' elemID of neighbor not in global Elem list ',999,999.)
+            ' elemID of neighbor not in global Elem list ')
         END IF
       END IF
-    END IF !connection associated
-    aSide=>aSide%nextElemSide
+    END DO !iMortar 
+    aaSide=>aaSide%nextElemSide
   END DO 
 END DO !iElem
 
@@ -364,52 +439,84 @@ END DO
 
 DEALLOCATE(Elems,ElemInfo,SideInfo)
 
-!ALLOCATE(ElemBarycenters(3,nElems)) 
-!CALL ReadArrayFromHDF5(File_ID,'ElemBarycenters',2,(/3,nElems/),0,RealArray=ElemBarycenters)
+! Get Mortar specific arrays
+dsExists=.FALSE.
+iMortar=0
+CALL DatasetExists(File_ID,'isMortarMesh',dsExists,.TRUE.)
+IF(dsExists)&
+  CALL GetHDF5Attribute(File_ID,'isMortarMesh',1,IntegerScalar=MortarMesh)
+IF(MortarMesh.EQ.1)THEN ! hopest mesh
+  CALL GetHDF5Attribute(File_ID,'NgeoTree',1,IntegerScalar=NGeoTree)
+  CALL GetHDF5Attribute(File_ID,'nTrees',1,IntegerScalar=nGlobalTrees)
+
+  ALLOCATE(xiMinMax(3,2,1:nElems))
+  xiMinMax=-1.
+  CALL ReadArrayFromHDF5(File_ID, 'xiMinMax',3,(/3,2,nElems/),offset,RealArray=xiMinMax)
+  
+  ALLOCATE(ElemToTree(1:nElems))
+  ElemToTree=0
+  CALL ReadArrayFromHDF5(File_ID,'ElemToTree',1,(/nElems/),offset,IntegerArray=ElemToTree)
+
+  ! only read trees, connected to a procs elements
+  offsetTree=MINVAL(ElemToTree)-1
+  ElemToTree=ElemToTree-offsetTree  
+  nTrees=MAXVAL(ElemToTree)
+
+  ALLOCATE(TreeCoords(3,0:NGeoTree,0:NGeoTree,0:NGeoTree,nTrees))
+  TreeCoords=-1.
+  CALL ReadArrayFromHDF5(File_ID,'TreeCoords',2,(/3,(NGeoTree+1)**3*nTrees/),&
+                 (NGeoTree+1)**3*offsetTree,RealArray=TreeCoords)
+ELSE
+  nTrees=0
+END IF
 
 CALL CloseHDF5File() 
 !======================== READ IN FINISHED =================================
 
-LOGWRITE(*,*)'DEBUG,check connectivity'
-! Check connectivity
-i1=0
-j1=0
-k1=0
-Elem=>firstElem
-DO WHILE(ASSOCIATED(Elem))
-  aSide=>Elem%firstSide
-  DO WHILE(ASSOCIATED(aSide))
-    IF(aSide%LocSide .LE. 0) &
-      CALL abort(__STAMP__, &
+IF (doConnection) THEN
+  LOGWRITE(*,*)'DEBUG,check connectivity'
+  ! Check connectivity
+  i1=0
+  j1=0
+  k1=0
+  Elem=>firstElem
+  DO WHILE(ASSOCIATED(Elem))
+    aSide=>Elem%firstSide
+    DO WHILE(ASSOCIATED(aSide))
+      IF(aSide%LocSide .LE. 0) &
+        CALL abort(__STAMP__, &
         'io_hdf5: Side%LocSide not set!',999,999.)
-    IF(ASSOCIATED(aSide%BC))THEN
-      IF((.NOT. ASSOCIATED(aSide%Connection)) .AND. (aSide%BC%BCType .EQ. 1))THEN
-        i1=i1+1
+      IF(ASSOCIATED(aSide%BC))THEN
+        IF((.NOT. ASSOCIATED(aSide%Connection)) .AND. (aSide%BC%BCType .EQ. 1))THEN
+          IF (aSide%nMortars.EQ.0) i1=i1+1
+        END IF
+      ELSE
+        k1=k1+1
+        IF(.NOT. ASSOCIATED(aSide%Connection))THEN
+          DO iNode=1,aSide%nNodes
+            LOGWRITE(*,*)aSide%Node(iNode)%np%x
+          END DO
+          IF (aSide%nMortars.EQ.0) j1=j1+1
+        END IF
       END IF
-    ELSE
-      k1=k1+1
-      IF(.NOT. ASSOCIATED(aSide%Connection))THEN
-        DO iNode=1,aSide%nNodes
-          LOGWRITE(*,*)aSide%Node(iNode)%np%x
-        END DO
-        j1=j1+1
-      END IF
-    END IF
-    aSide=>aSide%nextElemSide
+      aSide=>aSide%nextElemSide
+    END DO
+    Elem=>Elem%nextElem
   END DO
-  Elem=>Elem%nextElem
-END DO
-IF(i1+j1 .GT. 0) THEN
-  LOGWRITE(*,*)'..',k1
-  CALL abort(__STAMP__, &
-    'missing Connection of Side: with/without BC',i1,REAL(j1))
+  IF(i1+j1 .GT. 0) THEN
+    LOGWRITE(*,*)'..',k1
+    CALL abort(__STAMP__, &
+      'missing Connection of Side: with/without BC',i1,REAL(j1))
+  END IF
 END IF
 
 i1=0
 j1=0
 k1=0
+l1=0
 nBCSides=0
 nPeriodicSides=0
+nMortarSides=0
 Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))
   aSide=>Elem%firstSide
@@ -417,6 +524,7 @@ DO WHILE(ASSOCIATED(Elem))
     DO iNode=1,aSide%nNodes
       aSide%Node(iNode)%np%tmp=-1
     END DO
+    aSide%tmp=-1
     aSide=>aSide%nextElemSide
   END DO
   Elem=>Elem%nextElem
@@ -424,25 +532,62 @@ END DO
 Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))
   i1=i1+1
-  aSide=>Elem%firstSide
-  DO WHILE(ASSOCIATED(aSide))
-    j1=j1+1
-    IF(ASSOCIATED(aSide%BC))THEN
-      nBCSides=nBCSides+1
-      IF(ASSOCIATED(aSide%connection)) nPeriodicSides=nPeriodicSides+1
-    END IF
-    DO iNode=1,aSide%nNodes
-      IF(aSide%Node(iNode)%np%tmp .NE. 0)THEN
-        k1=k1+1
-        aSide%Node(iNode)%np%tmp=0
+  aaSide=>Elem%firstSide
+  DO WHILE(ASSOCIATED(aaSide))
+    aSide=>aaSide
+    nMortars=aSide%nMortars 
+    IF(aSide%MortarType.GT.0) nMortarSides=nMortarSides+1
+    DO iMortar=0,nMortars
+      IF(iMortar.GT.0) aSide=>aaSide%mortarSide(iMortar)%sp
+
+      IF(aSide%tmp.NE.0)THEN
+        j1=j1+1
+        aSide%tmp=0
+
+        IF(ASSOCIATED(aSide%BC))THEN
+          nBCSides=nBCSides+1
+          IF(ASSOCIATED(aSide%connection)) nPeriodicSides=nPeriodicSides+1
+        END IF
+
+        DO iNode=1,aSide%nNodes
+          IF(aSide%Node(iNode)%np%tmp .NE. 0)THEN
+            k1=k1+1
+            aSide%Node(iNode)%np%tmp=0
+          END IF
+        END DO
       END IF
     END DO
-    aSide=>aSide%nextElemSide
+    aaSide=>aaSide%nextElemSide
   END DO
   Elem=>Elem%nextElem
 END DO
+
+! dirty cleanup: connection are recreated in mesh_connect
+IF(.NOT.doConnection)THEN
+  Elem=>firstElem
+  DO WHILE(ASSOCIATED(Elem))
+    aSide=>Elem%firstSide
+    DO WHILE(ASSOCIATED(aSide))
+      IF(aSide%MortarType.GT.0)THEN    ! master
+        DO iSide=1,aSide%nMortars
+          CALL deleteSide(aSide,aSide%MortarSide(iSide)%sp)
+        END DO
+        DEALLOCATE(aSide%MortarSide)
+        NULLIFY(aSide%MortarSide)
+        aSide%nMortars=0
+      ELSEIF(aSide%MortarType.LT.0)THEN ! slave
+        NULLIFY(aSide%connection)
+        aSide%nMortars=0
+      END IF
+      aSide=>aSide%nextElemSide
+    END DO
+    Elem=>Elem%nextElem
+  END DO
+END IF
+
 LOGWRITE(*,*)'nElems:',i1
 LOGWRITE(*,*)'nSides:',j1
+LOGWRITE(*,*)'nMortarSides:',nMortarSides
 LOGWRITE(*,*)'nNodes:',k1
 LOGWRITE(*,*)'nBCSides:',nBCSides
 LOGWRITE(*,*)'nPeriodicSides:',nPeriodicSides
@@ -519,8 +664,6 @@ END IF
 IF(nUserDefinedBoundaries .EQ. 0) nUserDefinedBoundaries=nBCs
 DEALLOCATE(BCNames,BCType,BCMapping)
 END SUBROUTINE ReadBCs
-
-
 
 
 ! HFD5 STUFF
