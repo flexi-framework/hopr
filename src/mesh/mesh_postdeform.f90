@@ -272,11 +272,11 @@ CASE(2) ! 3D box, x,y in [-1,1]^3, to Sphere with radius PostDeform_R0
     dx(:)=alpha*dx(:)
   END IF
   xout(1:3)=PostDeform_R0/SQRT(3.)*(x(1:3)+dx(1:3))
-CASE(3) ! sin
+CASE(30) ! sin
   xout = x+ 0.1*SIN(Pi*x(1))*SIN(Pi*x(2))!*SIN(Pi*x(3))
-CASE(4) ! sin
+CASE(31) ! sin
   xout = x+ 0.1*SIN(Pi*x(1))*SIN(Pi*x(2))*SIN(Pi*x(3))
-CASE(5) ! sin
+CASE(32) ! sin
   xout = x+ 0.1*SIN(Pi*x(1))
 END SELECT
 
