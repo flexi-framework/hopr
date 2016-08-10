@@ -12,7 +12,7 @@ echo "=== delete old files"
 rm -rf src
  
 echo "=== COPY SRC "
-cp -r ../src .
+cp -r ../../src .
 cp mainpage.txt src/.
  
 echo "============================================================================================================================" > missing_comment_lines.txt
@@ -24,7 +24,7 @@ echo "=== Delete empty comments"
 FILELIST=`find . -name *.f90`
  for file in $FILELIST
 do
-perl -pi -e 's/! \?/!  /g' $file
+  perl -pi -e 's/! \?/!  /g' $file
 done 
 
 
@@ -107,15 +107,13 @@ if echo ${line[i]} | grep "^"${name[k]} >/dev/null
     for (( l=3; l<99; l++ ));
     do  
       if echo ${line[i+l]} | grep "!============================================================================================================================" >/dev/null;then
-        if echo ${line[i+l-1]} | grep "^!" >/dev/null;then
+        if echo ${line[i+l-1]} | grep "^!" >/dev/null; then
           x=0
-          for (( m=0; m<(l-and-3); m++ ));
-          do  
+          for (( m=0; m<(l-and-3); m++ )); do  
             sed -i -e $[i-1]c"!>\n!>" ${FILELIST2[j]} #adds more empty lines if comment is not a one-liner
             x=$[$x+1]
           done
-          for (( n=0; n<=(l-and-3); n++ ));
-          do  
+          for (( n=0; n<=(l-and-3); n++ )); do  
             sed -i -e  $[i-1+n]c"!> $(cut_it "${line[i+l+n-1-x]}")" ${FILELIST2[j]} #copies comment to doxygen comment line(s)
           done
         else
