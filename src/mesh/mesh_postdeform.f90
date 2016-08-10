@@ -387,11 +387,7 @@ CASE(3) ! 2D box, x,y in [-1,1]^2, to cylinder with radius PostDeform_R0 z  [0,1
       !upper side at y=0.5
       dx2(1)=0.5*SQRT(2.)*SIN(0.25*Pi*x(1)/0.5)-x(1)
       dx2(2)=0.5*SQRT(2.)*COS(0.25*Pi*x(1)/0.5)-0.5
-<<<<<<< HEAD
-      alpha=0.5
-=======
       alpha=0.35
->>>>>>> bitbucket/master
       ! coons mapping of edges, dx=0 at the corners
       dx(1:2)=alpha*(dx1(1:2)*(/2*x(1),1./)+dx2(1:2)*(/1.,2*x(2)/))
     ELSEIF((rr.GE.0.5).AND.(rr.LE.4.))THEN !outside [-0.5,0.5]^2, inside [-4,4]^2
@@ -402,11 +398,6 @@ CASE(3) ! 2D box, x,y in [-1,1]^2, to cylinder with radius PostDeform_R0 z  [0,1
         dx(1)=x(2)*SQRT(2.)*SIN(0.25*Pi*x(1)/x(2))-x(1)
         dx(2)=x(2)*SQRT(2.)*COS(0.25*Pi*x(1)/x(2))-x(2)
       END IF
-<<<<<<< HEAD
-      alpha=MIN(1.,rr) ! alpha=0.5 at boundary of [-0.5,0.5]^3, alpha=1.0 outside [-1,1]^3
-      IF(rr.GT.1.) alpha=((4.-rr)/((4.-1.)*rr)) !between [-1,1] and [-4,4]
-      dx(1:2)=alpha*dx(1:2)
-=======
       IF(rr.LE.1.)THEN
         alpha=2.*rr-1. !maps [0.5,1] --> [0,1] and alpha=1 outside [-1,1]^2
         alpha=SIN(0.5*Pi*alpha) !smooth transition at the outer boundary max(|x|,|y|,|z|)=1
@@ -418,7 +409,6 @@ CASE(3) ! 2D box, x,y in [-1,1]^2, to cylinder with radius PostDeform_R0 z  [0,1
         alpha=SIN(0.5*Pi*alpha) !smooth transition 
         dx(1:2)=alpha*(dx(1:2)/rr)
       END IF
->>>>>>> bitbucket/master
     ELSE !outside [-4,4]^2
       dx=0.
     END IF
@@ -460,11 +450,7 @@ CASE(4) ! 3D box, x,y in [-1,1]^3, to Sphere with radius PostDeform_R0
       dx3(2)=cosa*sinb
       dx3(3)=cosa*cosb
       dx3(:)=dx3(:)*0.5*SQRT(3./(cosb*cosb+(cosa*sinb)**2))-(/x(1),x(2),0.5/)
-<<<<<<< HEAD
-      alpha=0.5
-=======
       alpha=0.35
->>>>>>> bitbucket/master
       !dx =0 at the corners, coons mapping for faces 
       dx(1:3)=alpha*( dx1(1:3)*(/   2*x(1),     1.,     1./) &
                      +dx2(1:3)*(/       1.,2*x(2) ,     1./) &
@@ -527,11 +513,6 @@ CASE(4) ! 3D box, x,y in [-1,1]^3, to Sphere with radius PostDeform_R0
         dx(3)=cosa*cosb
         dx(:)=x(3)*dx(:)*SQRT(3./(cosb*cosb+(cosa*sinb)**2))-x(:)
       END IF !lower/upper...
-<<<<<<< HEAD
-      alpha=rr ! alpha=0.5 at boundary of [-0.5,0.5]^3, alpha=1.0 at [-1,1]^3
-      IF(rr.GT.1.) alpha=((4.-rr)/((4.-1.)*rr)) !between [-1,1] and [-4,4]
-      dx(:)=alpha*dx(:)
-=======
       IF(rr.LE.1.)THEN
         alpha=2.*rr-1. !maps [0.5,1] --> [0,1] and alpha=1 outside [-1,1]^2
         alpha=SIN(0.5*Pi*alpha) !smooth transition at the outer boundary max(|x|,|y|,|z|)=1
@@ -543,7 +524,6 @@ CASE(4) ! 3D box, x,y in [-1,1]^3, to Sphere with radius PostDeform_R0
         alpha=SIN(0.5*Pi*alpha) !smooth transition 
         dx(:)=alpha*(dx(:)/rr)
       END IF
->>>>>>> bitbucket/master
     ELSE   !outside [-4,4]^3 
       dx=0.
     END IF !rr
@@ -566,11 +546,7 @@ CASE(21)!Laval nozzle
       !upper side at y=0.5
       dx2(1)=0.5*SQRT(2.)*SIN(0.25*Pi*x(1)/0.5)-x(1)
       dx2(2)=0.5*SQRT(2.)*COS(0.25*Pi*x(1)/0.5)-0.5
-<<<<<<< HEAD
-      alpha=0.5
-=======
       alpha=0.35
->>>>>>> bitbucket/master
       ! coons mapping of edges, dx=0 at the corners
       dx(1:2)=alpha*(dx1(1:2)*(/2*x(1),1./)+dx2(1:2)*(/1.,2*x(2)/))
     ELSE !outside [-0.5,0.5]^2
@@ -581,13 +557,9 @@ CASE(21)!Laval nozzle
         dx(1)=x(2)*SQRT(2.)*SIN(0.25*Pi*x(1)/x(2))-x(1)
         dx(2)=x(2)*SQRT(2.)*COS(0.25*Pi*x(1)/x(2))-x(2)
       END IF
-<<<<<<< HEAD
-      alpha=MIN(1.,rr) ! alpha=0.5 at boundary of [-0.5,0.5]^3, alpha=1.0 outside [-1,1]^3
-=======
       alpha=MIN(1.,2.*rr-1.) !maps [0.5,1] --> [0,1] and alpha=1 outside [-1,1]^2
       alpha=SIN(0.5*Pi*alpha) !smooth transition at the outer boundary max(|x|,|y|)=1
       alpha=1.0*alpha+0.35*(1.-alpha) !alpha=1 at max(|x|,|y|)=1, and alpha=0.35 at max(|x|,|y|)=0.5 
->>>>>>> bitbucket/master
       dx(1:2)=alpha*dx(1:2)
     END IF
     xout(1:2)=PostDeform_R0*SQRT(0.5)*(x(1:2)+dx(1:2))  !r=[0;1]

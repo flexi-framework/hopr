@@ -93,11 +93,7 @@ meshIsAlreadyCurved=.FALSE.
 IF (MeshMode .EQ. 1) THEN
   ! ---------- INTERNAL CARTESIAN MESH ---------------------------------------------------------------------------------------------
   IF(useCurveds) THEN
-<<<<<<< HEAD
     InnerElemStretch = GETLOGICAL('InnerElemStretch','.TRUE.')
-=======
-    InnerElemStretch = GETLOGICAL('InnerElemStretch','F')
->>>>>>> bitbucket/master
   ELSE
     InnerElemStretch = .FALSE.
   END IF
