@@ -20,7 +20,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "defines.f90"
+#include "hopr.h"
 MODULE MOD_Basis1D
 !===================================================================================================================================
 ! ?
@@ -40,6 +40,10 @@ END INTERFACE
 
 INTERFACE GradVandermonde1D
   MODULE PROCEDURE GradVandermonde1D
+END INTERFACE
+
+INTERFACE BuildLegendreVdm
+   MODULE PROCEDURE BuildLegendreVdm
 END INTERFACE
 
 INTERFACE JacobiP
@@ -82,6 +86,14 @@ INTERFACE ALMOSTEQUAL
    MODULE PROCEDURE ALMOSTEQUAL
 END INTERFACE
 
+INTERFACE GetMortarVandermonde
+   MODULE PROCEDURE GetMortarVandermonde
+END INTERFACE
+
+
+
+PUBLIC:: INV
+PUBLIC:: BuildLegendreVdm
 PUBLIC:: Vandermonde1D
 PUBLIC:: GradVandermonde1D
 PUBLIC:: JacobiP
@@ -93,6 +105,7 @@ PUBLIC:: ChebyGaussLobNodesAndWeights
 PUBLIC:: PolynomialDerivativeMatrix
 PUBLIC:: BarycentricWeights
 PUBLIC:: InitializeVandermonde
+PUBLIC:: GetMortarVandermonde
 PUBLIC:: ALMOSTEQUAL
 !===================================================================================================================================
 
@@ -329,6 +342,98 @@ REAL,INTENT(OUT)             :: gradVdM1D(0:nNodes1D-1,0:Deg)   ! ?
 !===================================================================================================================================
 CALL GradJacobiP_all(nNodes1D,r1D, 0, 0,Deg,gradVdM1D(:,:))
 END SUBROUTINE GradVandermonde1D
+
+
+!==================================================================================================================================
+!> Computes matrix inverse using lapack
+!==================================================================================================================================
+FUNCTION INV(A) RESULT(AINV)
+! MODULES
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL,INTENT(IN)  :: A(:,:)                      !< input matrix
+REAL             :: AINV(SIZE(A,1),SIZE(A,2))   !< result: inverse of A
+!----------------------------------------------------------------------------------------------------------------------------------
+! External procedures defined in LAPACK
+EXTERNAL DGETRF
+EXTERNAL DGETRI
+! LOCAL VARIABLES
+REAL    :: work(SIZE(A,1))  ! work array for lapack
+INTEGER :: ipiv(SIZE(A,1))  ! pivot indices
+INTEGER :: n,info
+!==================================================================================================================================
+! Store A in Ainv to prevent it from being overwritten by LAPACK
+Ainv = A
+n = size(A,1)
+
+! DGETRF computes an LU factorization of a general M-by-N matrix A
+! using partial pivoting with row interchanges.
+CALL DGETRF(n, n, Ainv, n, ipiv, info)
+
+IF(info.NE.0)THEN
+   STOP 'Matrix is numerically singular!'
+END IF
+
+! DGETRI computes the inverse of a matrix using the LU factorization
+! computed by DGETRF.
+CALL DGETRI(n, Ainv, n, ipiv, work, n, info)
+
+IF(info.NE.0)THEN
+   STOP 'Matrix inversion failed!'
+END IF
+END FUNCTION INV
+
+!==================================================================================================================================
+!> Build a 1D Vandermonde matrix from an orthonormal Legendre basis to a nodal basis and reverse
+!==================================================================================================================================
+SUBROUTINE buildLegendreVdm(N_In,xi_In,Vdm_Leg,sVdm_Leg)
+! MODULES
+USE MOD_Globals,ONLY:abort
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+INTEGER,INTENT(IN) :: N_In                    !< input polynomial degree
+REAL,INTENT(IN)    :: xi_In(0:N_In)           !< nodal positions [-1,1]
+REAL,INTENT(OUT)   ::  Vdm_Leg(0:N_In,0:N_In) !< Vandermonde from Lengedre to nodal basis
+REAL,INTENT(OUT)   :: sVdm_Leg(0:N_In,0:N_In) !< Vandermonde from nodal basis to Legendre
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER            :: i,j
+REAL               :: dummy
+!REAL               :: wBary_Loc(0:N_In)
+!REAL               :: xGauss(0:N_In),wGauss(0:N_In)
+!==================================================================================================================================
+! Alternative to matrix inversion: Compute inverse Vandermonde directly
+! Direct inversion seems to be more accurate
+
+!CALL BarycentricWeights(N_In,xi_in,wBary_loc)
+!! Compute first the inverse (by projection)
+!CALL LegendreGaussNodesAndWeights(N_In,xGauss,wGauss)
+!!Vandermonde on xGauss
+!DO i=0,N_In
+!  DO j=0,N_In
+!    CALL LegendrePolynomialAndDerivative(j,xGauss(i),Vdm_Leg(i,j),dummy)
+!  END DO !i
+!END DO !j
+!Vdm_Leg=TRANSPOSE(Vdm_Leg)
+!DO j=0,N_In
+!  Vdm_Leg(:,j)=Vdm_Leg(:,j)*wGauss(j)
+!END DO
+!!evaluate nodal basis (depends on NodeType, for Gauss: unity matrix)
+!CALL InitializeVandermonde(N_In,N_In,wBary_Loc,xi_In,xGauss,sVdm_Leg)
+!sVdm_Leg=MATMUL(Vdm_Leg,sVdm_Leg)
+
+!compute the Vandermonde on xGP (Depends on NodeType)
+DO i=0,N_In; DO j=0,N_In
+  CALL LegendrePolynomialAndDerivative(j,xi_In(i),Vdm_Leg(i,j),dummy)
+END DO; END DO !j
+sVdm_Leg=INV(Vdm_Leg)
+!check (Vdm_Leg)^(-1)*Vdm_Leg := I
+dummy=ABS(SUM(ABS(MATMUL(sVdm_Leg,Vdm_Leg)))/(N_In+1.)-1.)
+IF(dummy.GT.10.*PP_RealTolerance) CALL abort(__STAMP__,&
+                                         'problems in MODAL<->NODAL Vandermonde ',999,dummy)
+END SUBROUTINE buildLegendreVdm
 
 
 
@@ -776,5 +881,33 @@ ELSE ! x, y not zero
   IF((ABS(x-y).LE.PP_RealTolerance*ABS(x)).AND.((ABS(x-y).LE.PP_RealTolerance*ABS(y)))) AlmostEqual=.TRUE.
 END IF ! x,y zero
 END FUNCTION ALMOSTEQUAL
+
+SUBROUTINE GetMortarVandermonde(Ngeo, M_0_1, M_0_2) 
+!----------------------------------------------------------------------------------------------------------------------------------!
+! description
+!----------------------------------------------------------------------------------------------------------------------------------!
+! MODULES                                                                                                                          !
+!----------------------------------------------------------------------------------------------------------------------------------!
+! insert modules here
+!----------------------------------------------------------------------------------------------------------------------------------!
+IMPLICIT NONE
+! INPUT / OUTPUT VARIABLES 
+INTEGER,INTENT(IN)      :: Ngeo
+REAL,INTENT(OUT)        :: M_0_1(0:Ngeo,0:Ngeo), M_0_2(0:Ngeo,0:Ngeo)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+! LOCAL VARIABLES
+INTEGER                       :: i
+REAL,DIMENSION(0:Ngeo)        :: x,wBary
+!===================================================================================================================================
+DO i=0,Ngeo
+  x(i) = -1 + i*2./Ngeo  
+END DO 
+CALL BarycentricWeights(Ngeo,x,wBary)
+
+!build interpolation operators M 0->1,M 0->2
+CALL InitializeVandermonde(Ngeo,Ngeo,wBary,x,0.5*(x-1.),M_0_1)
+CALL InitializeVandermonde(Ngeo,Ngeo,wBary,x,0.5*(x+1.),M_0_2)
+END SUBROUTINE GetMortarVandermonde
 
 END MODULE MOD_Basis1D

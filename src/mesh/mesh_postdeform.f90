@@ -20,7 +20,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "defines.f90"
+#include "hopr.h"
 MODULE MOD_Mesh_PostDeform
 !===================================================================================================================================
 ! ?
@@ -53,7 +53,7 @@ USE MOD_Mesh_Vars   ,ONLY: tElem,Elems,MeshPostDeform,PostDeform_useGL
 USE MOD_Mesh_Vars   ,ONLY: N,nMeshElems
 USE MOD_Basis_Vars  ,ONLY: HexaMap
 USE MOD_Basis1D     ,ONLY: LegGaussLobNodesAndWeights,BarycentricWeights,InitializeVandermonde
-USE MOD_Basis       ,ONLY: ChangeBasisHexa
+USE MOD_ChangeBasis ,ONLY: ChangeBasis3D
 USE MOD_Output_vars ,ONLY:DebugVisu,DebugVisuLevel
 !MODULE OUTPUT VARIABLES
 ! MODULES
@@ -117,9 +117,7 @@ END DO ! iElem
 
 !transform Equidist. to Gauss-Lobatto points
 IF((PostDeform_useGL).AND.(N.GT.2))THEN
-  DO iElem=1,nMeshElems
-    CALL ChangeBasisHexa(3,N,N,Vdm_EQtoGL,xElem(1:3,:,:,:,iElem),xElem(1:3,:,:,:,iElem))
-  END DO ! iElem
+  CALL ChangeBasis3D(3,nMeshElems,N,N,Vdm_EQtoGL,xElem,xElem,.FALSE.)
 END IF !PostDeform_useGL
 
 !transform (all nodes are marked from -2 to -1)
@@ -128,9 +126,7 @@ CALL PostDeformFunc(nTotal,xElem,xElem)
 
 IF((PostDeform_useGL).AND.(N.GT.2))THEN
   !transform back from GL to EQ
-  DO iElem=1,nMeshElems
-    CALL ChangeBasisHexa(3,N,N,Vdm_GLtoEQ,xElem(:,:,:,:,iElem),xElem(:,:,:,:,iElem))
-  END DO !iElem
+  CALL ChangeBasis3D(3,nMeshElems,N,N,Vdm_GLtoEQ,xElem,xElem,.FALSE.)
 END IF
   
 ! copy back (all nodes are marked from -1 to 0)
@@ -547,6 +543,12 @@ CASE(21)!Laval nozzle
     xout(3)=x(3)
     X_out(:,i)=xout(:)
   END DO !i=1,nTotal
+CASE(30) ! sin
+  xout = x+ 0.1*SIN(Pi*x(1))*SIN(Pi*x(2))!*SIN(Pi*x(3))
+CASE(31) ! sin
+  xout = x+ 0.1*SIN(Pi*x(1))*SIN(Pi*x(2))*SIN(Pi*x(3))
+CASE(32) ! sin
+  xout = x+ 0.1*SIN(Pi*x(1))
 END SELECT
 
 END SUBROUTINE PostDeformFunc

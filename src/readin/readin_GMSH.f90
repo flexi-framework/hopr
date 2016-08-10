@@ -20,7 +20,7 @@
 !
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "defines.f90"
+#include "hopr.h"
 MODULE MOD_Readin_GMSH
 !===================================================================================================================================
 ! ?
@@ -132,7 +132,7 @@ INTEGER                :: elemType,nTags  ! ?
 INTEGER                :: tags(1337),nodeInds(1337)  ! ?
 INTEGER                :: junk1  ! ?
 INTEGER                :: minInd,tempNodeInds(4) ! three are enough
-INTEGER                :: nBCs,iBC,whichDim,BCInd
+INTEGER                :: iBC,whichDim,BCInd
 LOGICAL                :: isBCSide,BCFound(nUserDefinedBoundaries),found,s  ! ?
 CHARACTER(LEN=255)     :: BCName
 !===================================================================================================================================
@@ -156,19 +156,21 @@ DO iFile=1,nMeshFiles
   READ(104,*) ! format
   s=TRYREAD(104,'$EndMeshFormat')
   s=TRYREAD(104,'$PhysicalNames')
-  READ(104,*) nBCs
-  ALLOCATE(MapBC(nBCs))
+  READ(104,*) nBCs_GMSH
+  ALLOCATE(MapBC(nBCs_GMSH))
+  ALLOCATE(MapBCInd(nBCs_GMSH))
   MapBC=-1
   BCFound=.FALSE.
-  DO iBC=1,nBCs
+  DO iBC=1,nBCs_GMSH
     READ(104,*) whichDim, BCInd, BCName
+    MapBCInd(iBC)=BCind
     IF(whichDim.EQ.2)THEN
       found=.FALSE.
       DO i=1,nUserDefinedBoundaries
         IF(INDEX(TRIM(BCName),TRIM(BoundaryName(i))).NE.0) THEN
           found=.TRUE. 
           BCFound(i)=.TRUE.
-          MapBC(BCInd)=i
+          MapBC(iBC)=i
           WRITE(*,*)'BC found: ',TRIM(BCName)
           WRITE(*,*)'              -->  mapped to:',TRIM(BoundaryName(i))
           EXIT
@@ -308,8 +310,14 @@ IF(GMSH_TYPES(1,gmshElemType).LE.2) RETURN ! filter out lines
 ! element belongs to, 4+=partition ids (negative partition = ghost cells)
 
 iBC=-1
-IF(tags(1).LE.UBOUND(MapBC,1).AND.tags(1).GE.LBOUND(MapBC,1)) &
-  iBC=MapBC(tags(1))
+IF(tags(1).LE.MAXVAL(MapBCInd,1).AND.tags(1).GE.MINVAL(MapBCInd,1))THEN
+  DO i=1,nBCs_GMSH
+    IF(MapBCInd(i).EQ.tags(1))THEN
+      iBC=MapBC(i)
+      EXIT
+    END IF
+  END DO
+END IF
 IF(iBC.EQ.-1) CALL abort(__STAMP__,&
                          'Side with undefined BoundaryCondition found')
 
