@@ -88,10 +88,7 @@ IF(N.EQ.1)THEN
   HexaMapN1(:,2)=(/0,0,1,1,0,0,1,1/)
   HexaMapN1(:,3)=(/0,0,0,0,1,1,1,1/)
 END IF !N=1
-<<<<<<< HEAD
 
-=======
->>>>>>> gitlab/vmec
 !prepare EQ to GL tranform
 CALL LegGaussLobNodesAndWeights(N,xi_GL)
 DO i=0,N
