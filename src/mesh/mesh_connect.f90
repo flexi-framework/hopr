@@ -85,6 +85,7 @@ TYPE(tSide),POINTER       :: pSide  ! ?
 INTEGER                   :: iNode,i  ! ?
 INTEGER                   :: nInner(2),nPeriodic(2)  ! ?
 INTEGER                   :: nBCSides,nTotalSides,nPeriodicSides,connectedSides  ! ?
+integer :: counter
 !===================================================================================================================================
 CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("~"))')
@@ -151,7 +152,9 @@ DO WHILE(ASSOCIATED(Elem))
           DO iNode=1,Side%nNodes
             CALL getNewNode(pSide%Node(iNode)%np)
             pSide%Node(iNode)%np%x  =Side%Node(iNode)%np%x + VV(:,ABS(Side%tmp2)) 
-            pSide%Node(iNode)%np%ind=Side%Node(iNode)%np%ind
+            ! Ind of dummy node MUST be negative or zero:
+            ! these nodes are duplicate and globaluniquenode uses biggest ind for duplicates
+            pSide%Node(iNode)%np%ind=-Side%Node(iNode)%np%ind
           END DO
           pSide%elem=>side%elem
           side%connection=>pSide 
@@ -184,8 +187,6 @@ DO i=1,10
   connectedSides=connectedSides+nNonConformingSides
   WRITE(UNIT_StdOut,*)'   --> ',connectedSides,' sides of ', nInnerSides,'  sides connected.'
 END DO
-
-
 
 ! 4. Check connectivity
 nInner=0     ! inner sides
@@ -395,7 +396,7 @@ DO iSide=1,nInnerSides-1
     IF(Side%tmp2.EQ.0)THEN !normal inner side
       fNode=0
       DO iNode=1,nSide%nNodes
-         IF(ASSOCIATED(Side%Node(1)%np,nSide%Node(iNode)%np)) fNode=iNode
+        IF(ASSOCIATED(Side%Node(1)%np,nSide%Node(iNode)%np)) fNode=iNode
       END DO
       IF(fNode.EQ.0)CALL abort(__STAMP__, & 
                     'Problem with OrientedNode !')
@@ -403,7 +404,7 @@ DO iSide=1,nInnerSides-1
       ! for adjustorientednodes by pointer association (no tolerance gedoens!) 
       fNode=0
       DO iNode=1,Side%nNodes
-         IF(ASSOCIATED(Side%Node(1)%np,nSide%connection%Node(iNode)%np)) fNode=iNode
+        IF(ASSOCIATED(Side%Node(1)%np,nSide%connection%Node(iNode)%np)) fNode=iNode
       END DO
       IF(fNode.EQ.0)CALL abort(__STAMP__, & 
                     'Problem with OrientedNode on periodic side!')
@@ -417,7 +418,7 @@ DO iSide=1,nInnerSides-1
     ELSE !Side is master periodic, nSide is slave
       fNode=0
       DO iNode=1,nSide%nNodes
-         IF(ASSOCIATED(nSide%Node(1)%np,Side%connection%Node(iNode)%np)) fNode=iNode
+        IF(ASSOCIATED(nSide%Node(1)%np,Side%connection%Node(iNode)%np)) fNode=iNode
       END DO
       IF(fNode.EQ.0)CALL abort(__STAMP__, & 
                     'Problem with OrientedNode on periodic side (master)!')
