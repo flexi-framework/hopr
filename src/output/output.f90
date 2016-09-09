@@ -107,6 +107,7 @@ END IF
 sfc_type  =GETSTR('sfc_type','hilbert')
 dosortIJK=GETLOGICAL('doSortIJK','.FALSE.')
 useSpaceFillingCurve=GETLOGICAL('useSpaceFillingCurve','.TRUE.')
+sfc_boundbox=GETINT('sfc_boundbox','2')
 
 OutputInitDone=.TRUE.
 WRITE(UNIT_stdOut,'(A)')' INIT OUTPUT DONE!'

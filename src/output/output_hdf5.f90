@@ -547,7 +547,7 @@ USE MOD_Mesh_Vars,ONLY:tElemPtr
 USE MOD_Mesh_Vars,ONLY:FirstElem
 USE MOD_Mesh_Vars,ONLY:MeshMode
 USE MOD_Mesh_Vars,ONLY:AdaptedMesh
-USE MOD_Output_Vars,ONLY:DebugVisu,dosortijk
+USE MOD_Output_Vars,ONLY:DebugVisu,dosortijk,sfc_boundbox
 USE MOD_SpaceFillingCurve,ONLY:SortElemsBySpaceFillingCurve
 USE MOD_sortIJK,ONLY:SortElemsByCoords
 ! IMPLICIT VARIABLE HANDLING
@@ -583,7 +583,7 @@ IF((MeshMode.EQ.11).AND. (.NOT.AdaptedMesh))THEN
   ! for Meshmode=11: if no splitting was done, this is a structured single block, elem_IJK already defined
   CALL SortElemsBySpaceFillingCurve(nElems_in,REAL(Elem_IJK),IDList,1) !use IJK for space filling curve
 ELSE
-  CALL SortElemsBySpaceFillingCurve(nElems_in,ElemBary,IDList,2)
+  CALL SortElemsBySpaceFillingCurve(nElems_in,ElemBary,IDList,sfc_boundbox)
 END IF
 
 NULLIFY(Elems(IDlist(1))%ep%prevElem)
@@ -591,6 +591,9 @@ firstElem=>Elems(IDlist(1))%ep
 DO ElemID=2,nElems_in 
   Elems(IDlist(ElemID-1))%ep%nextElem=>Elems(IDList(ElemID))%ep
   Elems(IDlist(ElemID))%ep%prevElem  =>Elems(IDList(ElemID-1))%ep
+END DO
+DO ElemID=1,nElems_in 
+  Elems(IDlist(ElemID))%ep%ind=ElemID
 END DO
 IF(DebugVisu)THEN
   WRITE(*,*)'write space filling curve to sfc.dat'

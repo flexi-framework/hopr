@@ -35,9 +35,11 @@ PRIVATE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! Private Part ---------------------------------------------------------------------------------------------------------------------
 TYPE tBox
-  REAL(KIND=8) :: mini(3)
-  INTEGER      :: nbits
-  REAL(KIND=8) :: spacing(3)
+  REAL(KIND=8) :: mini(3)        !smallest x,y,z values of bounding box
+  INTEGER      :: nbits          !number of bits for each direction
+  REAL(KIND=8) :: spacing(3)     ! dx,dy,dz size of boxes
+  INTEGER(KIND=8)   :: intfact   ! number of boxes in each direction
+  INTEGER(KIND=8)   :: intfact2  ! intfact^2
 END TYPE tBox
 ! Public Part ----------------------------------------------------------------------------------------------------------------------
 
@@ -150,14 +152,20 @@ disc = NINT((coord-box%mini)*box%spacing)
 ! Map the three coordinates on a single integer
 ! value.
 SELECT CASE(sfc_type)
-CASE('morton')
-  ind = EVAL_MORTON(disc,box%nBits)
-CASE('hilbert')
+CASE ('hilbert') !DEFAULT SETTING
   ind = evalhilbert(disc(1:3),box%nbits,3)
+CASE('morton')
+  ind = EVAL_MORTON(disc(1:3),box%nBits,3)
+CASE('mortonZ')
+  ind = EVAL_MORTON(disc(1:2),box%nBits,2)
+  ind = ind+ disc(3)*box%intfact2
+CASE('hilbertZ')
+  ind = evalhilbert(disc(1:2),box%nbits,2)
+  ind = ind+ disc(3)*box%intfact2
 END SELECT
 END FUNCTION COORD2INT 
 
-FUNCTION EVAL_MORTON(intcoords,nBits) RESULT(ind)
+FUNCTION EVAL_MORTON(intcoords,nBits,nDim) RESULT(ind)
 !===================================================================================================================================
 ! ?
 !===================================================================================================================================
@@ -166,8 +174,9 @@ FUNCTION EVAL_MORTON(intcoords,nBits) RESULT(ind)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-INTEGER(KIND=8),INTENT(IN)  :: intcoords(3)  ! ?
+INTEGER(KIND=8),INTENT(IN)  :: intcoords(nDim)  ! ?
 INTEGER,INTENT(IN)          :: nBits  ! ?
+INTEGER,INTENT(IN)          :: nDim  ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 INTEGER(KIND=8)             :: ind  ! ?
@@ -176,11 +185,11 @@ INTEGER(KIND=8)             :: ind  ! ?
 INTEGER         :: dir,i
 !===================================================================================================================================
   ind = 0
-  DO dir=1,3
+  DO dir=1,nDim
     DO i=0,nbits-1
       ! Interleave the three directions, start
       ! from position 0 with counting the bits.
-      IF(BTEST(intcoords(dir),i))  ind = IBSET(ind,3*i-dir+3)
+      IF(BTEST(intcoords(dir),i))  ind = IBSET(ind,nDim*i-dir+nDim)
     END DO
   END DO
 END FUNCTION EVAL_MORTON
@@ -232,13 +241,14 @@ TYPE(tBox),INTENT(OUT)        :: box  ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL(KIND=8)      :: blen(3)  ! ?
-INTEGER(KIND=8)   :: intfact  ! ?
+INTEGER(KIND=8)   :: dblint  ! ?
 !===================================================================================================================================
 box%mini = mini
 blen = maxi - mini
-box%nbits = (bit_size(intfact)-1) / 3
-intfact = 2**box%nbits-1
-box%spacing = REAL(intfact)/blen
+box%nbits = (bit_size(dblint)-1) / 3
+box%intfact = 2**box%nbits-1
+box%intfact2 = box%intfact*box%intfact
+box%spacing = REAL(box%intfact)/blen
 END SUBROUTINE setBoundingBox
 
 END MODULE MOD_SpaceFillingCurve

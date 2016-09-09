@@ -251,6 +251,7 @@ LOGICAL                        :: useCurveds             ! switch .TRUE.= we wan
 LOGICAL                        :: rebuildCurveds         ! switch .TRUE.= if curveds are already present in the mesh, delete them
                                                          ! and rebuild them using our methods
 LOGICAL                        :: meshIsAlreadyCurved    ! flag: mesh is already curved (GMSH, HDF5, block CGNS)
+LOGICAL                        :: InnerElemStretch       ! for cartmeshes, apply stretching also to inner element nodes
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! CURVE GRID GENERATOR
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -309,12 +310,13 @@ LOGICAL                        :: OrientZ
 ! Post deformation functions deform a domain (typically [-1,1]^3) to arbirary other domain
 !-----------------------------------------------------------------------------------------------------------------------------------
 INTEGER                        :: MeshPostDeform ! Function index (off: 0) 
+LOGICAL                        :: PostDeform_useGL
 REAL                           :: PostDeform_R0  
 REAL                           :: PostDeform_Lz  
-INTEGER                        :: PostDeform_sq  
+REAL                           :: PostDeform_sq  
 REAL                           :: PostDeform_Rtorus  
-                                                      ! 2: non-conforming arbitrary
 
+TYPE(tElemPtr),POINTER         :: Elems(:)
 ! INTERFACES -----------------------------------------------------------------------------------------------------------------------
 INTERFACE getNewElem
   MODULE PROCEDURE getNewElem
