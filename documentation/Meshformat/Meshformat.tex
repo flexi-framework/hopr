@@ -8,7 +8,7 @@
 % headsepline: Linie am oberen Blattrand unterhalb der Seitennummer
 % bibtotoc: Aufnahme des Literaturverzeichnisses ins Inhaltsverzeichnis
 \documentclass[a4paper,headsepline]{scrreprt}
-
+\usepackage[utf8]{inputenc}
 
 % Einstellungen bez. des 'scrreprt'-Stils
 
@@ -120,6 +120,7 @@ pdfkeywords = {high order, unstructured meshes, curving, parallel, HOPR}
 \renewcommand{\ttdefault}{pcr}
 % my commands
 \newcommand\Ngeo{N_g}
+\newcommand\NgeoTree{N_{g,tree}}
 \newcommand\ttbf[1]{\textbf{\texttt{#1}}}
 \newcommand\ElemInfo{\hyperlink{ElemInfo}{\ttbf{ElemInfo}}}
 \newcommand\SideInfo{\hyperlink{SideInfo}{\ttbf{SideInfo}}}
@@ -130,6 +131,7 @@ pdfkeywords = {high order, unstructured meshes, curving, parallel, HOPR}
 \newcommand\nElems{\ttbf{nElems}}
 \newcommand\nSides{\ttbf{nSides}}
 \newcommand\nNodes{\ttbf{nNodes}}
+\newcommand\nNodesTree{\ttbf{nNodesTree}}
 \newcommand\nBCs{\ttbf{nBCs}}
 
 
@@ -918,57 +920,165 @@ Using the local side system, the orientation between elements boils down to thre
 
 
 
-% \section{Mortars}
-% 
-% \subsection{Element Information}
-% 
-% \begin{table}[h!]
-% \centering
-% \begin{tabular}{|l|l|l|l|l|l|l|} \hline
-%   & Element Type & ZoneNr & firstIndSIDE & lastIndSIDE & firstindNODE & lastIndNODE \\ \hline
-% 1 & 118 & 0 & 0 & 6 & 0 & 14 \\ \hline
-% 2 & 118 & 0 & 6 & 12 & 14 & 28 \\ \hline
-% 3 & 118 & 0 & 12 & 18 & 28 & 42 \\ \hline
-% 4 & 118 & 0 & 18 & 24 & 42 & 56 \\ \hline
-% 5 & 118 & 0 & 24 & 30 & 56 & 70 \\ \hline
-% 6 & 118 & 0 & 30 & 36 & 70 & 84 \\ \hline
-% 7 & 118 & 0 & 36 & 42 & 84 & 98 \\ \hline
-% 8 & 118 & 0 & 42 & 48 & 98 & 112 \\ \hline
-% 9 & 118 & 0 & 48 & 58 & 112 & 126 \\ \hline
-% \end{tabular}
-% \caption{Example of \textbf{ElemInfo} array for two trees: one tree is refined (level one)}
-% \end{table}
-% 
-% \newpage
-% 
-% \subsection{Side Information}
-% 
-% \begin{table}[h!]
-% \centering
-% \begin{tabular}{|l|l|l|l|l|l|}
-% \hline
-%  & SideType & SideID & nbElemID & BCID & in \textbf{ElemInfo}\\ \hline
-% 1 & 5 & 37 & 0 & 5 &  \\ \hline
-% 2 & 5 & 38 & 0 & 3 &  \\ \hline
-% 3 & 5 & 39 & 0 & 2 &  \\ \hline
-% 4 & 5 & 40 & 0 & 4 &  \\ \hline
-% 5 & 5 & 41 & -1 & 0 &  side with connected mortars \\ \hline
-% 6 & 5 & 9 & 2 & 0 &  mortar sides\\ \hline
-% 7 & 5 & 18 & 4 & 0 &  ...\\ \hline
-% 8 & 5 & 27 & 6 & 0 &  ...\\ \hline
-% 9 & 5 & 34 & 8 & 0 &  ...\\ \hline
-% 10 & 5 & 42 & 0 & 6 &  \\ \hline
-% \end{tabular}
-% \caption{Example \textbf{SideInfo} array with mortars}
-% \end{table}
-% 
-% 
-% \begin{figure}[h!]
-% \centering
-% \includegraphics[width=0.5\textwidth]{mortar.pdf}
-% \caption{Mortar side and elements}
-% \label{labelname}
-% \end{figure}
+\chapter{Additional Extensions: Hanging node interface}
+
+For complex geometries it is often desirable to use elements with hanging nodes to provide more geometric flexibility when meshing. As geometric restrictions are most severe for pure hexahedral meshes, the HOPR format supports a limited octree-like topology with hanging nodes for purely hexahedral meshes. The octree topology is implemented as extension to the existing mesh structure. 
+While full octrees permit an element-side to have an arbitrary number of neighbors on various octree levels, our format supports only one octree level difference between element sides with two (anisotropic) and four neighbors, the single types are depicted in Figure~\ref{fig:mortartypes}.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.7\textwidth]{pics/Mortar_Types.jpg}
+\caption{Possible types of mortar interfaces, with $\xi,\eta$ denoting the sides local parameter space}
+\label{fig:mortartypes}
+\end{figure}
+
+For the connection of two elements over an octree level additional interfaces are required, which are termed mortar interfaces and are depicted in Figure~\ref{fig:mortarinterface}.
+Thereby the big side is denoted big mortar master side, the intermediate sides are denoted small mortar master sides. The sides of the small elements are denoted slave sides. Note that they do not require any information about the mortar interface and therefore the interface is only represented from the big element side in the data format.
+
+
+\begin{figure}[h!]
+\centering
+\includegraphics[trim=0 0 0 0,clip,width=0.6\textwidth]{pics/mortar_structure.pdf}
+\caption{Structure of the mortar interface, with the local mortar ID defined from $0-4$}
+\label{fig:mortarinterface}
+\end{figure}
+
+
+\section{Changes to existing data format}
+
+The following differences are present for the ElemInfo array:
+\begin{itemize}
+\item {\bf ElemInfo:} The range of sides defined by offsetIndSide and lastIndSide now includes the small mortar master sides.
+\item {\bf SideInfo:} The field nbElemID of the big mortar master defines no connection to the neighbor element, but contains the type of the mortar interface from Figure~\ref{fig:mortartypes} with negative sign. The type of the interface defines the number of the small mortar master sides.
+\item {\bf SideInfo:} Only the small mortar masters have a valid nbElemID, defining the connection to the adjacent small elements.
+\item {\bf SideInfo:} The list of sides belonging to an element includes the small mortar master sides sorted as exemplified in table \ref{tab:mortarsorting}.
+\item {\bf SideInfo:} (Mortar) Master sides always have flip=0, thus the small element sides are always slave sides.
+
+\end{itemize}
+
+\begin{table}[h!]
+\label{tab:mortarsorting}
+\centering
+\begin{tabular}{|l|l|l|} \hline
+  Global SideID & local SideID & local MortarID  \\ \hline
+   42 & 1 & 0  \\ 
+   43 & 1 & 1  \\ 
+   44 & 1 & 2  \\ 
+   45 & 1 & 3  \\ 
+   46 & 1 & 4  \\ \hline
+   47 & 2 & 0  \\ \hline
+   48 & 3 & 0  \\ 
+   49 & 3 & 1  \\ 
+   50 & 3 & 2  \\ \hline
+   51 & 4 & 0  \\ \hline
+   52 & 5 & 0  \\ \hline
+   53 & 6 & 0  \\ \hline
+\end{tabular}
+\caption{Sorting example for sides in SideInfo, for an element containing two mortar interfaces of type 1 and type 2/3. Note that local SideID and MortarID are not stored in SideInfo.}
+\end{table}
+
+\newpage
+\section{Additional information for octrees}
+
+In addition to the existing format defined above, the mortar format contains non-necessary additional information concerning the octrees. It contains the octree node coordinates and a mapping of the element to the octrees. Note that the polynomial degree of the element mapping is defined as $\Ngeo$, while the octrees may have an independent polynomial degree $\NgeoTree$. Elements and trees can be identical in case the element is on the lowest octree level and the polynomial degrees are identical.
+
+
+\subsection{Global attributes}
+In addition to the global attributes defined in \ref{sec:globals}, the non-conforming mesh format includes the following attributes.
+
+\begin{table}[h!]
+\centering
+\begin{tabularx}{1.0\textwidth}{|>{\bfseries\ttfamily}l|c|X|} \hline
+\normalfont\textbf{Attribute}   & \textbf{Data type}  & \textbf{Description} \\ \hline\hline
+IsMortarMesh  & INTEGER & Identify mesh as a mortar mesh, if present \\\hline
+NgeoTree $\geq 1$ & INTEGER & Polynomial degree $\NgeoTree$ of tree mapping, used to determine the number of nodes per element \\\hline
+nTrees        & INTEGER & Total number of octrees \\\hline
+nNodesTree    & INTEGER & Total number of tree nodes: $(\NgeoTree+1)^3 \cdot nTrees$ \\\hline
+\end{tabularx}
+\caption{Additional mesh file attributes for octrees.}
+\end{table}
+
+
+
+\subsection{Mapping of the global element index (ElemID) to the octree index (TreeID) }
+\begin{tabularx}{1.0\textwidth}{lX}
+Name in  file: & \textbf{\texttt{ElemToTree}}\\
+Type:         & INTEGER \quad Size: Array(1:\nElems$^*$) \\
+Description:  & The mapping from the global element index (ElemID) to its corresponding octree index (TreeID) if applicable. \\
+\end{tabularx}
+
+
+\subsection{Element bounds in tree reference space}
+\begin{tabularx}{1.0\textwidth}{lX}
+Name in  file: & \textbf{\texttt{xiMinMax}}\\
+Type:         & REAL \quad Size: Array(1:3,1:2,1:\nElems$^*$) \\
+Description:  & The array contains the element bounds in the tree reference space $[-1,1]^3$ given by the minimum (1:3,1,ElemID) and maximum (1:3,2,ElemID) corner nodes. \\
+\end{tabularx}
+
+
+\subsection{Node Coordinates of the octrees}
+\begin{tabularx}{1.0\textwidth}{lX}
+Name in  file: & \textbf{\texttt{TreeCoords}}\\
+Type:         & REAL \quad Size: Array(1:3,\nNodesTree$^*$) \\
+Description:  & The coordinates of the nodes of the tree, as a set for each tree. \\
+\end{tabularx}
+
+
+
+%\subsection{Element Information (ElemInfo)}
+%The ElemInfo is structured identically, except that for hexahedra \textit{lastIndSIDE-offsetIndSIDE} can
+%
+
+%
+%\subsection{Element Information}
+%
+%\begin{table}[h!]
+%\centering
+%\begin{tabular}{|l|l|l|l|l|l|l|} \hline
+%  & Element Type & ZoneNr & firstIndSIDE & lastIndSIDE & firstindNODE & lastIndNODE \\ \hline
+%1 & 118 & 0 & 0 & 6 & 0 & 14 \\ \hline
+%2 & 118 & 0 & 6 & 12 & 14 & 28 \\ \hline
+%3 & 118 & 0 & 12 & 18 & 28 & 42 \\ \hline
+%4 & 118 & 0 & 18 & 24 & 42 & 56 \\ \hline
+%5 & 118 & 0 & 24 & 30 & 56 & 70 \\ \hline
+%6 & 118 & 0 & 30 & 36 & 70 & 84 \\ \hline
+%7 & 118 & 0 & 36 & 42 & 84 & 98 \\ \hline
+%8 & 118 & 0 & 42 & 48 & 98 & 112 \\ \hline
+%9 & 118 & 0 & 48 & 58 & 112 & 126 \\ \hline
+%\end{tabular}
+%\caption{Example of \textbf{ElemInfo} array for two trees: one tree is refined (level one)}
+%\end{table}
+%
+%\newpage
+%
+%\subsection{Side Information}
+%
+%\begin{table}[h!]
+%\centering
+%\begin{tabular}{|l|l|l|l|l|l|}
+%\hline
+% & SideType & SideID & nbElemID & BCID & in \textbf{ElemInfo}\\ \hline
+%1 & 5 & 37 & 0 & 5 &  \\ \hline
+%2 & 5 & 38 & 0 & 3 &  \\ \hline
+%3 & 5 & 39 & 0 & 2 &  \\ \hline
+%4 & 5 & 40 & 0 & 4 &  \\ \hline
+%5 & 5 & 41 & -1 & 0 &  side with connected mortars \\ \hline
+%6 & 5 & 9 & 2 & 0 &  mortar sides\\ \hline
+%7 & 5 & 18 & 4 & 0 &  ...\\ \hline
+%8 & 5 & 27 & 6 & 0 &  ...\\ \hline
+%9 & 5 & 34 & 8 & 0 &  ...\\ \hline
+%10 & 5 & 42 & 0 & 6 &  \\ \hline
+%\end{tabular}
+%\caption{Example \textbf{SideInfo} array with mortars}
+%\end{table}
+%
+%
+%\begin{figure}[h!]
+%\centering
+%\includegraphics[width=0.5\textwidth]{pics/mortar.pdf}
+%\caption{Mortar side and elements}
+%\label{labelname}
+%\end{figure}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
