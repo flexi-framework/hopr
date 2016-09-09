@@ -316,7 +316,6 @@ REAL                           :: PostDeform_Lz
 REAL                           :: PostDeform_sq  
 REAL                           :: PostDeform_Rtorus  
 TYPE(tElemPtr),POINTER         :: Elems(:)
-
 ! INTERFACES -----------------------------------------------------------------------------------------------------------------------
 INTERFACE getNewElem
   MODULE PROCEDURE getNewElem
