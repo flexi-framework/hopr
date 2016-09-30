@@ -339,6 +339,7 @@ IF(meshPostDeform.GT.0) THEN
   PostDeform_Lz=GETREAL('PostDeform_Lz','1.')
   PostDeform_sq=GETREAL('PostDeform_sq','0.')
   PostDeform_Rtorus=GETREAL('PostDeform_Rtorus','-1.')
+  PostDeform_daxis =GETREAL('PostDeform_daxis','0.')
 END IF !PostDeform
 
 ! Connect

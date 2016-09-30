@@ -182,7 +182,7 @@ SUBROUTINE PostDeformFunc(nTotal,X_in,X_out)
 !MODULE INPUT VARIABLES
 USE MOD_Globals
 USE MOD_Mesh_Vars,ONLY:MeshPostDeform,PostDeform_R0,PostDeform_Rtorus 
-USE MOD_Mesh_Vars,ONLY:PostDeform_sq,PostDeform_Lz
+USE MOD_Mesh_Vars,ONLY:PostDeform_sq,PostDeform_Lz,PostDeform_daxis
 !MODULE OUTPUT VARIABLES
 ! MODULES
 ! IMPLICIT VARIABLE HANDLING
@@ -203,11 +203,12 @@ REAL               :: rr,x(3),dx(3),dx1(3),dx2(3),dx3(3)
 REAL               :: xout(3) 
 REAL               :: alpha
 REAL               :: cosa,cosb,sina,sinb 
-REAL               :: rotmat(2,2),arg
+REAL               :: rotmat(2,2),arg,xmax
 !===================================================================================================================================
 dx=0.
 SELECT CASE(MeshPostDeform)
 CASE(1,11,12)
+  xmax=MAXVAL(X_in(1,:))
   DO i=1,nTotal
     x(:)=X_in(:,i)
     ! 2D box, x,y in [-1,1]^2, to cylinder with radius PostDeform_R0 (with PostDeform_Rtorus>0 to a torus, with zperiodic [0,1])
@@ -256,6 +257,8 @@ CASE(1,11,12)
     IF(PostDeform_Rtorus.LT.0.)THEN
       xout(3)=x(3)*PostDeform_Lz !cylinder
     ELSE !torus, z_in must be [0,1] and periodic  !!, torus around z axis ,x =R*cos(phi), y=-R*sin(phi)!!!
+      !move center by PostDeform_daxis (for MHD equilibrium)
+      xout(1)=xout(1)+PostDeform_daxis*(1.-(xout(1)**2+xout(2)**2)/(PostDeform_R0*xmax)**2)
       xout(3)=xout(2)
       xout(2)=-(xout(1)+PostDeform_Rtorus)*SIN(2*Pi*x(3))
       xout(1)= (xout(1)+PostDeform_Rtorus)*COS(2*Pi*x(3))
