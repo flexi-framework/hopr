@@ -338,8 +338,14 @@ IF(meshPostDeform.GT.0) THEN
   PostDeform_R0=GETREAL('PostDeform_R0','1.')
   PostDeform_Lz=GETREAL('PostDeform_Lz','1.')
   PostDeform_sq=GETREAL('PostDeform_sq','0.')
-  PostDeform_Rtorus=GETREAL('PostDeform_Rtorus','-1.')
-  PostDeform_daxis =GETREAL('PostDeform_daxis','0.')
+  PostDeform_Rtorus=GETREAL('PostDeform_Rtorus','-1.') !from cyl-> torus
+  PostDeform_epsilon =GETREAL('PostDeform_epsilon','-1.') !soloviev off
+  IF(PostDeform_epsilon.GT.0.) THEN
+    PostDeform_Raxis  =GETREAL('PostDeform_Raxis')
+    PostDeform_delta =GETREAL('PostDeform_delta','0.')
+    PostDeform_kappa =GETREAL('PostDeform_kappa','1.')
+    PostDeform_corry =GETREAL('PostDeform_corry','0.')
+  END IF
 END IF !PostDeform
 
 ! Connect
