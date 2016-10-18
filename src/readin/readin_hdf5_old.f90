@@ -42,10 +42,7 @@ INTEGER, ALLOCATABLE           :: BCType(:,:)
 CHARACTER(LEN=255), ALLOCATABLE:: BCNames(:)
 !--- output_vars
 INTEGER(HID_T)                 :: File_ID
-CHARACTER(LEN=255)             :: OutputFileName
-INTEGER(HID_T)                 :: Plist_ID,info
 INTEGER                        :: iError
-INTEGER(SIZE_T)                :: SizeSet
 
 INTEGER                        :: nDims
 INTEGER(HSIZE_T),POINTER       :: HSize(:)
@@ -65,18 +62,14 @@ INTEGER,PARAMETER              :: SIDE_nbElemID=3
 INTEGER,PARAMETER              :: SIDE_BCID=4
 
 INTEGER,ALLOCATABLE            :: ElemInfo(:,:),SideInfo(:,:),NodeInfo(:)
-REAL,ALLOCATABLE               :: ElemWeight(:)
-REAL,ALLOCATABLE               :: ElemBarycenters(:,:)
 REAL,ALLOCATABLE               :: NodeCoords(:,:)
 INTEGER,ALLOCATABLE            :: NodeMap(:)
 INTEGER                        :: nGlobalElems
 INTEGER                        :: nElems,nSides,nNodes,locnSides,locnNodes
 INTEGER                        :: ElemCounter(11,2)
-INTEGER                        :: offsetElem,offsetSideID,offsetNodeID,offsetSide,offsetNode
 INTEGER                        :: iElem,iSide,iNode,i,j,k
-INTEGER                        :: nSideIDs,nNodeIDs
-INTEGER                        :: nBCs,BoundaryOrder_mesh
-LOGICAL                        :: curvedfound
+INTEGER                        :: nNodeIDs
+INTEGER                        :: BoundaryOrder_mesh
 LOGICAL                        :: initMesh=.FALSE. 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! Private Part ---------------------------------------------------------------------------------------------------------------------
@@ -147,7 +140,8 @@ WRITE(UNIT_stdOut,'(A)')'READ WEIGHTS FROM HDF5 FILE "'//TRIM(ElemWeightFile)//'
 CALL OpenHDF5File(ElemWeightFile,create=.FALSE.)
 
 CALL GetHDF5DataSize(File_ID,'ElemWeight',nDims,HSize)
-nGlobalElems=HSize(1) !global number of elements
+CHECKSAFEINT(HSize(1),4)
+nGlobalElems=INT(HSize(1),4) ! global number of elements
 DEALLOCATE(HSize)
 nElems=nGlobalElems   !local number of Elements 
 
@@ -198,9 +192,6 @@ DO iElem=1,nElems
   ALLOCATE(Elem%Node(Elem%nNodes))
 END DO
 
-!ALLOCATE(ElemBarycenters(nElems,3)) 
-!WRITE(*,*)'READ ELEMENT BARYCENTERS'
-!CALL ReadArrayFromHDF5(File_ID,'ElemBarycenters',2,(/nElems,3/),0,RealArray=ElemBarycenters)
 !----------------------------------------------------------------------------------------------------------------------------
 !                              NODES
 !----------------------------------------------------------------------------------------------------------------------------
@@ -551,7 +542,8 @@ INTEGER                        :: Offset=0 ! Every process reads all BCs
 !===================================================================================================================================
 ! Read boundary names from HDF5 file
 CALL GetHDF5DataSize(File_ID,'BCNames',nDims,HSize)
-nBCs=HSize(1)
+CHECKSAFEINT(HSize(1),4)
+nBCs=INT(HSize(1),4)
 DEALLOCATE(HSize)
 ALLOCATE(BCNames(nBCs), BCMapping(nBCs))
 CALL ReadArrayFromHDF5(File_ID,'BCNames',1,(/nBCs/),Offset,StrArray=BCNames)  ! Type is a dummy type only

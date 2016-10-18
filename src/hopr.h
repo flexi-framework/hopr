@@ -38,6 +38,20 @@
 #endif
 #define __STAMP__ __FILENAME__,__LINE__,__DATE__,__TIME__
 
+#ifdef GNU
+#  define IEEE_IS_NAN ISNAN
+#endif
+
+#define SIZEOF_F(x) STORAGE_SIZE(x)/8
+
+#ifdef GNU
+#define CHECKSAFEINT(x,k)  IF(x>HUGE(1_  k).OR.x<-HUGE(1_  k))       CALL ABORT(__STAMP__,'Integer conversion failed: out of range!')
+#define CHECKSAFEREAL(x,k) IF(x>HUGE(1._ k).OR.x<-HUGE(1._ k))       CALL ABORT(__STAMP__,'Real conversion failed: out of range!')
+#else
+#define CHECKSAFEINT(x,k)  IF(x>HUGE(1_  ## k).OR.x<-HUGE(1_  ## k)) CALL ABORT(__STAMP__,'Integer conversion failed: out of range!')
+#define CHECKSAFEREAL(x,k) IF(x>HUGE(1._ ## k).OR.x<-HUGE(1._ ## k)) CALL ABORT(__STAMP__,'Real conversion failed: out of range!')
+#endif
+
 #define SDEALLOCATE(A) IF(ASSOCIATED(A)) DEALLOCATE(A)
 #define ERRWRITE(a,b) WRITE(UNIT_errFile,b)
 #define LOGWRITE(a,b) IF(Logging) WRITE(UNIT_logOut,b)
@@ -72,3 +86,4 @@
 #if(PP_CGNS_INT==32)
 #  define PP_CGNS_INT_TYPE INTEGER
 #endif
+
