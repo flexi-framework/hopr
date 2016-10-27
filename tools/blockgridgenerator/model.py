@@ -158,6 +158,12 @@ class MainModel(QObject) :
         self.blocks.append(Block(xmin,xmax,ymin,ymax,xcells,ycells,bcxmin,bcxmax,bcymin,bcymax))
         self.gridChanged.emit()
 
+    def editBlock(self,i,xmin,xmax,ymin,ymax,xcells,ycells,bcxmin,bcxmax,bcymin,bcymax) :
+        del self.blocks[i]
+        b = Block(xmin,xmax,ymin,ymax,xcells,ycells,bcxmin,bcxmax,bcymin,bcymax)
+        self.blocks.insert(i, b)
+        self.gridChanged.emit()
+
     def deleteBlock(self, i) :
         del self.blocks[i]
         self.gridChanged.emit()
