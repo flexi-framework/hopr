@@ -133,10 +133,22 @@ class Block() :
         f.write(s)
         f.write("  nElems   =(/" + ",".join([str(tmp) for tmp in [self.xcells*postRefine,self.ycells*postRefine,1]]) + "/)\n")
         f.write("  elemtype =108\n")
-        ibcxmin = bcs.index(self.bcxmin) + 1
-        ibcxmax = bcs.index(self.bcxmax) + 1
-        ibcymin = bcs.index(self.bcymin) + 1
-        ibcymax = bcs.index(self.bcymax) + 1
+        try :
+            ibcxmin = bcs.index(self.bcxmin) + 1
+        except :
+            ibcxmin = 0
+        try :
+            ibcxmax = bcs.index(self.bcxmax) + 1
+        except :
+            ibcxmax = 0
+        try :
+            ibcymin = bcs.index(self.bcymin) + 1
+        except :
+            ibcymin = 0
+        try :
+            ibcymax = bcs.index(self.bcymax) + 1
+        except :
+            ibcymax = 0
         f.write("  BCIndex  =(/" + ",".join([str(tmp) for tmp in [len(bcs)+1,ibcymin,ibcxmax,ibcymax,ibcxmin,len(bcs)+2]]) + "/)\n")
         f.write("\n")
 
