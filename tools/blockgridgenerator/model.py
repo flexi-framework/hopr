@@ -44,6 +44,14 @@ class Block(QObject) :
         iTR, jTR = self.findTopRightCornerIndex(xe, ye)
         xTR, yTR = self.getCorner(iTR,jTR)
 
+        if not (0 <= iBL <= self.xcells and 0 <= jBL <= self.ycells) :
+            print "Anfangspunkt nicht innerhalb des Blocks!" 
+            return []
+        if not (0 <= iTR <= self.xcells and 0 <= jTR <= self.ycells) :
+            print "Endpunkt nicht innerhalb des Blocks!" 
+            return []
+        
+
         # generate new block 0-4 
         # self is shrinked to the center block
         # ------------
