@@ -5,9 +5,9 @@ from PyQt5 import QtCore, QtGui, QtWidgets, uic
 
 # Main View
 class MainView(QtWidgets.QMainWindow):
-    def __init__(self, model):
+    def __init__(self, model, scriptpath):
         QtWidgets.QMainWindow.__init__(self, None)
-        uic.loadUi('mainwindow.ui', self)
+        uic.loadUi(os.path.join(scriptpath,'mainwindow.ui'), self)
         self.model = model
         # connect the signals from the model with functions
         self.model.gridChanged.connect(self.draw)
