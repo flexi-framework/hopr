@@ -23,7 +23,25 @@ class MainView(QtWidgets.QMainWindow):
         self.tm_blocks = QtGui.QStandardItemModel(0,1)
         self.lv_blocks.setModel(self.tm_blocks)
         self.lv_blocks.keyPressEvent = self.keyPressEvent_lv_blocks
-        self.lv_blocks.selectionModel().selectionChanged.connect(self.selectionChanged)
+        self.lv_blocks.selectionModel().selectionChanged.connect(self.selectionChanged_blocks)
+
+        self.tm_bcs = QtGui.QStandardItemModel(0,4)
+        # set the headers of the columns
+        self.tm_bcs.setHeaderData(0, QtCore.Qt.Horizontal, "Nummer")
+        self.tm_bcs.setHeaderData(1, QtCore.Qt.Horizontal, "Type")
+        self.tm_bcs.setHeaderData(2, QtCore.Qt.Horizontal, "State")
+        self.tm_bcs.setHeaderData(3, QtCore.Qt.Horizontal, "Periodic")
+        self.tm_bcs.dataChanged.connect(self.bcsChanged)
+        # do not show vertical headers
+        self.tv_bcs.verticalHeader().setVisible(False)
+        self.tv_bcs.setModel(self.tm_bcs)
+        self.tv_bcs.setColumnWidth(0,70)
+        self.tv_bcs.setColumnWidth(1,70)
+        self.tv_bcs.setColumnWidth(2,70)
+        self.tv_bcs.setColumnWidth(3,70)
+        self.tv_bcs.selectionModel().selectionChanged.connect(self.selectionChanged_bcs)
+
+
 
         self.l_draw.mousePressEvent = self.mousePress
         self.l_draw.mouseReleaseEvent = self.mouseRelease
@@ -32,7 +50,29 @@ class MainView(QtWidgets.QMainWindow):
         self.loadname = ""
         self.exportname = ""
 
-    def selectionChanged(self) :
+    def bcsChanged(self, topLeft, bottomRight, parent) :
+        row    = topLeft.row()
+        column = topLeft.column()
+        
+        try :
+            selected_bc = int(self.tm_bcs.item(row,0).text())
+            # get the new value
+            newValue = int(self.tm_bcs.data(topLeft))
+        except :
+            self.draw()
+            return
+
+        if column == 0 :
+            # undo change of no
+            self.redraw(selected_bc = selected_bc)
+        elif column == 1 :
+            self.model.changeBCType(selected_bc, newValue) 
+        elif column == 2 :
+            self.model.changeBCState(selected_bc, newValue) 
+        elif column == 3 :
+            self.model.changeBCPeriodic(selected_bc, newValue) 
+
+    def selectionChanged_blocks(self) :
         index = self.getSelectedItem(self.lv_blocks)
         if index :
             b = self.model.blocks[index.row()]
@@ -52,7 +92,13 @@ class MainView(QtWidgets.QMainWindow):
             self.sb_bcymin.setValue(b.bcymin)
             self.sb_bcymax.setValue(b.bcymax)
 
-        self.draw(True)
+            self.draw(selected_block = b)
+
+    def selectionChanged_bcs(self) :
+        index = self.getSelectedItem(self.tv_bcs)
+        if index :
+            selected_bc = int(self.tm_bcs.item(index.row(),0).text())
+            self.draw(selected_bc = selected_bc)
 
     def load(self) :
         filename = QtWidgets.QFileDialog.getOpenFileName(self, "Load file", self.loadname, "*.config");
@@ -167,26 +213,29 @@ class MainView(QtWidgets.QMainWindow):
                 self.model.deleteBlock(index.row())
 
 
-    def draw(self, redraw=False) :
-        if not redraw :
+    def draw(self, selected_block=None, selected_bc=None) :
+        if not selected_block :
             self.sb_postRefine.setValue(self.model.postRefine)
             self.tm_blocks.removeRows(0, self.tm_blocks.rowCount())
-            for b in self.model.blocks :
-                self.tm_blocks.appendRow([QtGui.QStandardItem(str(b))])
+            for block in self.model.blocks :
+                self.tm_blocks.appendRow([QtGui.QStandardItem(str(block))])
 
-        selected = None
-        index = self.getSelectedItem(self.lv_blocks)
-        if index :
-            selected = self.model.blocks[index.row()]
+        if not selected_bc :
+            self.tm_bcs.removeRows(0, self.tm_bcs.rowCount())
+            for no in sorted(self.model.bcs.keys()) :
+                bc = self.model.bcs[no]
+                row = [str(bc.no), str(bc.type),str(bc.state), str(bc.periodic)]
+                row = [QtGui.QStandardItem(x) for x in row]
+                self.tm_bcs.appendRow(row)
 
         w = self.l_draw.width()-1
         h = self.l_draw.height()-1
 
         if len(self.model.blocks) > 0 :
-            xtotalmin = min([b.xmin for b in self.model.blocks])
-            ytotalmin = min([b.ymin for b in self.model.blocks])
-            xtotalmax = max([b.xmax for b in self.model.blocks])
-            ytotalmax = max([b.ymax for b in self.model.blocks])
+            xtotalmin = min([block.xmin for block in self.model.blocks])
+            ytotalmin = min([block.ymin for block in self.model.blocks])
+            xtotalmax = max([block.xmax for block in self.model.blocks])
+            ytotalmax = max([block.ymax for block in self.model.blocks])
             wpic = xtotalmax - xtotalmin
             hpic = ytotalmax - ytotalmin
 
@@ -199,34 +248,42 @@ class MainView(QtWidgets.QMainWindow):
         p.begin(pic)
         p.scale(self.scale,-self.scale)
 
-        for b in self.model.blocks :
+        for block in self.model.blocks :
             penwidth = 1.
-            if b == selected :
+            if block == selected_block :
                 penwidth = 2.
-            for i in range(b.xcells+1) :
-                x = b.xmin + b.w/b.xcells * i
+            for i in range(block.xcells+1) :
+                x = block.xmin + block.w/block.xcells * i
                 if i == 0 :
-                    bc = b.bcxmin
-                    p.setPen(QtGui.QPen(QtCore.Qt.GlobalColor(bc + 6), penwidth/self.scale, QtCore.Qt.SolidLine))
-                elif i == b.xcells :
-                    bc = b.bcxmax
-                    p.setPen(QtGui.QPen(QtCore.Qt.GlobalColor(bc + 6), penwidth/self.scale, QtCore.Qt.SolidLine))
+                    bc = block.bcxmin
+                    bold = 1.
+                    if bc == selected_bc : bold = 3.
+                    p.setPen(QtGui.QPen(QtCore.Qt.GlobalColor(bc + 6), bold*penwidth/self.scale, QtCore.Qt.SolidLine))
+                elif i == block.xcells :
+                    bc = block.bcxmax
+                    bold = 1.
+                    if bc == selected_bc : bold = 3.
+                    p.setPen(QtGui.QPen(QtCore.Qt.GlobalColor(bc + 6), bold*penwidth/self.scale, QtCore.Qt.SolidLine))
                 else :
                     p.setPen(QtGui.QPen(QtCore.Qt.black, penwidth/self.scale, QtCore.Qt.SolidLine))
 
-                p.drawLine(QtCore.QPointF(x,b.ymin),QtCore.QPointF(x,b.ymax))
-            for j in range(b.ycells+1) :
+                p.drawLine(QtCore.QPointF(x,block.ymin),QtCore.QPointF(x,block.ymax))
+            for j in range(block.ycells+1) :
                 if j == 0 :
-                    bc = b.bcymin
-                    p.setPen(QtGui.QPen(QtCore.Qt.GlobalColor(bc + 6), penwidth/self.scale, QtCore.Qt.SolidLine))
-                elif j == b.ycells :
-                    bc = b.bcymax
-                    p.setPen(QtGui.QPen(QtCore.Qt.GlobalColor(bc + 6), penwidth/self.scale, QtCore.Qt.SolidLine))
+                    bc = block.bcymin
+                    bold = 1.
+                    if bc == selected_bc : bold = 3.
+                    p.setPen(QtGui.QPen(QtCore.Qt.GlobalColor(bc + 6), bold*penwidth/self.scale, QtCore.Qt.SolidLine))
+                elif j == block.ycells :
+                    bc = block.bcymax
+                    bold = 1.
+                    if bc == selected_bc : bold = 3.
+                    p.setPen(QtGui.QPen(QtCore.Qt.GlobalColor(bc + 6), bold*penwidth/self.scale, QtCore.Qt.SolidLine))
                 else :
                     p.setPen(QtGui.QPen(QtCore.Qt.black, penwidth/self.scale, QtCore.Qt.SolidLine))
 
-                y = b.ymin + b.h/b.ycells * j
-                p.drawLine(QtCore.QPointF(b.xmin,y),QtCore.QPointF(b.xmax,y))
+                y = block.ymin + block.h/block.ycells * j
+                p.drawLine(QtCore.QPointF(block.xmin,y),QtCore.QPointF(block.xmax,y))
 
         p.end()
 
