@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>619</height>
+    <height>635</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -80,7 +80,9 @@
               <string>Blocks laden</string>
              </property>
              <property name="icon">
-              <iconset theme="document-open"/>
+              <iconset theme="document-open">
+               <normaloff/>
+              </iconset>
              </property>
             </widget>
            </item>
@@ -90,7 +92,9 @@
               <string>Blocks speichern</string>
              </property>
              <property name="icon">
-              <iconset theme="document-save"/>
+              <iconset theme="document-save">
+               <normaloff/>
+              </iconset>
              </property>
             </widget>
            </item>
@@ -266,14 +270,30 @@
           </layout>
          </item>
          <item>
-          <widget class="QPushButton" name="b_addBlock">
-           <property name="text">
-            <string>Block hinzufuegen</string>
-           </property>
-           <property name="icon">
-            <iconset theme="list-add"/>
-           </property>
-          </widget>
+          <layout class="QHBoxLayout" name="horizontalLayout_3">
+           <item>
+            <widget class="QPushButton" name="b_addBlock">
+             <property name="text">
+              <string>Block hinzufuegen</string>
+             </property>
+             <property name="icon">
+              <iconset theme="list-add">
+               <normaloff/>
+              </iconset>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="b_editBlock">
+             <property name="text">
+              <string>Block editieren</string>
+             </property>
+             <property name="icon">
+              <iconset theme="gtk-edit"/>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </item>
          <item>
           <widget class="QListView" name="lv_blocks">
@@ -311,7 +331,9 @@
             <string>Inifile erzeugen</string>
            </property>
            <property name="icon">
-            <iconset theme="document-save"/>
+            <iconset theme="document-save">
+             <normaloff/>
+            </iconset>
            </property>
           </widget>
          </item>

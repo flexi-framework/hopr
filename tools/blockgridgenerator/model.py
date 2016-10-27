@@ -44,6 +44,14 @@ class Block(QObject) :
         iTR, jTR = self.findTopRightCornerIndex(xe, ye)
         xTR, yTR = self.getCorner(iTR,jTR)
 
+        if not (0 <= iBL <= self.xcells and 0 <= jBL <= self.ycells) :
+            print "Anfangspunkt nicht innerhalb des Blocks!" 
+            return []
+        if not (0 <= iTR <= self.xcells and 0 <= jTR <= self.ycells) :
+            print "Endpunkt nicht innerhalb des Blocks!" 
+            return []
+        
+
         # generate new block 0-4 
         # self is shrinked to the center block
         # ------------
@@ -148,6 +156,12 @@ class MainModel(QObject) :
 
     def addBlock(self,xmin,xmax,ymin,ymax,xcells,ycells,bcxmin,bcxmax,bcymin,bcymax) :
         self.blocks.append(Block(xmin,xmax,ymin,ymax,xcells,ycells,bcxmin,bcxmax,bcymin,bcymax))
+        self.gridChanged.emit()
+
+    def editBlock(self,i,xmin,xmax,ymin,ymax,xcells,ycells,bcxmin,bcxmax,bcymin,bcymax) :
+        del self.blocks[i]
+        b = Block(xmin,xmax,ymin,ymax,xcells,ycells,bcxmin,bcxmax,bcymin,bcymax)
+        self.blocks.insert(i, b)
         self.gridChanged.emit()
 
     def deleteBlock(self, i) :
