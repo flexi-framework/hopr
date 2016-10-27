@@ -15,6 +15,7 @@ class MainView(QtWidgets.QMainWindow):
 
         self.b_addBlock.clicked.connect(self.addBlock)
         self.b_editBlock.clicked.connect(self.editBlock)
+        self.b_clearBlocks.clicked.connect(self.clearBlocks)
         self.b_load.clicked.connect(self.load)
         self.b_save.clicked.connect(self.save)
         self.b_export.clicked.connect(self.export)
@@ -90,11 +91,19 @@ class MainView(QtWidgets.QMainWindow):
         self.startx = e.localPos().x() / self.scale
         h = self.l_draw.height()
         self.starty = (h-e.localPos().y()) / self.scale
+        xtotalmin = min([b.xmin for b in self.model.blocks])
+        ytotalmin = min([b.ymin for b in self.model.blocks])
+        self.startx = self.startx + xtotalmin
+        self.starty = self.starty + ytotalmin
 
     def mouseRelease(self, e) :
         x = e.localPos().x() / self.scale
         h = self.l_draw.height()
         y = (h-e.localPos().y()) / self.scale
+        xtotalmin = min([b.xmin for b in self.model.blocks])
+        ytotalmin = min([b.ymin for b in self.model.blocks])
+        x = x + xtotalmin
+        y = y + ytotalmin
         self.model.refineBlock(min(x,self.startx), min(y,self.starty), max(x,self.startx), max(y,self.starty))
 
     def addBlock(self) :
@@ -135,6 +144,10 @@ class MainView(QtWidgets.QMainWindow):
             bcymax = self.sb_bcymax.value()
 
             self.model.editBlock(index.row(), xmin,xmax,ymin,ymax,xcells,ycells,bcxmin,bcxmax,bcymin,bcymax)
+
+    def clearBlocks(self) :
+       self.model.blocks = []
+       self.draw()
 
     # general routine to get the index of the first selected item of a listview or tableview
     def getSelectedItem(self, listview) : 

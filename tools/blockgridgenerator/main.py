@@ -11,7 +11,7 @@ class App(QtWidgets.QApplication):
        super(App, self).__init__(sys_argv)
        self.model = MainModel()
        self.main_view = MainView(self.model)
-       self.main_view.showMaximized()
+       self.main_view.show() #Maximized()
        self.model.gridChanged.emit()
 
 if __name__ == '__main__':

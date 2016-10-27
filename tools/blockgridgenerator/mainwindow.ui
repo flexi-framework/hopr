@@ -306,6 +306,16 @@
           </widget>
          </item>
          <item>
+          <widget class="QPushButton" name="b_clearBlocks">
+           <property name="text">
+            <string>Alle Bloecke loeschen</string>
+           </property>
+           <property name="icon">
+            <iconset theme="edit-clear"/>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QLabel" name="label_2">
            <property name="text">
             <string>Post Refine</string>
@@ -372,6 +382,25 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
+ <tabstops>
+  <tabstop>b_load</tabstop>
+  <tabstop>b_save</tabstop>
+  <tabstop>sb_xcells</tabstop>
+  <tabstop>sb_ycells</tabstop>
+  <tabstop>sb_xmin</tabstop>
+  <tabstop>sb_xmax</tabstop>
+  <tabstop>sb_ymin</tabstop>
+  <tabstop>sb_ymax</tabstop>
+  <tabstop>sb_bcxmin</tabstop>
+  <tabstop>sb_bcymin</tabstop>
+  <tabstop>sb_bcxmax</tabstop>
+  <tabstop>sb_bcymax</tabstop>
+  <tabstop>b_addBlock</tabstop>
+  <tabstop>b_editBlock</tabstop>
+  <tabstop>lv_blocks</tabstop>
+  <tabstop>sb_postRefine</tabstop>
+  <tabstop>b_export</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>
