@@ -8,7 +8,11 @@ class IntItem(QtGui.QStandardItem) :
         self.value = v
 
     def setData(self, v, role=QtCore.Qt.UserRole + 1) :
-        self.value = int(v)
+        if role == QtCore.Qt.EditRole:
+            self.value = int(v)
+            return
+        return super(IntItem, self).setData(v, role)
+
 
     def data(self, role=QtCore.Qt.UserRole + 1):
         if role == QtCore.Qt.DisplayRole:
@@ -16,20 +20,22 @@ class IntItem(QtGui.QStandardItem) :
         return super(IntItem, self).data(role)
 
 class BC(object) :
-    def __init__(self, no, type=2, state=0, periodic=0) :
-        self.no = IntItem(no)
+    def __init__(self, name, type, state, periodic, color=0) :
+        self.name = QtGui.QStandardItem(name)
+        self.name.setBackground(QtGui.QBrush(QtCore.Qt.GlobalColor(color + 7)))
         self.type = IntItem(type) 
         self.state = IntItem(state)
         self.periodic = IntItem(periodic)
+        self.color = color
 
     def toRow(self) :
-        return [self.no, self.type, self.state, self.periodic]
+        return [self.name, self.type, self.state, self.periodic]
 
     def writeConfig(self, f) :
-        f.write("%d %d %d %d\n" %(self.no, self.type, self.state, self.periodic))
+        f.write("%s\n" % str(self))
 
     def __str__(self) :
-        return "%d %d %d %d" %(self.no.value, self.type.value, self.state.value, self.periodic.value)
+        return "%s %d %d %d" %(self.name.text(), self.type.value, self.state.value, self.periodic.value)
 
 class BCsIterator:
     def __init__(self, bcs):
@@ -51,21 +57,35 @@ class BCs(QtGui.QStandardItemModel) :
     def __init__(self) :
         QtGui.QStandardItemModel.__init__(self, 0,4)    
         # set the headers of the columns
-        self.setHeaderData(0, QtCore.Qt.Horizontal, "Nummer")
+        self.setHeaderData(0, QtCore.Qt.Horizontal, "Name")
         self.setHeaderData(1, QtCore.Qt.Horizontal, "Type")
         self.setHeaderData(2, QtCore.Qt.Horizontal, "State")
         self.setHeaderData(3, QtCore.Qt.Horizontal, "Periodic")
 
         self.internalBCs = []
 
-    def addBC(self, bc_no) :
+    def addBC(self, name, type=2, state=0, periodic=0) :
+        if name == '0' : return None
+
         for bc in self.internalBCs :
-            if bc.no == bc_no :
-                return
+            if bc.name.text() == name :
+                return bc
 
-        self.internalBCs.append(BC(bc_no))
+        self.internalBCs.append(BC(name, type, state, periodic, color=len(self.internalBCs)))
         self.appendRow(self.internalBCs[-1].toRow())
+        return self.internalBCs[-1]
 
+    def getByName(self, name) :
+        for bc in self.internalBCs :
+            if bc.name.text() == name :
+                return bc
+        return None
+
+    def getIndex(self, bc) :
+        try :
+            return self.internalBCs.index(bc) + 1
+        except :
+            return 0
 
     def __iter__(self) :
         return BCsIterator(self)

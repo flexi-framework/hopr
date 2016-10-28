@@ -19,54 +19,31 @@ class MainModel(QObject) :
         self.bcs = BCs()
         self.postRefine = 10
 
-    def addBlock(self,xmin,xmax,ymin,ymax,xcells,ycells,bcxmin,bcxmax,bcymin,bcymax, row = -1) :
+    def addBlock(self,xmin,xmax,ymin,ymax,xcells,ycells,bcxmin_name,bcxmax_name,bcymin_name,bcymax_name, row = -1) :
+        bcxmin = self.bcs.addBC(bcxmin_name)
+        bcxmax = self.bcs.addBC(bcxmax_name)
+        bcymin = self.bcs.addBC(bcymin_name)
+
+        bcymax = self.bcs.addBC(bcymax_name)
         if row > -1 :
-            self.blocks.item(i).edit(xmin,xmax,ymin,ymax,xcells,ycells,bcxmin,bcxmax,bcymin,bcymax)
+            self.blocks.item(row).edit(xmin,xmax,ymin,ymax,xcells,ycells,bcxmin,bcxmax,bcymin,bcymax)
         else :
             self.blocks.appendRow(Block(xmin,xmax,ymin,ymax,xcells,ycells,bcxmin,bcxmax,bcymin,bcymax))
-        self.bcs.addBC(bcxmin)
-        self.bcs.addBC(bcxmax)
-        self.bcs.addBC(bcymin)
-        self.bcs.addBC(bcymax)
         self.gridChanged.emit()
 
-    def deleteBlock(self, i) :
-        self.blocks.removeRows(i, 1)
-        self.gridChanged.emit()
-
-    def findBlock(self,x,y) :
-        for block in self.blocks : 
-            if block.isInside(x,y) :
-                return block
-        return -1
-
-    def refineBlock(self,xs,ys,xe,ye) :
-        block_s = self.findBlock(xs,ys)
-        block_e = self.findBlock(xe,ye)
-        if block_s != block_e :
-            print "Anfangs- und Endpunkt nicht im gleichen Block"
-            return
-
-        block_s.refine(xs,ys,xe,ye)
-        self.gridChanged.emit()
 
     def load(self, filename) :
         lines = open(filename, 'r').readlines()
         try :
             self.postRefine = int(lines[0])
-            len_blocks, len_bcs = [int(x) for x in lines[1].strip().split()]
-            print len_blocks, len_bcs
-            for i in range(len_blocks) :
+            len_bcs, len_blocks = [int(x) for x in lines[1].strip().split()]
+            for i in range(len_bcs) :
                 l = lines[i+2]
                 tmp = l.strip().split()
-                xmin,xmax,ymin,ymax = [float(s) for s in tmp[0:4]]
-                xcells,ycells, bcxmin,bcxmax,bcymin,bcymax = [int(s) for s in tmp[4:]]
-                self.blocks.appendRow(Block(xmin,xmax,ymin,ymax,xcells,ycells,bcxmin,bcxmax,bcymin,bcymax))
-            for i in range(len_bcs) :
-                l = lines[i+2+len_blocks]
-                no,type,state,periodic = [int(x) for x in l.strip().split()]
-                print no, type, state, periodic
-                self.bcs[no] = BC(no,type,state,periodic)
+                name = tmp[0]
+                type,state,periodic = [int(x) for x in tmp[1:]]
+                self.bcs.addBC(name,type,state,periodic)
+            self.blocks.load(lines[2+len_bcs:], self.bcs)
             self.gridChanged.emit()
         except Exception,e :
             print e
@@ -76,11 +53,11 @@ class MainModel(QObject) :
         self.postRefine = postRefine
         f = open(filename, 'w') 
         f.write("%d\n" % postRefine)
-        f.write("%d %d\n" % (self.blocks.rowCount(), len(self.bcs)))
-        for i in range(self.blocks.rowCount()) :
-            self.blocks.item(i).writeConfig(f)
-        for bc_no in sorted(self.bcs.keys()) :
-            self.bcs[bc_no].writeConfig(f)
+        f.write("%d %d\n" % (self.bcs.rowCount(), self.blocks.rowCount()))
+        for bc in self.bcs :
+            bc.writeConfig(f)
+        for block in self.blocks :
+            block.writeConfig(f)
         f.close()
 
 
@@ -97,15 +74,15 @@ class MainModel(QObject) :
 
 
         f.write("\n")
-        for i in range(self.blocks.rowCount()) :
-            self.blocks.item(i).write(f,sorted(self.bcs.keys()),postRefine)
+        nZones = 0
+        for block in self.blocks :
+            nZones = block.export(f,self.bcs,postRefine, nZones)
 
-        f.write("nZones = %d\n" % len(self.blocks)) 
+        f.write("nZones = %d\n" % nZones)
 
-        for bc_no in sorted(self.bcs.keys()) :
-            bc = self.bcs[bc_no]
-            f.write("BoundaryName=BC_%d\n" % bc.no) 
-            f.write("BoundaryType=(/%d,0,%d,%d/)\n" % (bc.type, bc.state, bc.periodic)) 
+        for bc in self.bcs :
+            f.write("BoundaryName=BC_%s\n" % bc.name.text()) 
+            f.write("BoundaryType=(/%d,0,%d,%d/)\n" % (bc.type.value, bc.state.value, bc.periodic.value)) 
         
         f.write("\n")
         f.write("BoundaryName=BC_zminus   \n")
