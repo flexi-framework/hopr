@@ -1,7 +1,13 @@
+# -*- coding: utf-8 -*
 import math
+from PyQt5 import QtCore, QtGui, QtWidgets, uic
 
-class Block() :
+class Block(QtGui.QStandardItem) :
     def __init__(self, xmin,xmax, ymin,ymax, xcells,ycells, bcxmin=0,bcxmax=0,bcymin=0,bcymax=0) :
+        QtGui.QStandardItem.__init__(self)
+        self.edit(xmin,xmax, ymin,ymax, xcells,ycells, bcxmin,bcxmax,bcymin,bcymax)
+
+    def edit(self, xmin,xmax, ymin,ymax, xcells,ycells, bcxmin,bcxmax,bcymin,bcymax) :
         self.xmin = xmin
         self.xmax = xmax
         self.ymin = ymin
@@ -17,6 +23,45 @@ class Block() :
 
     def isValid(self) :
         return self.w > 0 and self.h > 0 and self.xcells > 0 and self.ycells > 0
+
+    def isInside(self, x, y) :
+        return self.xmin < x < self.xmax and self.ymin < y < self.ymax 
+
+    def drawVerticalLine(self, p, scale, i, penwidth) :
+        if i == 0 :
+            color = QtCore.Qt.GlobalColor(self.bcxmin + 6)
+        elif i == self.xcells :
+            color = QtCore.Qt.GlobalColor(self.bcxmax + 6)
+        else :
+            color = QtCore.Qt.black
+        p.setPen(QtGui.QPen(color, penwidth/scale, QtCore.Qt.SolidLine))
+        x = self.xmin + self.w/self.xcells * i
+        p.drawLine(QtCore.QPointF(x,self.ymin),QtCore.QPointF(x,self.ymax))
+
+    def drawHorizontalLine(self, p, scale, j, penwidth) :
+        if j == 0 :
+            color = QtCore.Qt.GlobalColor(self.bcymin + 6)
+        elif j == self.ycells :
+            color = QtCore.Qt.GlobalColor(self.bcymax + 6)
+        else :
+            color = QtCore.Qt.black
+        p.setPen(QtGui.QPen(color, penwidth/scale, QtCore.Qt.SolidLine))
+        y = self.ymin + self.h/self.ycells * j
+        p.drawLine(QtCore.QPointF(self.xmin,y),QtCore.QPointF(self.xmax,y))
+
+    def draw(self, p, scale, penwidth) :
+        print "draw"
+        # draw vertical lines
+        for i in range(self.xcells+1) :
+            self.drawVerticalLine(p, scale, i, penwidth)
+
+        # draw horizontal lines
+        for j in range(self.ycells+1) :
+            self.drawHorizontalLine(p, scale, j, penwidth)
+
+        for i in range(self.rowCount()) :
+            self.child(i).draw(p, scale, penwidth)
+
 
     def findBottomLeftCornerIndex(self, x, y) :
         i = int(math.floor((x - self.xmin) / (self.w) * self.xcells))
@@ -56,7 +101,6 @@ class Block() :
         # | 0 |------|
         # |   |   1  |
         # ------------
-        blocks = []
 
         # create new blocks with empty BC
         b0 = Block(self.xmin, xBL      , self.ymin, yTR      , iBL            , jTR)
@@ -91,13 +135,13 @@ class Block() :
         b3.bcymax = self.bcymax
 
         if b0.isValid() :
-            blocks.append(b0) 
+            self.appendRow(b0) 
         if b1.isValid() :
-            blocks.append(b1) 
+            self.appendRow(b1) 
         if b2.isValid() :
-            blocks.append(b2) 
+            self.appendRow(b2) 
         if b3.isValid() :
-            blocks.append(b3) 
+            self.appendRow(b3) 
 
         self.xmin = xBL
         self.xmax = xTR
@@ -114,7 +158,7 @@ class Block() :
         if (b2.isValid()) : self.bcxmax = 0
         if (b3.isValid()) : self.bcymax = 0
 
-        return blocks
+        #return blocks
 
     def writeConfig(self, f) :
         f.write("%f %f %f %f %d %d %d %d %d %d\n" % (self.xmin, self.xmax, self.ymin, self.ymax, \
@@ -152,5 +196,42 @@ class Block() :
         f.write("  BCIndex  =(/" + ",".join([str(tmp) for tmp in [len(bcs)+1,ibcymin,ibcxmax,ibcymax,ibcxmin,len(bcs)+2]]) + "/)\n")
         f.write("\n")
 
+
+    def data(self, role=QtCore.Qt.UserRole + 1):
+        if role == QtCore.Qt.DisplayRole:
+            return str(self) 
+        return super(Block, self).data(role)
+
     def __str__(self) :
         return "[%0.3f,%0.3f] x [%0.3f,%0.3f] : %dx%d" % (self.xmin,self.xmax, self.ymin,self.ymax, self.xcells,self.ycells)
+
+class BlocksIterator:
+    def __init__(self, blocks):
+        self.i = 0
+        self.blocks = blocks
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self.i < self.blocks.rowCount():
+            i = self.i
+            self.i += 1
+            return self.blocks.item(i) 
+        else:
+            raise StopIteration()
+
+class Blocks(QtGui.QStandardItemModel) :
+    def __init__(self) :
+        QtGui.QStandardItemModel.__init__(self, 0,1)    
+
+    def getTotalSizes(self) :
+        xtotalmin = min([block.xmin for block in self])
+        ytotalmin = min([block.ymin for block in self])
+        xtotalmax = max([block.xmax for block in self])
+        ytotalmax = max([block.ymax for block in self])
+        return xtotalmin,xtotalmax,ytotalmin,ytotalmax
+
+    def __iter__(self) :
+        return BlocksIterator(self)
+

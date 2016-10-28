@@ -301,14 +301,16 @@
               <string>Block editieren</string>
              </property>
              <property name="icon">
-              <iconset theme="gtk-edit"/>
+              <iconset theme="gtk-edit">
+               <normaloff/>
+              </iconset>
              </property>
             </widget>
            </item>
           </layout>
          </item>
          <item>
-          <widget class="QListView" name="lv_blocks">
+          <widget class="QTreeView" name="tv_blocks">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
              <horstretch>0</horstretch>
@@ -323,7 +325,9 @@
             <string>Alle Bloecke loeschen</string>
            </property>
            <property name="icon">
-            <iconset theme="edit-clear"/>
+            <iconset theme="edit-clear">
+             <normaloff/>
+            </iconset>
            </property>
           </widget>
          </item>
@@ -452,7 +456,6 @@
   <tabstop>sb_bcymax</tabstop>
   <tabstop>b_addBlock</tabstop>
   <tabstop>b_editBlock</tabstop>
-  <tabstop>lv_blocks</tabstop>
   <tabstop>b_export</tabstop>
  </tabstops>
  <resources/>
