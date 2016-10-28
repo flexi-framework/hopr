@@ -483,8 +483,16 @@
   <tabstop>sb_xmax</tabstop>
   <tabstop>sb_ymin</tabstop>
   <tabstop>sb_ymax</tabstop>
+  <tabstop>le_bcxmin</tabstop>
+  <tabstop>le_bcymin</tabstop>
+  <tabstop>le_bcxmax</tabstop>
+  <tabstop>le_bcymax</tabstop>
   <tabstop>b_addBlock</tabstop>
   <tabstop>b_editBlock</tabstop>
+  <tabstop>tv_blocks</tabstop>
+  <tabstop>b_clearBlocks</tabstop>
+  <tabstop>tv_bcs</tabstop>
+  <tabstop>sb_postRefine</tabstop>
   <tabstop>b_export</tabstop>
  </tabstops>
  <resources/>
