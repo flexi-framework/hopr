@@ -80,11 +80,13 @@ IF(MeshPostDeform.EQ.0) RETURN
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'POST DEFORM THE MESH...'
 CALL Timer(.TRUE.)
+
 IF(N.EQ.1)THEN
   HexaMapN1(:,1)=(/0,1,1,0,0,1,1,0/)
   HexaMapN1(:,2)=(/0,0,1,1,0,0,1,1/)
   HexaMapN1(:,3)=(/0,0,0,0,1,1,1,1/)
 END IF !N=1
+
 !prepare EQ to GL tranform
 CALL LegGaussLobNodesAndWeights(N,xi_GL)
 DO i=0,N
@@ -544,11 +546,17 @@ CASE(21)!Laval nozzle
     X_out(:,i)=xout(:)
   END DO !i=1,nTotal
 CASE(30) ! sin
-  xout = x+ 0.1*SIN(Pi*x(1))*SIN(Pi*x(2))!*SIN(Pi*x(3))
+  x_out(1,:) = x_in(1,:)+ 0.1*SIN(Pi*x_in(1,:))*SIN(Pi*x_in(2,:))
+  x_out(2,:) = x_in(2,:)+ 0.1*SIN(Pi*x_in(1,:))*SIN(Pi*x_in(2,:))
+  x_out(3,:) = x_in(3,:)+ 0.1*SIN(Pi*x_in(1,:))*SIN(Pi*x_in(2,:))
 CASE(31) ! sin
-  xout = x+ 0.1*SIN(Pi*x(1))*SIN(Pi*x(2))*SIN(Pi*x(3))
+  x_out(1,:) = x_in(1,:)+ 0.1*SIN(Pi*x_in(1,:))*SIN(Pi*x_in(2,:))*SIN(Pi*x_in(3,:))
+  x_out(2,:) = x_in(2,:)+ 0.1*SIN(Pi*x_in(1,:))*SIN(Pi*x_in(2,:))*SIN(Pi*x_in(3,:))
+  x_out(3,:) = x_in(3,:)+ 0.1*SIN(Pi*x_in(1,:))*SIN(Pi*x_in(2,:))*SIN(Pi*x_in(3,:))
 CASE(32) ! sin
-  xout = x+ 0.1*SIN(Pi*x(1))
+  x_out(1,:) = x_in(1,:)+ 0.1*SIN(Pi*x_in(1,:))
+  x_out(2,:) = x_in(2,:)+ 0.1*SIN(Pi*x_in(1,:))
+  x_out(3,:) = x_in(3,:)+ 0.1*SIN(Pi*x_in(1,:))
 END SELECT
 
 END SUBROUTINE PostDeformFunc
