@@ -93,6 +93,10 @@ NPlot_p1  =(Nplot+1)
 NPlot_p1_2=Nplot_p1*Nplot_p1
 NPlot_p1_3=NPlot_p1_2*Nplot_p1
 
+IF(vecdim.LT.dim1) THEN
+  WRITE(*,*)'WARNING:dim1 should be > vecdim! dim1= ',dim1,' vecdim= ',vecdim
+  STOP
+END IF
 ! Line feed character
 lf = char(10)
 WRITE(strvecdim,'(I1)') vecdim
