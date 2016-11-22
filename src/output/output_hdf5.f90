@@ -26,7 +26,6 @@ MODULE MOD_Output_HDF5
 ! ?
 !===================================================================================================================================
 ! MODULES
-USE HDF5
 USE MOD_IO_HDF5
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
