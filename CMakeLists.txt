@@ -98,6 +98,7 @@ IF(HOPR_BUILD_HDF5)
   SET(HOPR_HDF5TAG "1.8.17" CACHE STRING "HDF5 version tag")
 ENDIF()
 
+OPTION(HOPR_NETCDF "Link to local NetCDF library" ON)
 # =========================================================================
 # USERBLOCK + Preproc_flags
 # =========================================================================
@@ -206,6 +207,7 @@ IF(NOT HOPR_BUILD_HDF5)
       SET(HOPR_HDF5_CMAKE TRUE)
       MESSAGE (STATUS "HDF5 C libs:${HDF5_FOUND} static:${HDF5_static_C_FOUND} and shared:${HDF5_shared_C_FOUND}")
       MESSAGE (STATUS "HDF5 Fortran libs: static:${HDF5_static_Fortran_FOUND} and shared:${HDF5_shared_Fortran_FOUND}")
+      MESSAGE (STATUS "h5diff found:${HDF5_DIFF_EXECUTABLE}")
     ENDIF()
   ENDIF()
 ELSE()
@@ -252,6 +254,8 @@ ELSE()
   UNSET(HDF5_LIBRARIES)
   UNSET(HDF5_INCLUDE_DIR_FORTRAN)
   UNSET(HDF5_INCLUDE_DIR)
+  UNSET(HDF5_DIFF_EXECUTABLE)
+  SET(HDF5_DIFF_EXECUTABLE              ${HOPR_HDF5_DIR}/bin/h5diff)
   LIST(APPEND HDF5_INCLUDE_DIR_FORTRAN ${HDF5_Fortran_INCLUDE_DIR} ${HDF5_C_INCLUDE_DIR})
   LIST(APPEND HDF5_INCLUDE_DIR  ${HDF5_C_INCLUDE_DIR})
   FIND_LIBRARY(HDF5_z_LIBRARY_RELEASE z)
@@ -300,6 +304,16 @@ IF(HOPR_MPI)
   ADD_DEFINITIONS(-DMPI)
   MESSAGE(STATUS "Building HOPR with MPI")
   MESSAGE(STATUS "MPI Compiler: " ${MPI_Fortran_COMPILER})
+ENDIF()
+
+# =========================================================================
+# NETCDF (locally installed only!)
+# =========================================================================
+IF(HOPR_NETCDF)
+  SET(NETCDF_DIR  /usr)
+  INCLUDE_DIRECTORIES(${NETCDF_DIR}/include)
+  LIST(APPEND linkedlibs -Wl,-rpath,$(NETCDF_DIR)/lib -lnetcdff -lnetcdf)
+  MESSAGE(STATUS "Building HOPR with NetCDF")
 ENDIF()
 
 # =========================================================================
@@ -359,6 +373,8 @@ FILE(GLOB_RECURSE hoprF90 ./src/basis/*.f90
                           ./src/readin/*.f90
                           ./src/search/*.f90
                           ./src/sfc/*.f90
+                          ./src/vmec/vmec*.f90
+                          ./src/vmec/track*.f90
                           globals.f90
                           headers.f90
                           io_hdf5.f90

@@ -26,7 +26,6 @@ MODULE MOD_Output_HDF5
 ! ?
 !===================================================================================================================================
 ! MODULES
-USE HDF5
 USE MOD_IO_HDF5
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -64,7 +63,6 @@ USE MOD_Mesh_Vars,ONLY:N
 USE MOD_Output_Vars,ONLY:dosortIJK
 USE MOD_Mesh_Vars,ONLY:nUserDefinedBoundaries,BoundaryName,BoundaryType
 USE MOD_Mesh_Basis,ONLY:ISORIENTED
-USE MOD_VMEC_Vars,ONLY:useVMEC,VMECvarNames,nVarOutVMEC,VMECoutdataGL,VMECoutVarMap
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -339,14 +337,6 @@ IF(dosortIJK)THEN
   CALL WriteArrayToHDF5(File_ID,'Elem_IJK',2,(/3,nElems/),IntegerArray=TRANSPOSE(Elem_IJK))
   DEALLOCATE(Elem_IJK)
 END IF
-
-
-IF(useVMEC)THEN
-  CALL WriteAttribute(File_ID,'VMECdata_Version',1,IntScalar=2)
-  CALL WriteArrayToHDF5(File_ID,'VMECdata_VarNames',1,(/nVarOutVMEC/),StrArray=VMECvarNames(VMECoutVarMap))
-  CALL WriteArrayToHDF5(File_ID,'VMECdata_GL',5,(/nVarOutVMEC,N+1,N+1,N+1,nElems/),RealArray=VMECoutdataGL)
-END IF !useVMEC
-
 
 ! Close the file.
 CALL CloseHDF5File()
