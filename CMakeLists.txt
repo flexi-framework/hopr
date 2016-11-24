@@ -376,7 +376,7 @@ FILE(GLOB_RECURSE hoprF90 ./src/basis/*.f90
                           ./src/mhdeq/mhdeq*.f90
                           ./src/mhdeq/vmec/vmec*.f90
                           ./src/mhdeq/vmec/track*.f90
-                          ./src/mhdeq/solov/solov*.f90
+                          ./src/mhdeq/solov/*.f90
                           globals.f90
                           headers.f90
                           io_hdf5.f90

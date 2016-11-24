@@ -47,10 +47,9 @@ sfc/hilbert.c
 sfc/spacefillingcurve.f90
 sfc/sortijk.f90
 sortingtools.f90
-mhdeq/*.f90
+mhdeq/mhdeq*.f90
 mhdeq/vmec/vmec.f90
 mhdeq/vmec/vmec_vars.f90
 mhdeq/vmec/vmec_mappings.f90
 mhdeq/vmec/track_spline1_mod.f90
-mhdeq/solov/solov.f90
-mhdeq/solov/solov_vars.f90
+mhdeq/solov/*.f90

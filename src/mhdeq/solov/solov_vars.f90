@@ -30,7 +30,22 @@ IMPLICIT NONE
 PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
-LOGICAL             :: useSolov
+INTEGER             :: setup       ! use given parameter setup: 10: circular, 20: iterlike
+REAL                :: p_R0        !major radius
+REAL                :: p_eps       !minor/major radius ratio
+REAL                :: p_kappa     ! elliticity
+REAL                :: p_delta     ! triangularity
+REAL                :: p_A         ! pA <1 (else deltap>0)
+REAL                :: p_qaxis     ! q-factor on axis
+REAL                :: p_paxis     ! pressure on axis
+INTEGER             :: nRhoCoefs   ! number of density coefficients 
+REAL,ALLOCATABLE    :: RhoCoefs(:) !density coefficients of the polynomial coefficients:
+!equilibrium related
+REAL                :: xaxis       !x-position of axis (y=0)
+REAL                :: psi_axis    !psi value at the magnetic axis
+REAL                :: psi_edge
+REAL                :: psiCoefs(0:7) !coefficients for representing flux variable psi
+
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! Private Part ---------------------------------------------------------------------------------------------------------------------
 ! Public Part ----------------------------------------------------------------------------------------------------------------------

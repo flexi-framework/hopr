@@ -20,217 +20,250 @@
 !
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
-#include "hopr.h"
-MODULE MOD_Solov
+MODULE MOD_PsiEval
 !===================================================================================================================================
 ! ?
 !===================================================================================================================================
 ! MODULES
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
-PRIVATE
+PUBLIC
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! Private Part ---------------------------------------------------------------------------------------------------------------------
 ! Public Part ----------------------------------------------------------------------------------------------------------------------
 
-INTERFACE InitSolov 
-  MODULE PROCEDURE InitSolov 
+INTERFACE EvalPsi
+  MODULE PROCEDURE EvalPsi
 END INTERFACE
 
-! allow different dimensions of input/output arrays
-!INTERFACE MapToSolov 
-!  MODULE PROCEDURE MapToSolov 
-!END INTERFACE
+INTERFACE EvalPsiVec
+  MODULE PROCEDURE EvalPsiVec 
+END INTERFACE
 
-PUBLIC::InitSolov
-PUBLIC::MapToSolov
+INTERFACE EvaldPsidxVec
+  MODULE PROCEDURE EvaldPsidxVec 
+END INTERFACE
+
+INTERFACE Evald2PsidxVec
+  MODULE PROCEDURE Evald2PsidxVec 
+END INTERFACE
+
+INTERFACE EvaldPsidyVec
+  MODULE PROCEDURE EvaldPsidyVec 
+END INTERFACE
+
+INTERFACE Evald2PsidyVec
+  MODULE PROCEDURE Evald2PsidyVec 
+END INTERFACE
 !===================================================================================================================================
 
 CONTAINS
 
-SUBROUTINE InitSolov 
+
+FUNCTION EvalPsi(x,y)
 !===================================================================================================================================
-! ?
+! Evaluate Psi functions
 !===================================================================================================================================
 ! MODULES
-USE MOD_Globals, ONLY:UNIT_StdOut
-USE MOD_ReadInTools
-USE MOD_Solov_Vars
+USE MOD_Solov_Vars,ONLY:psiCoefs
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
+REAL, INTENT(IN) :: x
+REAL, INTENT(IN) :: y
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
+REAL      :: EvalPsi
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !===================================================================================================================================
-  WRITE(UNIT_stdOut,'(A)')'  INIT SOLOV INPUT ...'
+EvalPsi=SUM(EvalPsiVec(x,y)*PsiCoefs)
 
-  setup =GETINT("Solov_setup","0")
-  IF(setup.EQ.0)THEN
-    P_R0    =GETREAL("Solov_R0")
-    P_eps   =GETREAL("Solov_eps")
-    P_kappa =GETREAL("Solov_kappa")
-    P_delta =GETREAL("Solov_delta")
-    P_A     =GETREAL("Solov_A")
-    P_qaxis =GETREAL("Solov_qaxis")
-    P_paxis =GETREAL("Solov_paxis")
-  ELSE
-    !preselected setups (defaults are set, can still be modified in inifile)
-    SELECT CASE(setup)
-    CASE(1) !circular
-      P_R0    =GETREAL("Solov_R0","10.")
-      P_eps   =GETREAL("Solov_eps","1.")
-      P_kappa =GETREAL("Solov_kappa","1.")
-      P_delta =GETREAL("Solov_delta","0.")
-      P_A     =GETREAL("Solov_A","0.955")
-      P_qaxis =GETREAL("Solov_qaxis","1.89")
-      P_paxis =GETREAL("Solov_paxis","2.0e-03")
-    CASE(2) !parameter ITER-like
-      P_R0    =GETREAL("Solov_R0","6.2")
-      P_eps   =GETREAL("Solov_eps","0.32")
-      P_kappa =GETREAL("Solov_kappa","1.7")
-      P_delta =GETREAL("Solov_delta","0.33")
-      P_A     =GETREAL("Solov_A","-0.155")
-      P_qaxis =GETREAL("Solov_qaxis","1.6")
-      P_paxis =GETREAL("Solov_paxis","8.0e-02")
-    CASE DEFAULT
-      WRITE(*,*) "this soloviev setup does not exist" ,setup
-      STOP
-    END SELECT
-  END IF !setup=0
-  IF(p_A.GT.1.) WRITE(*,*) 'WARNING, USING POSITIVE PRESSURE GRADIENT p_axis< p_edge'
-    
-  CALL InitSolovievEquilibrium()
-
-  nRhoCoefs=GETINT("Solov_nRhoCoefs","0")
-  IF(nRhoCoefs.GT.0)THEN
-    ALLOCATE(RhoCoefs(nRhoCoefs))
-    RhoCoefs=GETREALARRAY("Solov_RhoCoefs",nRhoCoefs)
-  END IF
-  WRITE(UNIT_stdOut,'(A)')'  ... DONE'
-END SUBROUTINE InitSolov
+END FUNCTION EvalPsi
 
 
-SUBROUTINE InitSolovievEquilibrium 
+FUNCTION EvalPsiVec(x,y)
 !===================================================================================================================================
-! Solve for psiCoefs depending on input data
+! Evaluate Psi functions
 !===================================================================================================================================
 ! MODULES
-USE MOD_Solov_Vars
+USE MOD_Solov_Vars,ONLY:p_A
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
+REAL, INTENT(IN) :: x
+REAL, INTENT(IN) :: y
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
+REAL      :: EvalPsiVec(0:7)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+REAL      :: x2,y2,lgx
 !===================================================================================================================================
-END SUBROUTINE InitSolovievEquilibrium 
+x2=x*x
+y2=y*y
+lgx=LOG(x)
+EvalPsiVec(0) = 0.125*x2*(x2 + p_A * (4. * lgx - x2 ))
+EvalPsiVec(1) = 1.
+EvalPsiVec(2) = x2
+EvalPsiVec(3) = y2 - x2 * lgx
+EvalPsiVec(4) = x2*(x2 - 4. * y2)
+EvalPsiVec(5) = y2*( 2. * y2 - 9. * x2)   + 3.*lgx*x2*( x2 - 4. * y2 )
+EvalPsiVec(6) = x2*(x2*(x2 - 12. * y2)) + 8.*x2*y2*y2
+EvalPsiVec(7) = y2*(y2*(8.*y2 - (140.+120.*lgx)* x2 )) + x2*( (75 +180.*lgx)*x2*y2  - 15.*x2*x2*lgx)
+         
+END FUNCTION EvalPsiVec
 
 
-SUBROUTINE SolveForPsiCoefs()
+FUNCTION EvaldPsidxVec(x,y)
 !===================================================================================================================================
-! Builds up the linear system and solves for psiCoefs 
+! Evaluate d/dx (Psi) functions
 !===================================================================================================================================
 ! MODULES
-USE MOD_Solov_Vars
-USE MOD_PsiEval, ONLY:EvalPsiVec,EvaldPsidxVec,Evald2PsidxVec
-USE MOD_PsiEval, ONLY:EvaldPsidyVec,Evald2PsidyVec
+USE MOD_Solov_Vars,ONLY:p_A
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL, INTENT(IN) :: x
+REAL, INTENT(IN) :: y
+!-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
+REAL      :: EvaldPsidxVec(0:7)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-REAL                :: SysMat(7,7),InvSysMat(7,7),RHS(7)
-REAL                :: xm,xc,xp,yp
-REAL                :: alpha,N1,N2,N3
-REAL,DIMENSION(0:7) :: Psi_xmy0,Psi_xcyp,Psi_xpy0
-REAL,DIMENSION(0:7) :: dPsidx_xmy0,dPsidx_xcyp,dPsidx_xpy0
-REAL,DIMENSION(0:7) :: d2Psidx_xcyp,d2Psidy_xpy0,d2Psidy_xmy0
+REAL      :: x2,y2,lgx
 !===================================================================================================================================
-PsiCoefs(0)=1.
-
-xm=1.-p_eps
-xc=1.-p_delta*p_eps
-xp=1.+p_eps
-yp=p_kappa*p_eps
-alpha = ASIN(p_delta)
-N1=  - (1 + alpha)**2 / (p_eps * p_kappa**2)
-N2 = + (1 - alpha)**2 / (p_eps * p_kappa**2)
-N3 = - p_kappa / (p_eps * COS(alpha)**2)
-
-Psi_xmy0=EvalPsiVec(xm,0.)
-Psi_xpy0=EvalPsiVec(xp,0.)
-Psi_xcyp=EvalPsiVec(xc,yp)
-
-
-END SUBROUTINE SolveForPsiCoefs
+x2=x*x
+y2=y*y
+lgx=LOG(x)
+EvaldPsidxVec(0) = x*(p_A*(1.*lgx + 0.5) + 0.5*x2*(1-p_A))
+EvaldPsidxVec(1) = 0.
+EvaldPsidxVec(2) = 2.*x
+EvaldPsidxVec(3) = -x*(2.*lgx + 1)
+EvaldPsidxVec(4) = x*4.*(x2 - 2.*y2)
+EvaldPsidxVec(5) = x*(x2*(12.*lgx + 3.) - y2*(24.*lgx + 30.))
+EvaldPsidxVec(6) = x*(x2*6.*(x2 - 8.*y2) + 16.*y2*y2)
+EvaldPsidxVec(7) = x*(x2*(y2*(720.*lgx + 480.)- x2*(90.*lgx + 15.) ) - y2*y2*(240.*lgx + 400.)) 
+         
+END FUNCTION EvaldPsidxVec
 
 
-SUBROUTINE MapToSolov(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
+FUNCTION Evald2PsidxVec(x,y)
 !===================================================================================================================================
-! Maps a cylinder (r,z,phi) to a toroidal closed flux surface configuration derived from VMEC data. 
-! Surfaces with constant r become flux surfaces. z [0;1] is mapped to [0;2*pi] 
+! Evaluate d^2/dx^2 (Psi) functions
 !===================================================================================================================================
 ! MODULES
-USE MOD_Globals
-USE MOD_MHDEQ_Vars, ONLY:nVarMHDEQ
+USE MOD_Solov_Vars,ONLY:p_A
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-INTEGER,INTENT(IN) :: nTotal         ! total number of points
-REAL, INTENT(IN)   :: x_in(3,nTotal) ! input coordinates represent a cylinder: 
-INTEGER, INTENT(IN):: InputCoordSys  ! =0: x_in(1:3) are (x,y,z) coordinates in a cylinder of size r=[0;1], z=[0;1]
-                                     ! =1: x_in(1:3) are (r,z,phi) coordinates r= [0;1], z= [0;1], phi=[0;1]
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL, INTENT(IN) :: x
+REAL, INTENT(IN) :: y
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL,INTENT(OUT)   :: x_out(3,nTotal) ! mapped x,y,z coordinates with vmec data
-REAL,INTENT(OUT)   :: MHDEQdata(nVarMHDEQ,nTotal) 
+REAL      :: Evald2PsidxVec(0:7)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-REAL    :: r_p    ! raduis in cylindrical coordinate system
-REAL    :: theta  ! poloidal angle [0,2pi]
-REAL    :: zeta ! toroidal angle [0,2pi]
-INTEGER :: iNode
-INTEGER :: percent
+REAL      :: x2,y2,lgx
 !===================================================================================================================================
-WRITE(UNIT_stdOut,'(A,I8,A,A,A)')'  MAP ', nTotal,' NODES TO SOLOVIEV EQUILIBRIUM'
-percent=0
-DO iNode=1,nTotal
-  ! output of progress in %
-  IF((nTotal.GT.10000).AND.(MOD(iNode,(nTotal/100)).EQ.0)) THEN
-    percent=percent+1
-    WRITE(0,'(I4,A23,A1)',ADVANCE='NO')percent, ' % of nodes evaluated...',ACHAR(13)
-  END IF
-  SELECT CASE(InputCoordSys)
-  CASE(0)!x_in(1:3) = x,y,z of cylinder with r<1 and z=[0;1]
-    r_p   = SQRT(x_in(1,iNode)**2+x_in(2,iNode)**2) 
-    theta = ATAN2(x_in(2,iNode),x_in(1,iNode))
-    zeta  = -2.*Pi*x_in(3,iNode) 
-  CASE(1) !x_in(1:3) = (r,z,phi) with r= [0;1], z= [0;1], phi=[0;1] 
-    r_p =  x_in(1,iNode) !=r
-    theta = 2.*Pi*x_in(3,iNode) !=2*pi*phi
-    zeta  = -2.*Pi*x_in(2,iNode) !=2*pi*z
-  END SELECT 
-  !dummy
-  x_out(:,iNode)=x_in(:,iNode)
-  MHDEQdata(:,iNode)=0.
-END DO !iNode
-WRITE(UNIT_stdOut,'(A)')'  ...DONE.                             '
-END SUBROUTINE MapToSolov 
+x2=x*x
+y2=y*y
+lgx=LOG(x)
+Evald2PsidxVec(0) = p_A*(lgx + 1.5) + 1.5*x2*(1.-p_A)
+Evald2PsidxVec(1) = 0.
+Evald2PsidxVec(2) = 2
+Evald2PsidxVec(3) = -(2.*lgx + 3.)
+Evald2PsidxVec(4) = 12.*x2 - 8.*y2
+Evald2PsidxVec(5) = x2*(36.*lgx + 21.) - y2*(24.*lgx + 54.)
+Evald2PsidxVec(6) = x2*(30.*x2 - 144.*y2) + 16*y2*y2
+Evald2PsidxVec(7) = x2*(y2*(2160*lgx + 2160) - x2*(450.*lgx + 165.) ) - y2*y2*(240.*lgx + 640.) 
+         
+END FUNCTION Evald2PsidxVec
 
 
-END MODULE MOD_Solov
+FUNCTION EvaldPsidyVec(x,y)
+!===================================================================================================================================
+! Evaluate d/dy (Psi) functions
+!===================================================================================================================================
+! MODULES
+USE MOD_Solov_Vars,ONLY:p_A
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL, INTENT(IN) :: x
+REAL, INTENT(IN) :: y
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+REAL      :: EvaldPsidyVec(0:7)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL      :: x2,y2,lgx
+!===================================================================================================================================
+x2=x*x
+y2=y*y
+lgx=LOG(x)
+EvaldPsidyVec(0) = 0. 
+EvaldPsidyVec(1) = 0.
+EvaldPsidyVec(2) = 0.
+EvaldPsidyVec(3) = 2*y
+EvaldPsidyVec(4) = -8.*x2*y
+EvaldPsidyVec(5) =  8.*y*y2 -x2*y*(24.*lgx + 18.)
+EvaldPsidyVec(6) = x2*(-24.*x2*y + 32.*y*y2)
+EvaldPsidyVec(7) = x2*(x2*y*(360.*lgx + 150.)) + y2*y*(x2*(-480.*lgx - 560.) + 48*y2)
+         
+END FUNCTION EvaldPsidyVec
+
+
+FUNCTION Evald2PsidyVec(x,y)
+!===================================================================================================================================
+! Evaluate d/dy (Psi) functions
+!===================================================================================================================================
+! MODULES
+USE MOD_Solov_Vars,ONLY:p_A
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL, INTENT(IN) :: x
+REAL, INTENT(IN) :: y
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+REAL      :: Evald2PsidyVec(0:7)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL      :: x2,y2,lgx
+!===================================================================================================================================
+x2=x*x
+y2=y*y
+lgx=LOG(x)
+Evald2PsidyVec(0) = 0. 
+Evald2PsidyVec(1) = 0.
+Evald2PsidyVec(2) = 0.
+Evald2PsidyVec(3) = 2.
+Evald2PsidyVec(4) = -8.*x2
+Evald2PsidyVec(5) =  24.*y2 -x2*(24.*lgx + 18.)
+Evald2PsidyVec(6) = x2*(-24.*x2 + 96.*y2)
+Evald2PsidyVec(7) = x2*(x2*(360.*lgx + 150.)) + y2*(x2*(-1440.*lgx - 1680.) + 240.*y2)
+
+END FUNCTION Evald2PsidyVec
+
+END MODULE MOD_PsiEval

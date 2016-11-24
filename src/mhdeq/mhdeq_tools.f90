@@ -21,7 +21,7 @@
 ! You should have received a copy of the GNU General Public License along with HOPR. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
 #include "hopr.h"
-MODULE MOD_MHDEQ
+MODULE MOD_MHDEQ_Tools
 !===================================================================================================================================
 ! ?
 !===================================================================================================================================
@@ -35,95 +35,41 @@ PRIVATE
 ! Private Part ---------------------------------------------------------------------------------------------------------------------
 ! Public Part ----------------------------------------------------------------------------------------------------------------------
 
-INTERFACE InitMHDEQ 
-  MODULE PROCEDURE InitMHDEQ
+INTERFACE Eval1DPoly 
+  MODULE PROCEDURE Eval1DPoly
 END INTERFACE
 
-! allow different dimensions of input/output arrays
-!INTERFACE MapToMHDEQ
-!  MODULE PROCEDURE MapToMHDEQ
-!END INTERFACE
-
-PUBLIC::InitMHDEQ
-PUBLIC::MapToMHDEQ
+PUBLIC::Eval1DPoly
 !===================================================================================================================================
 
 CONTAINS
-SUBROUTINE InitMHDEQ 
-!===================================================================================================================================
-! ?
-!===================================================================================================================================
-! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut,abort
-USE MOD_ReadInTools,ONLY:GETINT
-USE MOD_MHDEQ_Vars
-USE MOD_VMEC, ONLY:InitVMEC
-USE MOD_Solov, ONLY:InitSolov
-! IMPLICIT VARIABLE HANDLING
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT/OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-WRITE(UNIT_stdOut,'(A)')'INIT MHD EQUILIBRIUM INPUT ...'
-whichEquilibrium    = GETINT('whichEquilibrium','0')   
-IF(WhichEquilibrium.EQ.0) THEN 
-  WRITE(UNIT_stdOut,'(A)')'... NOTHING TO BE DONE'
-  RETURN
-END IF
-SELECT CASE(whichEquilibrium)
-CASE(1)
-  useMHDEQ=.TRUE.
-  WRITE(*,*)'Using VMEC as equilibrium solution...'
-  CALL InitVMEC()
-CASE(2)
-  useMHDEQ=.TRUE.
-  WRITE(*,*)'Using Soloviev as equilibrium solution...'
-  CALL InitSolov()
-CASE DEFAULT
-  WRITE(*,*)'WARNING: No Equilibrium solution for which Equilibrium= ', whichEquilibrium
-  STOP
-END SELECT
-WRITE(UNIT_stdOut,'(A)')'... DONE'
-END SUBROUTINE InitMHDEQ
+ 
 
-
-SUBROUTINE MapToMHDEQ(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
+FUNCTION Eval1DPoly(nCoefs,Coefs,x)
 !===================================================================================================================================
-! Maps a cylinder (r,z,phi) to a toroidal closed flux surface configuration derived from VMEC data. 
-! Surfaces with constant r become flux surfaces. z [0;1] is mapped to [0;2*pi] 
+! evalute monomial polynomial c_1+c_2*x+c_3*x^2 ...
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
-USE MOD_MHDEQ_Vars, ONLY: nVarMHDEQ,whichEquilibrium
-USE MOD_VMEC, ONLY:MapToVMEC
-USE MOD_Solov, ONLY:MapToSolov
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-INTEGER,INTENT(IN) :: nTotal         ! total number of points
-REAL, INTENT(IN)   :: x_in(3,nTotal) ! input coordinates represent a cylinder: 
-INTEGER, INTENT(IN):: InputCoordSys  ! =0: x_in(1:3) are (x,y,z) coordinates in a cylinder of size r=[0;1], z=[0;1]
-                                     ! =1: x_in(1:3) are (r,z,phi) coordinates r= [0;1], z= [0;1], phi=[0;1]
+INTEGER, INTENT(IN)  :: nCoefs                   !number of coefficients 
+REAL, INTENT(IN)     :: Coefs(nCoefs)            !coefficients
+REAL, INTENT(IN)     :: x                        !evaluation position
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL,INTENT(OUT)   :: x_out(3,nTotal) ! mapped x,y,z coordinates with vmec data
-REAL,INTENT(OUT)   :: MHDEQdata(nVarMHDEQ,nTotal) 
+REAL              :: Eval1DPoly
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+INTEGER           :: i
 !===================================================================================================================================
-SELECT CASE(whichEquilibrium)
-CASE(1)
-  CALL MapToVMEC(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
-CASE(2)
-  CALL MapToSolov(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
-END SELECT
-END SUBROUTINE MapToMHDEQ 
+Eval1DPoly=0.
+DO i=nCoefs,1,-1
+  Eval1DPoly=Eval1DPoly*x+Coefs(i)
+END DO
 
-END MODULE MOD_MHDEQ
+END FUNCTION Eval1DPoly
+
+END MODULE MOD_MHDEQ_Tools

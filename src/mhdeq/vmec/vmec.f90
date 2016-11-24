@@ -74,7 +74,7 @@ LOGICAL              :: useFilter
 REAL,ALLOCATABLE     :: lmns_half(:,:)
 REAL,ALLOCATABLE     :: gmnc_half_nyq(:,:)
 !===================================================================================================================================
-  WRITE(UNIT_stdOut,'(A)')'INIT VMEC INPUT ...'
+  WRITE(UNIT_stdOut,'(A)')'  INIT VMEC INPUT ...'
 
   me_rank = 0
   me_size = 1
@@ -191,7 +191,7 @@ REAL,ALLOCATABLE     :: gmnc_half_nyq(:,:)
   CALL SPLINE1_FIT(nFluxVMEC,rho,chinorm_Spl(:,:), K_BC1=3, K_BCN=0)
 
 
-  WRITE(UNIT_stdOut,'(A)')'... DONE'
+  WRITE(UNIT_stdOut,'(A)')'  ... DONE'
 END SUBROUTINE InitVMEC
 
 
@@ -316,7 +316,8 @@ SUBROUTINE MapToVMEC(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
-USE MOD_MHDEQ_Vars, ONLY:nVarMHDEQ
+USE MOD_MHDEQ_Vars,    ONLY: nVarMHDEQ
+USE MOD_MHDEQ_Tools,   ONLY: Eval1DPoly
 USE MOD_VMEC_Vars
 USE MOD_VMEC_Mappings, ONLY: mn_mode,xm,xn
 USE MOD_VMEC_Mappings, ONLY: mn_mode_nyq,xm_nyq,xn_nyq
@@ -544,7 +545,7 @@ DO iNode=1,nTotal
   Acart(2)= Ar*sinzeta+Aphi*coszeta
   Acart(3)= Az
   
-  Density=EvalPoly(nRhoCoefs,RhoCoefs,MERGE(phi_p,chi_p,RhoFluxVar.EQ.0)) 
+  Density=Eval1DPoly(nRhoCoefs,RhoCoefs,MERGE(phi_p,chi_p,RhoFluxVar.EQ.0)) 
 
   MHDEQdata(  1,iNode)=Density
   MHDEQdata(  2,iNode)=pressure*mu0 !pressure transformed to mu0=1
@@ -560,34 +561,6 @@ END DO !iNode=1,nTotal
 
 WRITE(UNIT_stdOut,'(A)')'  ...DONE.                             '
 END SUBROUTINE MapToVmec 
- 
-
-FUNCTION EvalPoly(nCoefs,Coefs,x)
-!===================================================================================================================================
-! evalute monomial polynomial c_1+c_2*x+c_3*x^2 ...
-!===================================================================================================================================
-! MODULES
-USE MOD_Globals
-! IMPLICIT VARIABLE HANDLING
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-INTEGER, INTENT(IN)  :: nCoefs                   !number of coefficients 
-REAL, INTENT(IN)     :: Coefs(nCoefs)            !coefficients
-REAL, INTENT(IN)     :: x                        !evaluation position
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-REAL              :: EvalPoly
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-INTEGER           :: i
-!===================================================================================================================================
-EvalPoly=0.
-DO i=nCoefs,1,-1
-  EvalPoly=EvalPoly*x+Coefs(i)
-END DO
-
-END FUNCTION EvalPoly
 
 
 END MODULE MOD_VMEC
