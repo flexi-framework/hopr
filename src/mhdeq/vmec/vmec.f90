@@ -74,9 +74,7 @@ LOGICAL              :: useFilter
 REAL,ALLOCATABLE     :: lmns_half(:,:)
 REAL,ALLOCATABLE     :: gmnc_half_nyq(:,:)
 !===================================================================================================================================
-WRITE(UNIT_stdOut,'(A)')'INIT VMEC INPUT ...'
-useVMEC      = GETLOGICAL('useVMEC','.FALSE.')   ! Use / reconstruct spline boundaries
-IF(useVMEC)THEN
+  WRITE(UNIT_stdOut,'(A)')'INIT VMEC INPUT ...'
 
   me_rank = 0
   me_size = 1
@@ -193,30 +191,7 @@ IF(useVMEC)THEN
   CALL SPLINE1_FIT(nFluxVMEC,rho,chinorm_Spl(:,:), K_BC1=3, K_BCN=0)
 
 
-  !OUTPUT
-  nVarVMEC=14
-  ALLOCATE(VMECVarNames(nVarVMEC))
-  VMECvarnames( 1)='VMEC-torfluxnorm'
-  VMECvarnames( 2)='VMEC-polfluxnorm'
-  VMECvarnames( 3)='VMEC-A_X'
-  VMECvarnames( 4)='VMEC-A_Y'
-  VMECvarnames( 5)='VMEC-A_Z'
-  VMECvarnames( 6)='VMEC-B_X'
-  VMECvarnames( 7)='VMEC-B_Y'
-  VMECvarnames( 8)='VMEC-B_Z'
-  VMECvarnames( 9)='VMEC-Pressure'
-  VMECvarnames(10)='VMEC-Density'
-  VMECvarnames(11)='VMEC-11'
-  VMECvarnames(12)='VMEC-12'
-  VMECvarnames(13)='VMEC-13'
-  VMECvarnames(14)='VMEC-14'
-  nVarOutVMEC=10
-  ALLOCATE(VMECoutVarMap(1:nVarOutVMEC))
-  !output variables for HDF5 file: Density,Pressure,Bx,By,Bz,normalized poloidal & toroidal flux, magnetic potential
-  VMECoutVarMap(:)=(/10,9,6,7,8,2,1,3,4,5/) 
-END IF !useVMEC
-
-WRITE(UNIT_stdOut,'(A)')'... DONE'
+  WRITE(UNIT_stdOut,'(A)')'... DONE'
 END SUBROUTINE InitVMEC
 
 
@@ -334,19 +309,20 @@ END SUBROUTINE FitSplineHalf
 
 
 
-SUBROUTINE MapToVMEC(nTotal,x_in,InputCoordSys,xvmec,vmecData)
+SUBROUTINE MapToVMEC(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
 !===================================================================================================================================
 ! Maps a cylinder (r,z,phi) to a toroidal closed flux surface configuration derived from VMEC data. 
 ! Surfaces with constant r become flux surfaces. z [0;1] is mapped to [0;2*pi] 
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
+USE MOD_MHDEQ_Vars, ONLY:nVarMHDEQ
+USE MOD_VMEC_Vars
 USE MOD_VMEC_Mappings, ONLY: mn_mode,xm,xn
 USE MOD_VMEC_Mappings, ONLY: mn_mode_nyq,xm_nyq,xn_nyq
 USE MOD_VMEC_Mappings, ONLY: nFluxVMEC
 USE MOD_VMEC_Mappings, ONLY: mu0
 USE MOD_VMEC_Mappings, ONLY: chi,phi
-USE MOD_VMEC_Vars
 USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -358,8 +334,8 @@ INTEGER, INTENT(IN):: InputCoordSys  ! =0: x_in(1:3) are (x,y,z) coordinates in 
                                      ! =1: x_in(1:3) are (r,z,phi) coordinates r= [0;1], z= [0;1], phi=[0;1]
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL,INTENT(OUT)   :: xvmec(3,nTotal) ! mapped x,y,z coordinates with vmec data
-REAL,INTENT(OUT)   :: vmecData(nVarVMEC,nTotal) 
+REAL,INTENT(OUT)   :: x_out(3,nTotal) ! mapped x,y,z coordinates with vmec data
+REAL,INTENT(OUT)   :: MHDEQdata(nVarMHDEQ,nTotal) 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER :: iNode,percent
@@ -556,9 +532,9 @@ DO iNode=1,nTotal
   coszeta=COS(zeta)
   sinzeta=SIN(zeta)
   
-  xvmec(1,iNode)= R*coszeta
-  xvmec(2,iNode)= R*sinzeta
-  xvmec(3,iNode)= Z
+  x_out(1,iNode)= R*coszeta
+  x_out(2,iNode)= R*sinzeta
+  x_out(3,iNode)= Z
   
   Bcart(1)= Br*coszeta-Bphi*sinzeta
   Bcart(2)= Br*sinzeta+Bphi*coszeta
@@ -570,16 +546,16 @@ DO iNode=1,nTotal
   
   Density=EvalPoly(nRhoCoefs,RhoCoefs,MERGE(phi_p,chi_p,RhoFluxVar.EQ.0)) 
 
-  vmecData(  1,iNode)=phi_p
-  vmecData(  2,iNode)=chi_p
-  vmecData(3:5,iNode)=Acart(:)
-  vmecData(6:8,iNode)=Bcart(:)
-  vmecData(  9,iNode)=pressure*mu0 !pressure transformed to mu0=1
-  vmecData( 10,iNode)=Density
-  vmecData( 11,iNode)=dRdrho
-  vmecData( 12,iNode)=dldrho
-  vmecData( 13,iNode)=dRdtheta
-  vmecData( 14,iNode)=dZdtheta
+  MHDEQdata(  1,iNode)=Density
+  MHDEQdata(  2,iNode)=pressure*mu0 !pressure transformed to mu0=1
+  MHDEQdata( 3:5,iNode)=Bcart(:)
+  MHDEQdata(   6,iNode)=chi_p
+  MHDEQdata(   7,iNode)=phi_p
+  MHDEQdata(8:10,iNode)=Acart(:)
+!  MHDEQdata( 11,iNode)=dRdrho
+!  MHDEQdata( 12,iNode)=dldrho
+!  MHDEQdata( 13,iNode)=dRdtheta
+!  MHDEQdata( 14,iNode)=dZdtheta
 END DO !iNode=1,nTotal
 
 WRITE(UNIT_stdOut,'(A)')'  ...DONE.                             '

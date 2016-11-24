@@ -470,7 +470,7 @@ USE MOD_Basis_Vars,ONLY:Vdm_Visu_Hexa,D_Visu_Hexa
 USE MOD_Basis_Vars,ONLY:VisuHexaMapInv,HexaMap
 USE MOD_Basis_Vars,ONLY:nVisu
 USE MOD_Output    ,ONLY:Visualize
-USE MOD_VMEC_Vars ,ONLY:useVMEC,nVarVMEC,VMECvarnames,VMECdataEq
+USE MOD_MHDEQ_Vars,ONLY:useMHDEQ,nVarMHDEQ,MHDEQvarnames,MHDEQdataEq
 USE MOD_Output_vars,ONLY:Visu_sJ_limit
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -487,7 +487,7 @@ INTEGER                         :: nVal   ! ?
 CHARACTER(LEN=255)              :: FileString  ! ?
 CHARACTER(LEN=255),ALLOCATABLE  :: VarNames(:)  ! ?
 REAL,ALLOCATABLE                :: xNode(:,:),x(:,:),xt1(:,:),xt2(:,:),xt3(:,:),Jac(:)  ! ?
-REAL,ALLOCATABLE                :: VMECdataNode(:,:)
+REAL,ALLOCATABLE                :: MHDEQdataNode(:,:)
 REAL,ALLOCATABLE                :: Coord(:,:,:),Values(:,:,:)   ! ?
 REAL                            :: smaxJac  ! ?
 INTEGER,ALLOCATABLE             :: ElemMap(:),ElemMapInv(:)  ! for visu_sJ_limit
@@ -526,9 +526,9 @@ ALLOCATE(xt2(Nplot_p1_3,3))
 ALLOCATE(xt3(Nplot_p1_3,3))
 ALLOCATE(Jac(Nplot_p1_3))
 nVal=4
-IF(useVMEC) THEN
-  ALLOCATE(VMECdataNode((N+1)**3,nVarVMEC))
-  nVal=nVal+nVarVMEC
+IF(useMHDEQ) THEN
+  ALLOCATE(MHDEQdataNode((N+1)**3,nVarMHDEQ))
+  nVal=nVal+nVarMHDEQ
 END IF
 
 ALLOCATE(VarNames(nVal))
@@ -536,7 +536,7 @@ VarNames(1)='elemind'
 VarNames(2)='Jacobian'
 VarNames(3)='scaledJacobian'
 VarNames(4)='scaledJacElem'
-IF(useVMEC) VarNames(5:4+nVarVMEC)=VMECvarnames(:)
+IF(useMHDEQ) VarNames(5:4+nVarMHDEQ)=MHDEQvarnames(:)
 
 ALLOCATE(Coord(    3,Nplot_p1_3,nCurveds))
 ALLOCATE(Values(nVal,Nplot_p1_3,nCurveds))
@@ -556,8 +556,8 @@ DO WHILE(ASSOCIATED(Elem))
       DO iNode=1,nNodes
         IF(ASSOCIATED(Elem%curvedNode(iNode)%np))THEN
           xNode(iNode,:)=Elem%curvedNode(iNode)%np%x
-          IF(useVMEC) THEN
-            VMECdataNode(iNode,:)=VMECdataEq(:,HexaMap(iNode,1),HexaMap(iNode,2),HexaMap(iNode,3),Elem%ind)
+          IF(useMHDEQ) THEN
+            MHDEQdataNode(iNode,:)=MHDEQdataEq(:,HexaMap(iNode,1),HexaMap(iNode,2),HexaMap(iNode,3),Elem%ind)
           END IF
         ELSE
           CALL abort(__STAMP__, &
@@ -584,7 +584,7 @@ DO WHILE(ASSOCIATED(Elem))
       END DO
       Values(1,:,iElem)=Elem%ind
       Values(4,:,iElem)=MINVAL(Values(3,:,iElem))
-      IF(useVMEC) Values(5:4+nVarVMEC,:,iElem)  = TRANSPOSE(MATMUL(Vdm_Visu_Hexa,VMECDataNode(1:nNodes,:)))
+      IF(useMHDEQ) Values(5:4+nVarMHDEQ,:,iElem)  = TRANSPOSE(MATMUL(Vdm_Visu_Hexa,MHDEQDataNode(1:nNodes,:)))
     END SELECT
   END IF
   Elem=>Elem%nextElem

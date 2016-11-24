@@ -54,8 +54,8 @@ USE MOD_Mesh_Vars   ,ONLY: N,nMeshElems
 USE MOD_Basis_Vars  ,ONLY: HexaMap
 USE MOD_Basis1D     ,ONLY: LegGaussLobNodesAndWeights,BarycentricWeights,InitializeVandermonde
 USE MOD_ChangeBasis ,ONLY: ChangeBasis3D
-USE MOD_VMEC_Vars   ,ONLY:useVMEC,nVarVMEC,nVarOutVMEC,VMECoutVarMap,VMECoutdataGL,VMECdataEq
-USE MOD_VMEC        ,ONLY:MapToVMEC
+USE MOD_MHDEQ_Vars  ,ONLY: whichEquilibrium,nVarMHDEQ,MHDEQoutdataGL,MHDEQdataEq
+USE MOD_MHDEQ       ,ONLY: MapToMHDEQ
 USE MOD_Output_vars ,ONLY:DebugVisu,DebugVisuLevel
 !MODULE OUTPUT VARIABLES
 ! MODULES
@@ -128,18 +128,18 @@ END IF !PostDeform_useGL
 nTotal=(N+1)**3*nMeshElems
 CALL PostDeformFunc(nTotal,xElem,xElem)
 
-IF(useVMEC)THEN
-  ALLOCATE(VMECdataEq(nVarVMEC,0:N,0:N,0:N,nMeshElems))
-  CALL MapToVMEC(nTotal,xElem,0,xElem,VMECdataEq)
+IF(whichEquilibrium.GT.0)THEN
+  ALLOCATE(MHDEQdataEq(nVarMHDEQ,0:N,0:N,0:N,nMeshElems))
+  CALL MapToMHDEQ(nTotal,xElem,0,xElem,MHDEQdataEq)
 
-  ALLOCATE(VMECoutdataGL(nVarOutVMEC,0:N,0:N,0:N,nMeshElems))
+  ALLOCATE(MHDEQoutdataGL(nVarMHDEQ,0:N,0:N,0:N,nMeshElems))
   IF(PostDeform_useGL.AND.(N.GT.2))THEN
     !data is already on GL poitns 
-    VMECoutdataGL=VMECdataEq(VMECoutVarMap,:,:,:,:)
+    MHDEQoutdataGL=MHDEQdataEq
     !change back to equidistant for visu output
-    CALL ChangeBasis3D(nVarVMEC,nMeshElems,N,N,Vdm_GLtoEQ,VMECdataEq,VMECdataEq,.FALSE.)
+    CALL ChangeBasis3D(nVarMHDEQ,nMeshElems,N,N,Vdm_GLtoEQ,MHDEQdataEq,MHDEQdataEq,.FALSE.)
   ELSE
-    CALL ChangeBasis3D(nVarOutVMEC,nMeshElems,N,N,Vdm_EQtoGL,VMECdataEq(VMECoutVarMap,:,:,:,:),VMECoutdataGL,.FALSE.)
+    CALL ChangeBasis3D(nVarMHDEQ,nMeshElems,N,N,Vdm_EQtoGL,MHDEQdataEq,MHDEQoutdataGL,.FALSE.)
   END IF!postDeform_useGL
 END IF
 

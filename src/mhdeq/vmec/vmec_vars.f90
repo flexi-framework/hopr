@@ -45,16 +45,10 @@ REAL,ALLOCATABLE    :: Rmnc_Spl(:,:,:)                   ! modified spline coeff
 REAL,ALLOCATABLE    :: Zmns_Spl(:,:,:)                   !
 REAL,ALLOCATABLE    :: lmns_Spl(:,:,:)                   !
 REAL,ALLOCATABLE    :: gmnc_nyq_Spl(:,:,:)               !
-REAL,ALLOCATABLE    :: VMECoutdataGL(:,:,:,:,:)          ! VMEC data to be written to hdf5 file, on Gauss-Lobatto nodes
-REAL,ALLOCATABLE    :: VMECdataEq(:,:,:,:,:)          ! VMEC data on equidistant nodes 
 INTEGER             :: nRhoCoefs                        ! number of density coefficients 
 INTEGER             :: RhoFluxVar                        ! =0: rho(phinorm) Normalized toroidal flux variable, =1: rho(chinorm) 
 REAL,ALLOCATABLE    :: RhoCoefs(:)                      !density coefficients of the polynomial coefficients:
                                                          !rho_1+rho_2*x + rho_3*x^2 ...
-INTEGER             :: nVarVMEC
-CHARACTER(LEN=255),ALLOCATABLE  :: VMECvarnames(:)
-INTEGER             :: nVarOutVMEC
-INTEGER,ALLOCATABLE :: VMECoutVarMap(:)                  !only output Density,Pressure,Bx,By,Bz
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! Private Part ---------------------------------------------------------------------------------------------------------------------
 ! Public Part ----------------------------------------------------------------------------------------------------------------------

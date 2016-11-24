@@ -63,6 +63,7 @@ USE MOD_Mesh_Vars,ONLY:N
 USE MOD_Output_Vars,ONLY:dosortIJK
 USE MOD_Mesh_Vars,ONLY:nUserDefinedBoundaries,BoundaryName,BoundaryType
 USE MOD_Mesh_Basis,ONLY:ISORIENTED
+USE MOD_MHDEQ_Vars,ONLY:useMHDEQ,MHDEQvarNames,nVarMHDEQ,MHDEQoutdataGL
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -337,6 +338,13 @@ IF(dosortIJK)THEN
   CALL WriteArrayToHDF5(File_ID,'Elem_IJK',2,(/3,nElems/),IntegerArray=TRANSPOSE(Elem_IJK))
   DEALLOCATE(Elem_IJK)
 END IF
+
+
+IF(useMHDEQ)THEN
+  CALL WriteAttribute(File_ID,'MHDEQdata_Version',1,IntScalar=2)
+  CALL WriteArrayToHDF5(File_ID,'MHDEQdata_VarNames',1,(/nVarMHDEQ/),StrArray=MHDEQvarNames)
+  CALL WriteArrayToHDF5(File_ID,'MHDEQdata_GL',5,(/nVarMHDEQ,N+1,N+1,N+1,nElems/),RealArray=MHDEQoutdataGL)
+END IF !useMHDEQ
 
 ! Close the file.
 CALL CloseHDF5File()
