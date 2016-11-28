@@ -182,8 +182,7 @@ SUBROUTINE PostDeformFunc(nTotal,X_in,X_out)
 !MODULE INPUT VARIABLES
 USE MOD_Globals
 USE MOD_Mesh_Vars,ONLY:MeshPostDeform,PostDeform_R0,PostDeform_Rtorus 
-USE MOD_Mesh_Vars,ONLY:PostDeform_sq,PostDeform_Lz,PostDeform_Raxis
-USE MOD_Mesh_Vars,ONLY:PostDeform_delta,PostDeform_epsilon,PostDeform_kappa,PostDeform_corry
+USE MOD_Mesh_Vars,ONLY:PostDeform_sq,PostDeform_Lz
 !MODULE OUTPUT VARIABLES
 ! MODULES
 ! IMPLICIT VARIABLE HANDLING
@@ -257,31 +256,8 @@ CASE(1,11,12)
     IF(PostDeform_Rtorus.LT.0.)THEN
       xout(3)=x(3)*PostDeform_Lz !cylinder
     ELSE !torus, z_in must be [0,1] and periodic  !!, torus around z axis ,x =R*cos(phi), y=-R*sin(phi)!!!
-      IF(PostDeform_epsilon .GT. 0.)THEN
-        !Solov'ev MHD equilibrium, only up-down symmetric!
-        ! epsilon: minor_radius/[major_radius(=PostDeform_Rtorus)], input parameter of equilibrium
-        ! kappa: elongation in y                                  , input parameter of equilibrium
-        ! delta: deformation in -x                                , input parameter of equilibrium
-        ! move center to PostDeform_Raxis,  R position of magn. axis, comes from equilibrium solution!
-        rr=SQRT(xout(1)**2+xout(2)**2) !must be now between [0,1], set PostDeform_R0 adequately!
-        IF(rr.GT.1.0e-08) THEN
-          asdeltay_sr=ASIN(PostDeform_delta*rr)*xout(2)/rr !y/r=sin(alpha)
-        ELSE
-          asdeltay_sr=0.
-        END IF
-        eps=PostDeform_epsilon*PostDeform_Rtorus
-        ! blend  from axis to edge.
-        ! R=deltax*(1-rr**2)+rr*eps*cos[alpha+asin(delta*rr)*sin(a)], x/rr=cos(alpha)
-                                   !cos[   a +         b           ]=cos(a)*cos(b)-sin(a)*sin(b), 
-        xout(1)=(PostDeform_Raxis-PostDeform_Rtorus)*(1.-rr**2) + eps*(xout(1)*COS(asdeltay_sr)-xout(2)*SIN(asdeltay_sr))
-        ! Z=(rr+[(1-rr^2)*rr^2]*corry)*kappa*eps*sin(alpha), with a quadratic correction corry
-        !    y/rr=sin(alpha)
-        xout(3)=(1+(1-rr**2)*rr*PostDeform_corry)*PostDeform_kappa*eps*xout(2)
-                                                                              
-      ELSE
-        !xout(1)=xout(1)
-        xout(3)=xout(2)
-      END IF
+      !xout(1)=xout(1)
+      xout(3)=xout(2)
       !map R,Z to X,Y,Z
       xout(2)=-(xout(1)+PostDeform_Rtorus)*SIN(2*Pi*x(3))
       xout(1)= (xout(1)+PostDeform_Rtorus)*COS(2*Pi*x(3))

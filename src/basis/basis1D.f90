@@ -93,6 +93,7 @@ END INTERFACE
 
 
 PUBLIC:: INV
+PUBLIC:: SOLVE
 PUBLIC:: BuildLegendreVdm
 PUBLIC:: Vandermonde1D
 PUBLIC:: GradVandermonde1D
@@ -383,6 +384,48 @@ IF(info.NE.0)THEN
    STOP 'Matrix inversion failed!'
 END IF
 END FUNCTION INV
+
+!==================================================================================================================================
+!> Solves A*x=b
+!==================================================================================================================================
+FUNCTION SOLVE(A,b) RESULT(x)
+! MODULES
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL,INTENT(IN)  :: A(:,:)         !< input matrix
+REAL,INTENT(IN)  :: b(:)           !< input rhs
+REAL             :: x(SIZE(A,2))   !< result: x
+!----------------------------------------------------------------------------------------------------------------------------------
+! External procedures defined in LAPACK
+EXTERNAL DGETRF
+EXTERNAL DGETRI
+! LOCAL VARIABLES
+REAL    :: Amat(SIZE(A,1),SIZE(A,2)) 
+INTEGER :: ipiv(SIZE(A,1))  ! pivot indices
+INTEGER :: n,info
+!==================================================================================================================================
+! Store A in Amat to prevent it from being overwritten by LAPACK
+Amat=A
+x=b
+n = size(A,1)
+
+! DGETRF computes an LU factorization of a general M-by-N matrix A
+! using partial pivoting with row interchanges.
+CALL DGETRF(n, n, Amat, n, ipiv, info)
+
+IF(info.NE.0)THEN
+   STOP 'Matrix is numerically singular!'
+END IF
+
+! DGETRS solves the system using the LU factorization computed by DGETRF.
+CALL DGETRS('N', n,1, Amat, n, ipiv, x, n, info)
+
+IF(info.NE.0)THEN
+   STOP 'System solution failed!'
+END IF
+END FUNCTION SOLVE
+
 
 !==================================================================================================================================
 !> Build a 1D Vandermonde matrix from an orthonormal Legendre basis to a nodal basis and reverse

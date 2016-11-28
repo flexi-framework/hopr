@@ -36,16 +36,16 @@ INTEGER             :: nVarMHDEQ=10
 REAL,ALLOCATABLE    :: MHDEQoutdataGL(:,:,:,:,:)       ! MHD equilibrium data to be written to hdf5 file, on Gauss-Lobatto nodes
 REAL,ALLOCATABLE    :: MHDEQdataEq(:,:,:,:,:)          ! VMEC data on equidistant nodes (forvisualization) 
 CHARACTER(LEN=255),DIMENSION(10),PARAMETER :: MHDEQvarNames(10)=(/ CHARACTER(LEN=255) :: &
-                      'MHDEQ-Density'     & 
-                     ,'MHDEQ-Pressure'    &
-                     ,'MHDEQ-B_X'         & 
-                     ,'MHDEQ-B_Y'         &
-                     ,'MHDEQ-B_Z'         &
-                     ,'MHDEQ-polfluxnorm' &  
-                     ,'MHDEQ-torfluxnorm' &  
-                     ,'MHDEQ-A_X'         &
-                     ,'MHDEQ-A_Y'         &
-                     ,'MHDEQ-A_Z'         &     
+                      'MHDEQ-Density'     & ! 1 
+                     ,'MHDEQ-Pressure'    & ! 2
+                     ,'MHDEQ-B_X'         & ! 3
+                     ,'MHDEQ-B_Y'         & ! 4
+                     ,'MHDEQ-B_Z'         & ! 5
+                     ,'MHDEQ-polfluxnorm' & ! 6
+                     ,'MHDEQ-torfluxnorm' & ! 7
+                     ,'MHDEQ-A_X'         & ! 8
+                     ,'MHDEQ-A_Y'         & ! 9
+                     ,'MHDEQ-A_Z'         & !10    
                                          /)
 
 !-----------------------------------------------------------------------------------------------------------------------------------

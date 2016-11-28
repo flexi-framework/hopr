@@ -35,15 +35,19 @@ REAL                :: p_R0        !major radius
 REAL                :: p_eps       !minor/major radius ratio
 REAL                :: p_kappa     ! elliticity
 REAL                :: p_delta     ! triangularity
+REAL                :: asin_delta  ! ASIN(p_delta)
 REAL                :: p_A         ! pA <1 (else deltap>0)
+REAL                :: p_B0        ! toroidal magnetic field strength at magn. axis
 REAL                :: p_qaxis     ! q-factor on axis
 REAL                :: p_paxis     ! pressure on axis
 INTEGER             :: nRhoCoefs   ! number of density coefficients 
 REAL,ALLOCATABLE    :: RhoCoefs(:) !density coefficients of the polynomial coefficients:
 !equilibrium related
-REAL                :: xaxis       !x-position of axis (y=0)
+REAL                :: xaxis(2)    !xy-position o of magnetic axis
+REAL                :: psi_scale   !psi scaling between Soloviev and physical psiReal=psi_scale*psi
 REAL                :: psi_axis    !psi value at the magnetic axis
 REAL                :: psi_edge
+REAL                :: presEdge      !pressure on edge, soloviev pressure profile linear in psinorm
 REAL                :: psiCoefs(0:7) !coefficients for representing flux variable psi
 
 !-----------------------------------------------------------------------------------------------------------------------------------

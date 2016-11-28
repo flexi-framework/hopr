@@ -315,11 +315,6 @@ REAL                           :: PostDeform_R0
 REAL                           :: PostDeform_Lz  
 REAL                           :: PostDeform_sq  
 REAL                           :: PostDeform_Rtorus  
-REAL                           :: PostDeform_Raxis  
-REAL                           :: PostDeform_epsilon 
-REAL                           :: PostDeform_delta 
-REAL                           :: PostDeform_kappa 
-REAL                           :: PostDeform_corry 
 TYPE(tElemPtr),POINTER         :: Elems(:)
 ! INTERFACES -----------------------------------------------------------------------------------------------------------------------
 INTERFACE getNewElem

@@ -550,8 +550,8 @@ DO iNode=1,nTotal
   MHDEQdata(  1,iNode)=Density
   MHDEQdata(  2,iNode)=pressure*mu0 !pressure transformed to mu0=1
   MHDEQdata( 3:5,iNode)=Bcart(:)
-  MHDEQdata(   6,iNode)=chi_p
-  MHDEQdata(   7,iNode)=phi_p
+  MHDEQdata(   6,iNode)=phi_p
+  MHDEQdata(   7,iNode)=chi_p
   MHDEQdata(8:10,iNode)=Acart(:)
 !  MHDEQdata( 11,iNode)=dRdrho
 !  MHDEQdata( 12,iNode)=dldrho
