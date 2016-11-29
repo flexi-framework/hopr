@@ -45,14 +45,14 @@ run_gnu:
   tags:
     - withmodules
   script:
-    - module load env/gnu ; cd tutorials ; ./executeall.sh
+    - module load env/gnu ; cd tutorials ; ./executeall.sh ../build_gnu/bin/hopr
 
 run_intel:
   stage: test
   tags:
     - withmodules
   script:
-    - module load env/intel ; cd tutorials ; ./executeall.sh
+    - module load env/intel ; cd tutorials ; ./executeall.sh ../build_intel/bin/hopr
 
 doxygen:
   stage: documentation
