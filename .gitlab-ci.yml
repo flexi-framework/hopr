@@ -73,8 +73,8 @@ deploy_homepage:
   tags:
     - pomodoro
   script:
-    - if [ -n "${DO_DEPLOY}" ]; then if [ -d "doc/doxygen/doxygen" ]; then ssh flexi@euler rm -rf homepage/doxygen ; scp -r doc/doxygen/doxygen flexi@euler:~/homepage/. ; fi ; fi
-    - if [ -n "${DO_DEPLOY}" ]; then if [ -d "doc/userguide" ]; then scp -r doc/userguide flexi@euler:~/homepage/. ; fi ; fi
+    - if [ -n "${DO_DEPLOY}" ]; then if [ -d "doc/doxygen/doxygen" ]; then ssh flexi@euler rm -rf homepage_hopr/doxygen ; scp -r doc/doxygen/doxygen flexi@euler:~/homepage_hopr/. ; fi ; fi
+    - if [ -n "${DO_DEPLOY}" ]; then if [ -f "doc/Meshformat/Meshformat.pdf" ]; then scp doc/Meshformat/Meshformat.pdf flexi@euler:~/homepage_hopr/. ; fi ; fi
 
 deploy_github:
   stage: deploy
