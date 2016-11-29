@@ -37,11 +37,11 @@ do
 done
  
 echo "=== Comments for input and output variables"
- for file in $FILELIST
+for file in $FILELIST
 do
-perl -pi -e 's/\(IN\)(.*):: (.*?)! (.*)/\(IN\)$1:: $2! $3\n!> \\param[in] $2\n!> \\verbatim\n!>$3\n!> \\endverbatim/g' $file
-perl -pi -e 's/\(OUT\)(.*):: (.*?)! (.*)/\(OUT\)$1:: $2! $3\n!> \\param[out] $2\n!> \\verbatim\n!>$3\n!> \\endverbatim/g' $file
-perl -pi -e 's/\(INOUT\)(.*):: (.*?)! (.*)/\(INOUT\)$1:: $2! $3\n!> \\param[inout] $2\n!> \\verbatim\n!>$3\n!> \\endverbatim/g' $file
+  perl -pi -e 's/\(IN\)(.*):: (.*?)! (.*)/\(IN\)$1:: $2! $3\n!> \\param[in] $2\n!> \\verbatim\n!>$3\n!> \\endverbatim/g' $file
+  perl -pi -e 's/\(OUT\)(.*):: (.*?)! (.*)/\(OUT\)$1:: $2! $3\n!> \\param[out] $2\n!> \\verbatim\n!>$3\n!> \\endverbatim/g' $file
+  perl -pi -e 's/\(INOUT\)(.*):: (.*?)! (.*)/\(INOUT\)$1:: $2! $3\n!> \\param[inout] $2\n!> \\verbatim\n!>$3\n!> \\endverbatim/g' $file
 done
 
 echo "=== Comments for MODULE, SUBROUTINE, RECURSIVE SUBROUTINE, FUNCTION, PURE FUNCTION and PROGRAM"
@@ -60,87 +60,87 @@ do
   z=$[$z+${#FILELIST2[@]}]
 done
  
-for (( k=0; k<${Len_name}; k++ ));
+for (( k=0; k<${Len_name}; k++ )); 
 do 
- 
-echo "=== Comments for "${name[k]}${name2[k]}
-echo "====================================================" 
- 
-FILELIST2=($(grep -l "^"${name[k]} $FILELIST | sed 's/:.*//')) 
-Length=${#FILELIST2[@]} #Number of matching files
- 
-for (( j=0; j<${Length}; j++ ));
-do
- 
-time1=$(date +%s%N | cut -b1-13) #time at begin of loop
- 
-echo "=== File "$[j+1]" of "$Length" for "${name[k]}${name2[k]}" comments" 
-echo "=== Add empty Doxygen comments in "${FILELIST2[j]}" for "${name[k]}${name2[k]}" comments" 
-perl -pi -e 's/^'${name[k]}'(.*)\n(.*)/!> \\par Purpose:\n!> \\verbatim\n!> \n!> \\endverbatim\n'${name[k]}'$1\n/g' ${FILELIST2[j]}
- 
-echo "=== Read "${FILELIST2[j]}" line by line"
-line=()
-typeset -i i=0
-while read line[$i]
-do
-  i=i+1
-done < ${FILELIST2[j]}
- 
-Len=${#line[@]} #Number of lines
- 
-echo "=== Copy "${name[k]}${name2[k]}" comments to doxygen comment lines in "${FILELIST2[j]}
- 
-for (( i=${Len}; i>=0; i-- ));
-do 
-if echo ${line[i]} | grep "^"${name[k]} >/dev/null
-  then #echo ${name[k]}" in line: "$i
-
-	and=0
-	if echo ${line[i]} | grep "&$" >/dev/null;then #true if variables are in two lines
-	and=1
-	fi
-
-  if echo ${line[i+1+and]} | grep "!============================================================================================================================" >/dev/null ;then
-    if echo ${line[i+2+and]} | grep "!============================================================================================================================" >/dev/null ;then
-    echo "Missing comment in line: "$[i+1]". File: "${FILELIST2[j]}"." |cat - missing_comment_lines.txt > /tmp/out && mv /tmp/out missing_comment_lines.txt
-    else
-    for (( l=3; l<99; l++ ));
-    do  
-      if echo ${line[i+l]} | grep "!============================================================================================================================" >/dev/null;then
-        if echo ${line[i+l-1]} | grep "^!" >/dev/null; then
-          x=0
-          for (( m=0; m<(l-and-3); m++ )); do  
-            sed -i -e $[i-1]c"!>\n!>" ${FILELIST2[j]} #adds more empty lines if comment is not a one-liner
-            x=$[$x+1]
-          done
-          for (( n=0; n<=(l-and-3); n++ )); do  
-            sed -i -e  $[i-1+n]c"!> $(cut_it "${line[i+l+n-1-x]}")" ${FILELIST2[j]} #copies comment to doxygen comment line(s)
-          done
-        else
-          echo "Missing comment in line: "$[i+l-1]". File: "${FILELIST2[j]}"." |cat - missing_comment_lines.txt > /tmp/out && mv /tmp/out missing_comment_lines.txt
+   
+  echo "=== Comments for "${name[k]}${name2[k]}
+  echo "====================================================" 
+   
+  FILELIST2=($(grep -l "^"${name[k]} $FILELIST | sed 's/:.*//')) 
+  Length=${#FILELIST2[@]} #Number of matching files
+   
+  for (( j=0; j<${Length}; j++ ));
+  do
+   
+    time1=$(date +%s%N | cut -b1-13) #time at begin of loop
+     
+    echo "=== File "$[j+1]" of "$Length" for "${name[k]}${name2[k]}" comments" 
+    echo "=== Add empty Doxygen comments in "${FILELIST2[j]}" for "${name[k]}${name2[k]}" comments" 
+    perl -pi -e 's/^'${name[k]}'(.*)\n(.*)/!> \\par Purpose:\n!> \\verbatim\n!> \n!> \\endverbatim\n'${name[k]}'$1\n/g' ${FILELIST2[j]}
+     
+    echo "=== Read "${FILELIST2[j]}" line by line"
+    line=()
+    typeset -i i=0
+    while read line[$i]
+    do
+      i=i+1
+    done < ${FILELIST2[j]}
+     
+    Len=${#line[@]} #Number of lines
+     
+    echo "=== Copy "${name[k]}${name2[k]}" comments to doxygen comment lines in "${FILELIST2[j]}
+     
+    for (( i=${Len}; i>=0; i-- ));
+    do 
+      if echo ${line[i]} | grep "^"${name[k]} >/dev/null
+      then 
+      
+      	and=0
+      	if echo ${line[i]} | grep "&$" >/dev/null;then #true if variables are in two lines
+      	  and=1
+      	fi
+      
+        if echo ${line[i+1+and]} | grep "!============================================================================================================================" >/dev/null ;then
+          if echo ${line[i+2+and]} | grep "!============================================================================================================================" >/dev/null ;then
+            echo "Missing comment in line: "$[i+1]". File: "${FILELIST2[j]}"." |cat - missing_comment_lines.txt > /tmp/out && mv /tmp/out missing_comment_lines.txt
+          else
+            for (( l=3; l<99; l++ ));
+            do  
+              if echo ${line[i+l]} | grep "!============================================================================================================================" >/dev/null;then
+                if echo ${line[i+l-1]} | grep "^!" >/dev/null; then
+                  x=0
+                  for (( m=0; m< (${l}-${and}-3); m++ )); do  
+                    sed -i -e $[i-1]c"!>\n!>" ${FILELIST2[j]} #adds more empty lines if comment is not a one-liner
+                    x=$[$x+1]
+                  done
+                  for (( n=0; n<=(l-and-3); n++ )); do  
+                    sed -i -e  $[i-1+n]c"!> $(cut_it "${line[i+l+n-1-x]}")" ${FILELIST2[j]} #copies comment to doxygen comment line(s)
+                  done
+                else
+                  echo "Missing comment in line: "$[i+l-1]". File: "${FILELIST2[j]}"." |cat - missing_comment_lines.txt > /tmp/out && mv /tmp/out missing_comment_lines.txt
+                fi
+                break
+              else
+                continue
+              fi
+            done  
+          fi
         fi
-    break
-      else
-    continue
       fi
-    done  
-    fi
-  fi
-fi
-done
- 
-#for time calculating:
-time2=$(date +%s%N | cut -b1-13) #time at end of loop
-time_d=$(($time2 - $time1)) 
-time_all=$(($time_all+$time_d)) 
-time_e=$(($time_all/$y)) 
-echo "=== Remaining time:" $((($time_e * ($z - $y))/1000)) "seconds" #time
-echo "=== Progress: " $((100*$y / $z))"%" #time
-y=$[$y+1] #time
- 
-echo "====================================================" 
- 
-done
+    done
+     
+    #for time calculating:
+    time2=$(date +%s%N | cut -b1-13) #time at end of loop
+    time_d=$(($time2 - $time1)) 
+    time_all=$(($time_all+$time_d)) 
+    time_e=$(($time_all/$y)) 
+    echo "=== Remaining time:" $((($time_e * ($z - $y))/1000)) "seconds" #time
+    echo "=== Progress: " $((100*$y / $z))"%" #time
+    y=$[$y+1] #time
+     
+    echo "====================================================" 
+   
+  done
  
 done
  
@@ -165,11 +165,11 @@ Len=${#line[@]} #Number of lines
 
 for (( i=${Len}; i>=0; i-- ));
 do 
-if echo ${line[i]} | grep "_8f90.html" >/dev/null
- 		then echo $k >/dev/null
-		k=$[$k+1]
-		perl -pi -e 's/(.*)class="el" href="(.*)_8f90.html"(.*)/$2_8f90.html/g' files.html 
-fi
+  if echo ${line[i]} | grep "_8f90.html" >/dev/null
+   		then echo $k >/dev/null
+  		k=$[$k+1]
+  		perl -pi -e 's/(.*)class="el" href="(.*)_8f90.html"(.*)/$2_8f90.html/g' files.html 
+  fi
 done
 
 line2=()
@@ -215,15 +215,12 @@ if echo ${line2[j]} | grep "_8f90.html" >/dev/null
 fi
 done
 
-cp classcgns__header.html headers_8f90.html
-
 mv files.html.bak files.html
 
-#
-	perl -pi -e 's/!END !INTERFACE/END INTERFACE/g' *_8f90_source.html
-	perl -pi -e 's/!INTERFACE/INTERFACE/g' *_8f90_source.html
-	perl -pi -e 's/!MODULE PROCEDURE/MODULE PROCEDURE/g' *_8f90_source.html
-# 
+perl -pi -e 's/!END !INTERFACE/END INTERFACE/g' *_8f90_source.html
+perl -pi -e 's/!INTERFACE/INTERFACE/g' *_8f90_source.html
+perl -pi -e 's/!MODULE PROCEDURE/MODULE PROCEDURE/g' *_8f90_source.html
+
 cd ../..
 
 time3=$(date +%s%N | cut -b1-13) #finish time 
@@ -239,6 +236,7 @@ do
   i=i+1
 done < missing_comment_lines.txt
 if echo ${line[0]} | grep "============================================================================================================================" >/dev/null;then
-rm missing_comment_lines.txt
-else echo "=== Script found missing comment lines!!! Results in HOPR/doxygen/missing_comment_lines.txt"
+  rm missing_comment_lines.txt
+else 
+  echo "=== Script found missing comment lines!!! Results in HOPR/doxygen/missing_comment_lines.txt"
 fi
