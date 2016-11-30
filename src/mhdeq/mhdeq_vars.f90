@@ -38,14 +38,14 @@ REAL,ALLOCATABLE    :: MHDEQdataEq(:,:,:,:,:)          ! VMEC data on equidistan
 CHARACTER(LEN=255),DIMENSION(10),PARAMETER :: MHDEQvarNames(10)=(/ CHARACTER(LEN=255) :: &
                       'MHDEQ-Density'     & ! 1 
                      ,'MHDEQ-Pressure'    & ! 2
-                     ,'MHDEQ-B_X'         & ! 3
-                     ,'MHDEQ-B_Y'         & ! 4
-                     ,'MHDEQ-B_Z'         & ! 5
+                     ,'MHDEQ-BX'          & ! 3
+                     ,'MHDEQ-BY'          & ! 4
+                     ,'MHDEQ-BZ'          & ! 5
                      ,'MHDEQ-polfluxnorm' & ! 6
                      ,'MHDEQ-torfluxnorm' & ! 7
-                     ,'MHDEQ-A_X'         & ! 8
-                     ,'MHDEQ-A_Y'         & ! 9
-                     ,'MHDEQ-A_Z'         & !10    
+                     ,'MHDEQ-AX'          & ! 8
+                     ,'MHDEQ-AY'          & ! 9
+                     ,'MHDEQ-AZ'          & !10    
                                          /)
 
 !-----------------------------------------------------------------------------------------------------------------------------------

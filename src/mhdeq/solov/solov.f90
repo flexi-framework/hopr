@@ -181,6 +181,7 @@ WRITE(*,'(A,E22.15)') '   psi at domain edge   : ',psi_edge
 
 !find out scaling of psi function
 Faxis=p_B0*p_R0
+F2_axis=Faxis**2
 
 ! q_axis=F_axis/(R_axis*(d_rr(psireal)*d_zz(psireal))^1/2), psireal=psi*psi0, evaluated at axis...
 !       =F_axis/psi_scale* 1/(R_axis*(d_rr(psi)*d_zz(psi))^1/2), from book Freidberg, ideal MHD, p.134
@@ -195,7 +196,9 @@ WRITE(*,'(A,E22.15)') '   psi_scale            : ',psi_scale
 WRITE(*,'(A,E22.15)') '   real psi on axis     : ',psi_scale*psi_axis
 
 deltaF2 = 2*p_A*psi_scale**2*psi_axis/(p_R0**2)
-Fedge=SQRT(Faxis**2+deltaF2)
+F2_edge=F2_axis+deltaF2
+Fedge=SQRT(F2_edge)
+
 
 !gradient of the pressure over normalized flux, p=p0+dpdpsin*psin 
 !mu0=1
@@ -492,7 +495,8 @@ USE MOD_Globals
 USE MOD_MHDEQ_Vars,  ONLY:nVarMHDEQ
 USE MOD_MHDEQ_Tools, ONLY: Eval1DPoly
 USE MOD_Newton,      ONLY:NewtonRoot1D
-USE MOD_Solov_Vars,  ONLY:p_R0,p_kappa,p_paxis,PresEdge,nRhoCoefs,RhoCoefs
+USE MOD_Solov_Vars,  ONLY:p_R0,p_kappa,p_paxis,PresEdge,nRhoCoefs,RhoCoefs,psi_scale,F2_axis,F2_edge
+USE MOD_PsiEval,     ONLY:EvalPsi,EvaldPsi
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -512,9 +516,13 @@ REAL    :: theta  ! poloidal angle [0,2pi]
 REAL    :: zeta ! toroidal angle [0,2pi]
 INTEGER :: iNode
 INTEGER :: percent
+REAL    :: coszeta,sinzeta
 REAL    :: psiVal,psiNorm 
 REAL    :: tol,rNewton,xNewton(2)
 REAL    :: Density
+REAL    :: R
+REAL    :: BR,BZ,Bphi,Bcart(3) 
+REAL    :: AR,AZ,Aphi,Acart(3)
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A,I8,A,A,A)')'  MAP ', nTotal,' NODES TO SOLOVIEV EQUILIBRIUM'
 percent=0
@@ -535,6 +543,8 @@ DO iNode=1,nTotal
     Theta = 2.*Pi*x_in(3,iNode) !=2*pi*phi
     zeta  = 2.*Pi*x_in(2,iNode) !=2*pi*z
   END SELECT 
+  coszeta=COS(zeta)
+  sinzeta=SIN(zeta)
   psiNorm=r_p**2 !r ~ sqrt(psiNorm), r^2 ~ psiNorm 
 
   theta = theta -0.1*(p_kappa-1.)*SIN(2*theta) !slight angle correction with ellipticity
@@ -546,19 +556,41 @@ DO iNode=1,nTotal
   END IF
   xNewton=ApproxFluxMap(rNewton,theta)
   
-  x_out(1,iNode)= p_R0*xNewton(1)*COS(zeta)
-  x_out(2,iNode)=-p_R0*xNewton(1)*SIN(zeta)
-  x_out(3,iNode)= p_R0*xNewton(2)
+  R=p_R0*xNewton(1)
+  !Z=p_R0*xNewton(2)
+  x_out(1,iNode)= R*COS(zeta)
+  x_out(2,iNode)=-R*SIN(zeta)
+  x_out(3,iNode)= (p_R0*xNewton(2))
 
   Density=Eval1DPoly(nRhoCoefs,RhoCoefs,psiNorm) 
+  !BR=-1/R*dpsiReal_dZ = -1/(x*R0)*psi_scale*dpsi_dy*dy/dZ = -psiscale/(x*R0^2)*dpsi_dy
+  !BZ= 1/R*dpsiReal_dR = -1/(x*R0)*psi_scale*dpsi_dx*dx/dR =  psiscale/(x*R0^2)*dpsi_dx
+  !Bphi=F/R
+  BR=psi_scale/(p_R0*R)*EvaldPsi(2,1,xNewton(1),xNewton(2))
+  BZ=psi_scale/(p_R0*R)*EvaldPsi(1,1,xNewton(1),xNewton(2))
+  Bphi=SQRT(F2_axis+(F2_edge-F2_axis)*psiNorm)/R
 
+
+  Bcart(1)= BR*coszeta-Bphi*sinzeta
+  Bcart(2)= BR*sinzeta+Bphi*coszeta
+  Bcart(3)= BZ
+  
+  !aphi= psireal/R = psi_scale*psi/(x*R0)
+
+  Aphi=psi_scale/R*EvalPsi(xNewton(1),xNewton(2))
+  AR  = 0.
+  AZ  = 0.
+
+  Acart(1)= AR*coszeta-Aphi*sinzeta
+  Acart(2)= AR*sinzeta+Aphi*coszeta
+  Acart(3)= AZ
   MHDEQdata(:,iNode)=0.
   MHDEQdata(  1,iNode)=Density
   MHDEQdata(  2,iNode)=p_paxis + (PresEdge-p_paxis)*psiNorm !linear pressure profile
-!  MHDEQdata( 3:5,iNode)=Bcart(:)
+  MHDEQdata( 3:5,iNode)=Bcart(:)
   MHDEQdata(   6,iNode)=psiNorm
   MHDEQdata(   7,iNode)=-1.
-!  MHDEQdata(8:10,iNode)=Acart(:)
+  MHDEQdata(8:10,iNode)=Acart(:)
 END DO !iNode
 
 
