@@ -564,10 +564,10 @@ DO iNode=1,nTotal
 
   Density=Eval1DPoly(nRhoCoefs,RhoCoefs,psiNorm) 
   !BR=-1/R*dpsiReal_dZ = -1/(x*R0)*psi_scale*dpsi_dy*dy/dZ = -psiscale/(x*R0^2)*dpsi_dy
-  !BZ= 1/R*dpsiReal_dR = -1/(x*R0)*psi_scale*dpsi_dx*dx/dR =  psiscale/(x*R0^2)*dpsi_dx
+  !BZ= 1/R*dpsiReal_dR =  1/(x*R0)*psi_scale*dpsi_dx*dx/dR =  psiscale/(x*R0^2)*dpsi_dx
   !Bphi=F/R
-  BR=psi_scale/(p_R0*R)*EvaldPsi(2,1,xNewton(1),xNewton(2))
-  BZ=psi_scale/(p_R0*R)*EvaldPsi(1,1,xNewton(1),xNewton(2))
+  BR=-psi_scale/(p_R0*R)*EvaldPsi(2,1,xNewton(1),xNewton(2))
+  BZ= psi_scale/(p_R0*R)*EvaldPsi(1,1,xNewton(1),xNewton(2))
   Bphi=SQRT(F2_axis+(F2_edge-F2_axis)*psiNorm)/R
 
 
