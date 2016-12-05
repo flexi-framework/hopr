@@ -128,19 +128,17 @@ REAL               :: xout    !on output =f(x)
 ! LOCAL VARIABLES
 INTEGER             :: iter,maxiter
 REAL                :: x,dx
-REAL                :: tolx
 LOGICAL             :: converged
 !===================================================================================================================================
 
 converged=.FALSE.
 x=xin
-tolx=tol*ABS(x)
 maxiter=50
 DO iter=1,maxiter
   dx=-(FR(x)-F0)/dFR(x)
   dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
   x = x+dx
-  converged=(ABS(dx).LT.tolx).AND.(x.GT.a).AND.(x.LT.b)
+  converged=(ABS(dx).LT.tol).AND.(x.GT.a).AND.(x.LT.b)
   IF(converged) EXIT
 END DO !iter
 IF(.NOT.converged) STOP 'NewtonRoot1D not converged'
@@ -174,11 +172,9 @@ INTEGER             :: iter,maxiter
 REAL                :: dx(2)
 REAL                :: det_Hess
 REAL                :: gradF(2),Hess(2,2),HessInv(2,2)
-REAL                :: tolx
 LOGICAL             :: converged
 !===================================================================================================================================
 converged=.FALSE.
-tolx=tol*SQRT(SUM(x*x))
 maxiter=50
 DO iter=1,maxiter
   Hess=ddFF(x)
@@ -193,7 +189,7 @@ DO iter=1,maxiter
   dx=-MATMUL(HessInv,gradF)
   dx = MAX(-(x-a),MIN(b-x,dx)) !respect bounds
   x = x+dx
-  converged=(SQRT(SUM(dx*dx)).LT.tolx).AND.ALL(x.GT.a).AND.ALL(x.LT.b)
+  converged=(SQRT(SUM(dx*dx)).LT.tol).AND.ALL(x.GT.a).AND.ALL(x.LT.b)
   IF(converged) EXIT
 END DO !iter
 IF(.NOT.converged) STOP 'NewtonMin not converged'

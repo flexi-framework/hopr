@@ -148,7 +148,9 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 REAL    :: tol,a(2),b(2)
 REAL    :: qaxis_fact,mu0,dp_dpsin,qedge
-REAL    :: Faxis,deltaF2,Fedge
+REAL    :: F_edge
+REAL    :: d2Psi_dx2_axis  !d^2/dx^2 Psi, second derivatives at axis
+REAL    :: d2Psi_dy2_axis  !d^2/dy^2 Psi
 !===================================================================================================================================
 
 CALL SolveForPsiCoefs()
@@ -180,28 +182,27 @@ WRITE(*,'(A,E22.15)') '   psi at magentic axis : ',psi_axis
 WRITE(*,'(A,E22.15)') '   psi at domain edge   : ',psi_edge
 
 !find out scaling of psi function
-Faxis=p_B0*p_R0
-F2_axis=Faxis**2
+F_axis=p_B0*p_R0
 
 ! q_axis=F_axis/(R_axis*(d_rr(psireal)*d_zz(psireal))^1/2), psireal=psi*psi0, evaluated at axis...
 !       =F_axis/psi_scale* 1/(R_axis*(d_rr(psi)*d_zz(psi))^1/2), from book Freidberg, ideal MHD, p.134
 ! R=x*R0,Z=y*R0
 ! d/dR=(d/dx)*1/R0, d/dZ=(d/dy)*1/R0
 
-qaxis_fact=p_R0/(xaxis(1)*SQRT(EvaldPsi(1,2,xaxis(1),xaxis(2))*EvaldPsi(2,2,xaxis(1),xaxis(2))) )
+d2Psi_dx2_axis = EvaldPsi(1,2,xaxis(1),xaxis(2))
+d2Psi_dy2_axis = EvaldPsi(2,2,xaxis(1),xaxis(2))
+qaxis_fact=p_R0/(xaxis(1)*SQRT(d2Psi_dx2_axis*d2Psi_dy2_axis) )
 
-psi_scale=qaxis_fact*Faxis/p_qaxis
+psi_scale=qaxis_fact*F_axis/p_qaxis
 
 WRITE(*,'(A,E22.15)') '   psi_scale            : ',psi_scale
 WRITE(*,'(A,E22.15)') '   real psi on axis     : ',psi_scale*psi_axis
 
 deltaF2 = 2*p_A*psi_scale**2*psi_axis/(p_R0**2)
-F2_edge=F2_axis+deltaF2
-Fedge=SQRT(F2_edge)
+F_edge=SQRT(F_axis**2+deltaF2)
 
 
 !gradient of the pressure over normalized flux, p=p0+dpdpsin*psin 
-!mu0=1
 mu0=1.
 dp_dpsin=(1-p_A)*psi_scale**2*psi_axis/(mu0*p_R0**4)
 PresEdge=p_paxis+dp_dpsin
@@ -210,7 +211,7 @@ WRITE(*,'(A,E22.15)') '   pressure on edge     : ',PresEdge
 
 IF(PresEdge.LT.0.) STOP 'Pressure negative in domain, increase paxis input'
 
-CALL Eval_qedge(Fedge,qedge)
+CALL Eval_qedge(F_edge,qedge)
 
 WRITE(*,'(A,E22.15)') '   q-factor on axis     : ',p_qaxis
 WRITE(*,'(A,E22.15)') '   q-factor on edge     : ',qedge
@@ -495,7 +496,8 @@ USE MOD_Globals
 USE MOD_MHDEQ_Vars,  ONLY:nVarMHDEQ
 USE MOD_MHDEQ_Tools, ONLY: Eval1DPoly
 USE MOD_Newton,      ONLY:NewtonRoot1D
-USE MOD_Solov_Vars,  ONLY:p_R0,p_kappa,p_paxis,PresEdge,nRhoCoefs,RhoCoefs,psi_scale,F2_axis,F2_edge
+USE MOD_Solov_Vars,  ONLY:p_R0,p_kappa,p_paxis,PresEdge,nRhoCoefs,RhoCoefs
+USE MOD_Solov_Vars,  ONLY:F_axis,deltaF2,xaxis,psi_scale
 USE MOD_PsiEval,     ONLY:EvalPsi,EvaldPsi
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -520,13 +522,13 @@ REAL    :: coszeta,sinzeta
 REAL    :: psiVal,psiNorm 
 REAL    :: tol,rNewton,xNewton(2)
 REAL    :: Density
-REAL    :: R
+REAL    :: R,dPsi_dx,dPsi_dy,Fval,deltaA
 REAL    :: BR,BZ,Bphi,Bcart(3) 
 REAL    :: AR,AZ,Aphi,Acart(3)
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A,I8,A,A,A)')'  MAP ', nTotal,' NODES TO SOLOVIEV EQUILIBRIUM'
 percent=0
-tol=1.0E-12
+tol=1.0E-13
 DO iNode=1,nTotal
   ! output of progress in %
   IF((nTotal.GT.10000).AND.(MOD(iNode,(nTotal/100)).EQ.0)) THEN
@@ -546,15 +548,20 @@ DO iNode=1,nTotal
   coszeta=COS(zeta)
   sinzeta=SIN(zeta)
   psiNorm=r_p**2 !r ~ sqrt(psiNorm), r^2 ~ psiNorm 
+  psiVal = PsiNormToPsi(psiNorm)  
 
   theta = theta -0.1*(p_kappa-1.)*SIN(2*theta) !slight angle correction with ellipticity
-  IF(r_p.LT.1.0E-08) THEN
-   rNewton=r_p
+  IF(r_p.LT.tol) THEN
+    rNewton=r_p
   ELSE
-    psiVal = PsiNormToPsi(psiNorm)  
     rNewton= NewtonRoot1D(tol,0.,1.1,r_p,psiVal,FR1,dFR1)
   END IF
   xNewton=ApproxFluxMap(rNewton,theta)
+  IF(ABS(PsiVal-EvalPsi(xNewton(1),xNewton(2))).GT.10*tol) THEN
+    !WRITE(*,*)psinorm,xNewton,PsiVal,EvalPsi(xNewton(1),xNewton(2)),ABS(PsiVal-EvalPsi(xNewton(1),xNewton(2)))
+    WRITE(*,*) 'Newton converged, but (PsiVal-Psi(x,y)) still > 10*tol'
+    STOP
+  END IF
   
   R=p_R0*xNewton(1)
   !Z=p_R0*xNewton(2)
@@ -566,24 +573,45 @@ DO iNode=1,nTotal
   !BR=-1/R*dpsiReal_dZ = -1/(x*R0)*psi_scale*dpsi_dy*dy/dZ = -psiscale/(x*R0^2)*dpsi_dy
   !BZ= 1/R*dpsiReal_dR =  1/(x*R0)*psi_scale*dpsi_dx*dx/dR =  psiscale/(x*R0^2)*dpsi_dx
   !Bphi=F/R
-  BR=-psi_scale/(p_R0*R)*EvaldPsi(2,1,xNewton(1),xNewton(2))
-  BZ= psi_scale/(p_R0*R)*EvaldPsi(1,1,xNewton(1),xNewton(2))
-  Bphi=SQRT(F2_axis+(F2_edge-F2_axis)*psiNorm)/R
+  dpsi_dx=EvaldPsi(1,1,xNewton(1),xNewton(2)) 
+  dpsi_dy=EvaldPsi(2,1,xNewton(1),xNewton(2)) 
+  Fval = SQRT(F_axis**2+deltaF2*psiNorm) 
+
+  BR=-psi_scale/(p_R0*R)*dpsi_dx
+  BZ= psi_scale/(p_R0*R)*dpsi_dy
+  Bphi=Fval/R
 
 
   Bcart(1)= BR*coszeta-Bphi*sinzeta
   Bcart(2)= BR*sinzeta+Bphi*coszeta
   Bcart(3)= BZ
   
-  !aphi= psireal/R = psi_scale*psi/(x*R0)
+  !Aphi= psireal/R = psi_scale*psi/(x*R0)
 
   Aphi=psi_scale/R*EvalPsi(xNewton(1),xNewton(2))
-  AR  = 0.
-  AZ  = 0.
+  !AR=AR0+deltaAR, AZ=AZ0+deltaAZ
+  ! curl(A0)=Faxis/R => AR0=0 AZ0 = Faxis*log(R)
+  !
+  ! curl(deltaA) = deltaF(Psi)/R, deltaF=sqrt(Faxis^2-dF2*psinorm)-Faxis
+  ! => deltaAR =  PsiReal* dPsiReal_dZ*deltaF(Psi)/( R*((dPsiReal_dR)^2+(dPsiReal_dZ)^2))
+  !    deltaAZ = -PsiReal* dPsiReal_dR*deltaF(Psi)/( R*((dPsiReal_dR)^2+(dPsiReal_dZ)^2))
+  !
+  !normalization: R=x*R0, PsiReal=Psi_scale*Psi, dPsiReal_dR = psi_scale/R0 *dPsi_dx ...  
+  ! => deltaAR =  Psi* dPsi_dy*deltaF(Psi)/( x*((dPsi_dx)^2+(dPsi_dy)^2))
+  !    deltaAZ = -Psi* dPsi_dx*deltaF(Psi)/( x*((dPsi_dx)^2+(dPsi_dy)^2))
+ 
+  IF(ABS(SUM((xNewton-xaxis)**2)).LT.1.0E-12)THEN !near axis, |gradPsi|^2 => 0!!
+    deltaA=0.
+  ELSE
+    deltaA=(Fval-F_axis)*PsiVal/(xNewton(1)*(dpsi_dx**2+dpsi_dy**2))
+  END IF
+  AR  = 0. + dPsi_dy*deltaA 
+  AZ  = F_axis*LOG(R) - dPsi_dx*deltaA 
 
   Acart(1)= AR*coszeta-Aphi*sinzeta
   Acart(2)= AR*sinzeta+Aphi*coszeta
   Acart(3)= AZ
+
   MHDEQdata(:,iNode)=0.
   MHDEQdata(  1,iNode)=Density
   MHDEQdata(  2,iNode)=p_paxis + (PresEdge-p_paxis)*psiNorm !linear pressure profile

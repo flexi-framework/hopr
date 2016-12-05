@@ -48,8 +48,8 @@ REAL                :: psi_scale   !psi scaling between Soloviev and physical ps
 REAL                :: psi_axis    !psi value at the magnetic axis
 REAL                :: psi_edge
 REAL                :: presEdge      !pressure on edge, soloviev pressure profile linear in psinorm
-REAL                :: F2_axis     ! F^2 on axis, f-profile, dF^2/dpsi=const for soloviev 
-REAL                :: F2_edge     ! F^2 on edge, f-profile, dF^2/dpsi=const for soloviev 
+REAL                :: F_axis     ! F^2 on axis, f-profile, dF^2/dpsi=const for soloviev 
+REAL                :: deltaF2    ! F=SQRT(F_axis^2+deltaF2*psinorm)
 REAL                :: psiCoefs(0:7) !coefficients for representing flux variable psi
 
 !-----------------------------------------------------------------------------------------------------------------------------------
