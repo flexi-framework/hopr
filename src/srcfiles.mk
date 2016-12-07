@@ -53,3 +53,4 @@ mhdeq/vmec/vmec_vars.f90
 mhdeq/vmec/vmec_mappings.f90
 mhdeq/vmec/track_spline1_mod.f90
 mhdeq/solov/*.f90
+mhdeq/ccint/*.f90

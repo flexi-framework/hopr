@@ -58,6 +58,7 @@ SUBROUTINE InitSolov
 USE MOD_Globals, ONLY:UNIT_StdOut
 USE MOD_ReadInTools
 USE MOD_Solov_Vars
+USE MOD_CCint,ONLY:CCint_Init
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -122,6 +123,10 @@ IF(nRhoCoefs.GT.0)THEN
   ALLOCATE(RhoCoefs(nRhoCoefs))
   RhoCoefs=GETREALARRAY("RhoCoefs",nRhoCoefs)
 END IF
+
+!initialize clenshaw-curtis module
+CALL CCint_init()
+
 WRITE(UNIT_stdOut,'(A)')'  ... DONE'
 END SUBROUTINE InitSolov
 
@@ -201,6 +206,8 @@ WRITE(*,'(A,E22.15)') '   real psi on axis     : ',psi_scale*psi_axis
 deltaF2 = 2*p_A*psi_scale**2*psi_axis/(p_R0**2)
 F_edge=SQRT(F_axis**2+deltaF2)
 
+WRITE(*,'(A,E22.15)') '   F on axis            : ',F_axis
+WRITE(*,'(A,E22.15)') '   F on edge            : ',F_edge
 
 !gradient of the pressure over normalized flux, p=p0+dpdpsin*psin 
 mu0=1.
@@ -522,7 +529,7 @@ REAL    :: coszeta,sinzeta
 REAL    :: psiVal,psiNorm 
 REAL    :: tol,rNewton,xNewton(2)
 REAL    :: Density
-REAL    :: R,dPsi_dx,dPsi_dy,Fval,deltaA
+REAL    :: R,dPsi_dx,dPsi_dy,Fval,AbsGradPsi2,deltaA
 REAL    :: BR,BZ,Bphi,Bcart(3) 
 REAL    :: AR,AZ,Aphi,Acart(3)
 !===================================================================================================================================
@@ -539,11 +546,11 @@ DO iNode=1,nTotal
   CASE(0)!x_in(1:3) = x,y,z of cylinder with r<1 and z=[0;1]
     r_p   = SQRT(x_in(1,iNode)**2+x_in(2,iNode)**2) 
     Theta = ATAN2(x_in(2,iNode),x_in(1,iNode))
-    zeta  = 2.*Pi*x_in(3,iNode) 
+    zeta  = -2.*Pi*x_in(3,iNode) 
   CASE(1) !x_in(1:3) = (r,z,phi) with r= [0;1], z= [0;1], phi=[0;1] 
     r_p =  x_in(1,iNode) !=r
     Theta = 2.*Pi*x_in(3,iNode) !=2*pi*phi
-    zeta  = 2.*Pi*x_in(2,iNode) !=2*pi*z
+    zeta  = -2.*Pi*x_in(2,iNode) !=2*pi*z
   END SELECT 
   coszeta=COS(zeta)
   sinzeta=SIN(zeta)
@@ -565,8 +572,9 @@ DO iNode=1,nTotal
   
   R=p_R0*xNewton(1)
   !Z=p_R0*xNewton(2)
+
   x_out(1,iNode)= R*COS(zeta)
-  x_out(2,iNode)=-R*SIN(zeta)
+  x_out(2,iNode)= R*SIN(zeta)
   x_out(3,iNode)= (p_R0*xNewton(2))
 
   Density=Eval1DPoly(nRhoCoefs,RhoCoefs,psiNorm) 
@@ -575,22 +583,16 @@ DO iNode=1,nTotal
   !Bphi=F/R
   dpsi_dx=EvaldPsi(1,1,xNewton(1),xNewton(2)) 
   dpsi_dy=EvaldPsi(2,1,xNewton(1),xNewton(2)) 
+
   Fval = SQRT(F_axis**2+deltaF2*psiNorm) 
 
-  BR=-psi_scale/(p_R0*R)*dpsi_dx
-  BZ= psi_scale/(p_R0*R)*dpsi_dy
-  Bphi=Fval/R
-
-
-  Bcart(1)= BR*coszeta-Bphi*sinzeta
-  Bcart(2)= BR*sinzeta+Bphi*coszeta
-  Bcart(3)= BZ
+!  BR= -psi_scale/(p_R0*R)*dpsi_dy
+!  BZ=  psi_scale/(p_R0*R)*dpsi_dx
+!  Bphi= Fval/R
   
-  !Aphi= psireal/R = psi_scale*psi/(x*R0)
 
-  Aphi=psi_scale/R*EvalPsi(xNewton(1),xNewton(2))
   !AR=AR0+deltaAR, AZ=AZ0+deltaAZ
-  ! curl(A0)=Faxis/R => AR0=0 AZ0 = Faxis*log(R)
+  ! curl(A0)=Faxis/R => AR0=0 AZ0 = -Faxis*log(R)
   !
   ! curl(deltaA) = deltaF(Psi)/R, deltaF=sqrt(Faxis^2-dF2*psinorm)-Faxis
   ! => deltaAR =  PsiReal* dPsiReal_dZ*deltaF(Psi)/( R*((dPsiReal_dR)^2+(dPsiReal_dZ)^2))
@@ -599,14 +601,46 @@ DO iNode=1,nTotal
   !normalization: R=x*R0, PsiReal=Psi_scale*Psi, dPsiReal_dR = psi_scale/R0 *dPsi_dx ...  
   ! => deltaAR =  Psi* dPsi_dy*deltaF(Psi)/( x*((dPsi_dx)^2+(dPsi_dy)^2))
   !    deltaAZ = -Psi* dPsi_dx*deltaF(Psi)/( x*((dPsi_dx)^2+(dPsi_dy)^2))
+  !Aphi= psireal/R = psi_scale*psi/(x*R0)
  
-  IF(ABS(SUM((xNewton-xaxis)**2)).LT.1.0E-12)THEN !near axis, |gradPsi|^2 => 0!!
+  AbsGradPsi2=(dpsi_dx**2+dpsi_dy**2)
+  IF(AbsGradPsi2.LT.1.0E-12)THEN !near axis/xpoint, |gradPsi|^2 => 0!!
     deltaA=0.
   ELSE
-    deltaA=(Fval-F_axis)*PsiVal/(xNewton(1)*(dpsi_dx**2+dpsi_dy**2))
+    deltaA=(Fval-F_axis)*PsiVal/(xNewton(1)*AbsGradPsi2)
   END IF
-  AR  = 0. + dPsi_dy*deltaA 
-  AZ  = F_axis*LOG(R) - dPsi_dx*deltaA 
+
+!  AR  = 0. + dPsi_dy*deltaA 
+!  AZ  = -F_axis*LOG(R) - dPsi_dx*deltaA 
+!  Aphi= psi_scale*PsiVal/R
+
+!DEBUG 1: poloidal Bfield
+!  BR= -psi_scale/(p_R0*R)*dpsi_dy
+!  BZ=  psi_scale/(p_R0*R)*dpsi_dx
+!  Bphi= 0.
+!  AR  = 0.
+!  AZ  = 0. 
+!  Aphi= psi_scale*PsiVal/R
+
+!DEBUG 2: toroidal Faxis field
+!  BR= 0.
+!  BZ= 0.
+!  Bphi= F_axis/R
+!  AR  = 0.
+!  AZ  = -F_axis*LOG(R) 
+!  Aphi= 0.
+
+!DEBUG 3: toroidal deltaF field
+  BR= 0.
+  BZ= 0.
+  Bphi= (Fval-F_axis)/R
+  AR  =  dPsi_dy*deltaA 
+  AZ  = -dPsi_dx*deltaA 
+  Aphi= 0.
+
+  Bcart(1)= BR*coszeta-Bphi*sinzeta
+  Bcart(2)= BR*sinzeta+Bphi*coszeta
+  Bcart(3)= BZ
 
   Acart(1)= AR*coszeta-Aphi*sinzeta
   Acart(2)= AR*sinzeta+Aphi*coszeta
@@ -652,6 +686,7 @@ CONTAINS
   END FUNCTION dFR1
 
 END SUBROUTINE MapToSolov 
+
 
 
 END MODULE MOD_Solov

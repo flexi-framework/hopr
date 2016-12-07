@@ -70,6 +70,10 @@ INTERFACE ChebyGaussLobNodesAndWeights
    MODULE PROCEDURE ChebyGaussLobNodesAndWeights
 END INTERFACE
 
+INTERFACE ClenshawCurtisNodesAndWeights
+   MODULE PROCEDURE ClenshawCurtisNodesAndWeights
+END INTERFACE
+
 INTERFACE PolynomialDerivativeMatrix
    MODULE PROCEDURE PolynomialDerivativeMatrix
 END INTERFACE
@@ -103,6 +107,7 @@ PUBLIC:: LegendreGaussNodesAndWeights
 PUBLIC:: LegGaussLobNodesAndWeights
 PUBLIC:: ChebyshevGaussNodesAndWeights
 PUBLIC:: ChebyGaussLobNodesAndWeights
+PUBLIC:: ClenshawCurtisNodesAndWeights
 PUBLIC:: PolynomialDerivativeMatrix
 PUBLIC:: BarycentricWeights
 PUBLIC:: InitializeVandermonde
@@ -535,6 +540,50 @@ IF(PRESENT(wGP))THEN
   wGP(N_in)=wGP(N_in)*0.5
 END IF
 END SUBROUTINE ChebyGaussLobNodesAndWeights
+
+
+
+!==================================================================================================================================
+!> Compute Clenshaw-Curtis nodes and integration weights
+!==================================================================================================================================
+SUBROUTINE ClenshawCurtisNodesAndWeights(N_in,xGP,wGP)
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+INTEGER,INTENT(IN)        :: N_in         !< polynomial degree, (N_in+1) CLpoints
+REAL,INTENT(OUT)          :: xGP(0:N_in)  !< Gauss point positions for the reference interval [-1,1]
+REAL,INTENT(OUT),OPTIONAL :: wGP(0:N_in)  !< Gauss point weights
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER                   :: iGP,j
+REAL                      :: b,theta
+!==================================================================================================================================
+IF(N_in.EQ.0)THEN
+  xGP(0) = 0.
+  wGP(0) = 2.
+ELSE
+  DO iGP=0,N_in
+    xGP(iGP) = -COS(iGP*ACOS(-1.)/REAL(N_in))
+  END DO
+  xGP(0)   =-1.
+  IF(MOD(N_in+1,2).EQ.1)THEN
+    xGP(N_in/2)=0.
+  END IF
+  xGP(N_in)= 1.
+  IF(PRESENT(wGP))THEN
+    wGP=1.
+    DO iGP=0,N_in
+      theta = REAL(iGP)*ACOS(-1.)/REAL(N_in)
+      DO j=1,N_in/2
+        b=MERGE(1.,2.,2*j.EQ.N_in)
+        wGP(iGP) = wGP(iGP) - b * COS(2.*REAL(j)*theta) / REAL(4*j*j-1)
+      END DO
+    END DO
+    wGP(1:N_in-1)=2.*wGP(1:N_in-1)
+    wGP=wGP/REAL(N_in)
+  END IF
+END IF
+END SUBROUTINE ClenshawCurtisNodesAndWeights
 
 
 
