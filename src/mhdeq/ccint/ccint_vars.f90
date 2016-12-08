@@ -43,8 +43,7 @@ TYPE tRcc
   REAL,ALLOCATABLE  :: x(:)
   REAL,ALLOCATABLE  :: w(:,:)
 END TYPE tRcc
-TYPE(trCC),ALLOCATABLE:: Rcc(:)
-REAL,ALLOCATABLE    :: ibuf(:)
+TYPE(trCC),ALLOCATABLE:: Rcc(:) !container for Clenshaw-curtis integration points and weights, sorted by stages
 
 END MODULE MOD_CCint_Vars
 

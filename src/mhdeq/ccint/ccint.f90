@@ -64,7 +64,7 @@ SUBROUTINE CCint_Init()
 ! MODULES
 USE MOD_Globals
 USE MOD_Basis1D, ONLY: ClenshawCurtisNodesAndWeights
-USE MOD_CCInt_vars,ONLY: Imax,Rcc,ibuf
+USE MOD_CCInt_vars,ONLY: Imax,Rcc
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -87,7 +87,6 @@ WRITE(UNIT_stdOut,'(A)')'  INIT CLENSHAW-CURTIS ...'
 
 Imax=7
 ALLOCATE(CC(1:Imax))
-ALLOCATE(ibuf(1:Imax)) !integration buffer
 Nr=2
 DO i=1,Imax
   CC(i)%N=Nr
@@ -164,43 +163,46 @@ WRITE(UNIT_stdOut,'(A)')'  DONE.'
 END SUBROUTINE CCInt_Init
 
 
-SUBROUTINE CCint(a,b,tol,FINT,res,converged)
+FUNCTION CCint(tol,FINT,converged) RESULT(res)
 !===================================================================================================================================
 ! do a nested integration using clenshaw curtis recursive quadrature
+! each stage s, the function is evaluated at the points of this stage (1st stage 3 points, i'th stage 2^(i-1) midpoints)
+! and then multiplied with the weights of ALL stages! this way the function value does not need to be stored and 
+! that for each stage, one only needs the values at the new mid-points.
+! integration function has to be already transformed to have limits [0,1], since integration
+! points and weights are defined in [0,1]
 !===================================================================================================================================
 ! MODULES
-USE MOD_CCInt_vars,ONLY: Imax,Rcc,ibuf
+USE MOD_CCInt_vars,ONLY: Imax,Rcc
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-REAL, INTENT(IN)   :: a,b !integration bounds
 REAL, INTENT(IN)   :: tol !tolerance
 PROCEDURE(i_fxn)   :: FINT  ! function to be integrated FINT(1:n)=FINT(n,x)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-REAL, INTENT(OUT)   :: res  !integration result
+REAL                :: res  !integration result
 LOGICAL, INTENT(OUT):: converged
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER             :: s
-REAL                :: ba
+REAL                :: ibuf(1:Imax)
 !===================================================================================================================================
-ba=b-a
-WRITE(*,*)'DEBUG=====TEST===='
 
-
-ibuf(1:Imax)=MATMUL(Rcc(1)%w(1:Imax,:),FINT(Rcc(1)%np,(a+ba*Rcc(1)%x(:)))) !boundaries
-WRITE(*,*)'Debug,N=',Rcc(1)%N,'int',ibuf(1)
+ibuf(1:Imax)=MATMUL(Rcc(1)%w(1:Imax,:),FINT(Rcc(1)%np,Rcc(1)%x(:))) !boundaries
 DO s=2,Imax
-  ibuf(s:Imax)=ibuf(s:Imax)+MATMUL(Rcc(s)%w(s:Imax,:),FINT(Rcc(s)%np,(a+ba*Rcc(s)%x(:))))
-  WRITE(*,*)'Debug,N=',Rcc(s)%N,'int',ibuf(s)*ba,'err',ABS(ibuf(s)-ibuf(s-1))*ba
-  converged=ABS(ibuf(s)-ibuf(s-1))*ba.LT.tol
+  ibuf(s:Imax)=ibuf(s:Imax)+MATMUL(Rcc(s)%w(s:Imax,:),FINT(Rcc(s)%np,Rcc(s)%x(:)))
+  !WRITE(*,*)'s= ',s ,'err',ABS(ibuf(s)-ibuf(s-1))
+  converged=(ABS(ibuf(s)-ibuf(s-1))).LT.tol
   IF(converged)EXIT
 END DO!s 
-IF(.NOT.converged) WRITE(*,*) 'WARNING CCINT: Imax reached without convergence'
+res=ibuf(s)
+IF(.NOT.converged) THEN
+  WRITE(*,'(A,I4)') 'WARNING RECURSIVE CC INT: HIGHEST LEVEL REACHED WITHOUT CONVERGENCE, N=',2**Imax
+END IF
 
-END SUBROUTINE CCInt
+END FUNCTION CCInt
 
 SUBROUTINE CCintTest()
 !===================================================================================================================================
@@ -216,27 +218,40 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL                :: a,b
-REAL                :: tol,res
+REAL                :: tol,res,res_ex
 LOGICAL             :: converged
 !===================================================================================================================================
 a=0.1
 b=1.9
-tol=1.0E-08
-CALL CCint(a,b,tol,FI,res,converged)
+tol=1.0E-10
+res= (b-a)*CCint(tol/(b-a),FI,converged)
 
 IF(.NOT.converged) THEN
   STOP 'TEST CCINT: Imax reached without convergence'
 ELSE
-  WRITE(*,*) 'TEST CCINT SUCCESSFULL'
+  !FI=(b-a)*( (x*1.1-0.48)**13+(x*1.3+0.33)**14+(x-0.3)**3 )
+  !res=(b-a)*( (x*1.1-0.48)**14/(14.*1.1)+ (x*1.3+0.33)**15/(15.*1.3)+(x-0.3)**4/4. )
+  res_ex= ( (b*1.1-0.48)**14/(14.*1.1)+ (b*1.3+0.33)**15/(15.*1.3)+(b-0.3)**4/4. ) &
+        -( (a*1.1-0.48)**14/(14.*1.1)+ (a*1.3+0.33)**15/(15.*1.3)+(a-0.3)**4/4. )
+  IF(ABS(res-res_ex).LT.10*tol) THEN
+    WRITE(*,*) 'TEST CCINT SUCCESSFUL: tol= ',tol, '|r-r_ex|= ',ABS(res-res_ex),' < 10*tol' 
+  ELSE
+    WRITE(*,'(A,E21.11)') ' CCINT NOT CORRECT', ABS(res-res_ex)
+    STOP 
+  END IF
 END IF
 
 CONTAINS 
 
   FUNCTION FI(np,x)
+    IMPLICIT NONE
     INTEGER:: np
-    REAL   :: x(1:np)
+    REAL   :: x(1:np) !always [0,1]
     REAL   :: FI(1:np)
-    FI=(x*1.1-0.48)**18+(x*1.3+0.33)**19+(x-0.3)**3
+    !local
+    REAL   :: xloc(1:np)
+    xloc=a+(b-a)*x
+    FI= (xloc*1.1-0.48)**13+(xloc*1.3+0.33)**14+(xloc-0.3)**3 
   END FUNCTION FI
 
 END SUBROUTINE CCIntTest

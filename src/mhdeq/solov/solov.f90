@@ -116,6 +116,10 @@ IF(p_delta.GT.0.98) WRITE(*,*) 'WARNING, DELTA >0.98, makes no sense!'
   
 asin_delta=ASIN(P_delta)
 
+!initialize clenshaw-curtis module for integration later in MapToSolov
+CALL CCint_init()
+
+!initialize Soloviev parameters
 CALL InitSolovievEquilibrium()
 
 nRhoCoefs=GETINT("nRhoCoefs","0")
@@ -124,8 +128,6 @@ IF(nRhoCoefs.GT.0)THEN
   RhoCoefs=GETREALARRAY("RhoCoefs",nRhoCoefs)
 END IF
 
-!initialize clenshaw-curtis module
-CALL CCint_init()
 
 WRITE(UNIT_stdOut,'(A)')'  ... DONE'
 END SUBROUTINE InitSolov
@@ -506,6 +508,7 @@ USE MOD_Newton,      ONLY:NewtonRoot1D
 USE MOD_Solov_Vars,  ONLY:p_R0,p_kappa,p_paxis,PresEdge,nRhoCoefs,RhoCoefs
 USE MOD_Solov_Vars,  ONLY:F_axis,deltaF2,xaxis,psi_scale
 USE MOD_PsiEval,     ONLY:EvalPsi,EvaldPsi
+USE MOD_CCint,       ONLY:CCint
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -521,17 +524,18 @@ REAL,INTENT(OUT)   :: MHDEQdata(nVarMHDEQ,nTotal)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL    :: r_p    ! raduis in cylindrical coordinate system
-REAL    :: theta  ! poloidal angle [0,2pi]
-REAL    :: zeta ! toroidal angle [0,2pi]
+REAL    :: theta  ! some poloidal angle [0,2pi] ,THIS IS NOT =atan((Z-Zaxis)/(R-Raxis))
+REAL    :: zeta   ! toroidal angle [0,2pi]
 INTEGER :: iNode
 INTEGER :: percent
 REAL    :: coszeta,sinzeta
 REAL    :: psiVal,psiNorm 
-REAL    :: tol,rNewton,xNewton(2)
+REAL    :: tol,rNewton,xPos(2)
 REAL    :: Density
-REAL    :: R,dPsi_dx,dPsi_dy,Fval,AbsGradPsi2,deltaA
+REAL    :: R,dPsi_dx,dPsi_dy,Fval,dPhiPol(2),alpha_sRho2
 REAL    :: BR,BZ,Bphi,Bcart(3) 
 REAL    :: AR,AZ,Aphi,Acart(3)
+LOGICAL :: converged
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A,I8,A,A,A)')'  MAP ', nTotal,' NODES TO SOLOVIEV EQUILIBRIUM'
 percent=0
@@ -563,56 +567,49 @@ DO iNode=1,nTotal
   ELSE
     rNewton= NewtonRoot1D(tol,0.,1.1,r_p,psiVal,FR1,dFR1)
   END IF
-  xNewton=ApproxFluxMap(rNewton,theta)
-  IF(ABS(PsiVal-EvalPsi(xNewton(1),xNewton(2))).GT.10*tol) THEN
-    !WRITE(*,*)psinorm,xNewton,PsiVal,EvalPsi(xNewton(1),xNewton(2)),ABS(PsiVal-EvalPsi(xNewton(1),xNewton(2)))
+  xPos=ApproxFluxMap(rNewton,theta)
+  IF(ABS(PsiVal-EvalPsi(xPos(1),xPos(2))).GT.10*tol) THEN
+    !WRITE(*,*)psinorm,xPos,PsiVal,EvalPsi(xPos(1),xPos(2)),ABS(PsiVal-EvalPsi(xPos(1),xPos(2)))
     WRITE(*,*) 'Newton converged, but (PsiVal-Psi(x,y)) still > 10*tol'
     STOP
   END IF
   
-  R=p_R0*xNewton(1)
-  !Z=p_R0*xNewton(2)
+  R=p_R0*xPos(1)
+  !Z=p_R0*xPos(2)
 
   x_out(1,iNode)= R*COS(zeta)
   x_out(2,iNode)= R*SIN(zeta)
-  x_out(3,iNode)= (p_R0*xNewton(2))
+  x_out(3,iNode)= (p_R0*xPos(2))
 
   Density=Eval1DPoly(nRhoCoefs,RhoCoefs,psiNorm) 
   !BR=-1/R*dpsiReal_dZ = -1/(x*R0)*psi_scale*dpsi_dy*dy/dZ = -psiscale/(x*R0^2)*dpsi_dy
   !BZ= 1/R*dpsiReal_dR =  1/(x*R0)*psi_scale*dpsi_dx*dx/dR =  psiscale/(x*R0^2)*dpsi_dx
   !Bphi=F/R
-  dpsi_dx=EvaldPsi(1,1,xNewton(1),xNewton(2)) 
-  dpsi_dy=EvaldPsi(2,1,xNewton(1),xNewton(2)) 
+  dpsi_dx=EvaldPsi(1,1,xPos(1),xPos(2)) 
+  dpsi_dy=EvaldPsi(2,1,xPos(1),xPos(2)) 
 
   Fval = SQRT(F_axis**2+deltaF2*psiNorm) 
 
-!  BR= -psi_scale/(p_R0*R)*dpsi_dy
-!  BZ=  psi_scale/(p_R0*R)*dpsi_dx
-!  Bphi= Fval/R
+  BR= -psi_scale/(p_R0*R)*dpsi_dy
+  BZ=  psi_scale/(p_R0*R)*dpsi_dx
+  Bphi= Fval/R
   
-
   !AR=AR0+deltaAR, AZ=AZ0+deltaAZ
   ! curl(A0)=Faxis/R => AR0=0 AZ0 = -Faxis*log(R)
   !
   ! curl(deltaA) = deltaF(Psi)/R, deltaF=sqrt(Faxis^2-dF2*psinorm)-Faxis
-  ! => deltaAR =  PsiReal* dPsiReal_dZ*deltaF(Psi)/( R*((dPsiReal_dR)^2+(dPsiReal_dZ)^2))
-  !    deltaAZ = -PsiReal* dPsiReal_dR*deltaF(Psi)/( R*((dPsiReal_dR)^2+(dPsiReal_dZ)^2))
+  ! introduce a polar coordinate rho=sqrt((R-Raxis)^2+(Z-Zaxis)^2) and the 
+  ! real poloidal angle phi=atan2((Z-Zaxis)/(R-Raxis)), and integrate along the line from axis to 
+  ! current point
+  ! alpha(rho,phi)= \int_0^rho deltaF(Psi)/R rhohat drhohat , Psi=Psi(x(rhohat,phi),y(rhohat,phi)), R=R0*x(rhohat,phi)
+  ! dphi/dR = -(Z-Zaxis)/rho^2, dphi/dZ = (R-Raxis)/rho^2
   !
-  !normalization: R=x*R0, PsiReal=Psi_scale*Psi, dPsiReal_dR = psi_scale/R0 *dPsi_dx ...  
-  ! => deltaAR =  Psi* dPsi_dy*deltaF(Psi)/( x*((dPsi_dx)^2+(dPsi_dy)^2))
-  !    deltaAZ = -Psi* dPsi_dx*deltaF(Psi)/( x*((dPsi_dx)^2+(dPsi_dy)^2))
-  !Aphi= psireal/R = psi_scale*psi/(x*R0)
- 
-  AbsGradPsi2=(dpsi_dx**2+dpsi_dy**2)
-  IF(AbsGradPsi2.LT.1.0E-12)THEN !near axis/xpoint, |gradPsi|^2 => 0!!
-    deltaA=0.
-  ELSE
-    deltaA=(Fval-F_axis)*PsiVal/(xNewton(1)*AbsGradPsi2)
-  END IF
+  ! => deltaAR =  -alpha * dphi/dR, deltaAZ=-alpha *dphi/dZ
+  alpha_sRho2=CCint(tol,FI1,converged) !*rho^2,  since integral normalized to [0,1]
 
-!  AR  = 0. + dPsi_dy*deltaA 
-!  AZ  = -F_axis*LOG(R) - dPsi_dx*deltaA 
-!  Aphi= psi_scale*PsiVal/R
+  AR  =  alpha_sRho2*P_R0*(xPos(2)-xaxis(2))
+  AZ  = -alpha_sRho2*P_R0*(xPos(1)-xaxis(1))
+  Aphi= psi_scale*PsiVal/R
 
 !DEBUG 1: poloidal Bfield
 !  BR= -psi_scale/(p_R0*R)*dpsi_dy
@@ -622,7 +619,15 @@ DO iNode=1,nTotal
 !  AZ  = 0. 
 !  Aphi= psi_scale*PsiVal/R
 
-!DEBUG 2: toroidal Faxis field
+!DEBUG 2: toroidal full F field, integrated
+!  BR= 0.
+!  BZ= 0.
+!  Bphi= Fval/R
+!  AR  =  alpha_sRho2*P_R0*(xPos(2)-xaxis(2))
+!  AZ  = -alpha_sRho2*P_R0*(xPos(1)-xaxis(1))
+!  Aphi= 0.
+
+!DEBUG 3: toroidal  field analytical to constant F_axis
 !  BR= 0.
 !  BZ= 0.
 !  Bphi= F_axis/R
@@ -630,13 +635,13 @@ DO iNode=1,nTotal
 !  AZ  = -F_axis*LOG(R) 
 !  Aphi= 0.
 
-!DEBUG 3: toroidal deltaF field
-  BR= 0.
-  BZ= 0.
-  Bphi= (Fval-F_axis)/R
-  AR  =  dPsi_dy*deltaA 
-  AZ  = -dPsi_dx*deltaA 
-  Aphi= 0.
+!DEBUG 4: toroidal deltaF field (integrate only (Fval-Faxis))
+!  BR= 0.
+!  BZ= 0.
+!  Bphi= (Fval-F_axis)/R
+!  AR  =  alpha_sRho2*P_R0*(xPos(2)-xaxis(2))
+!  AZ  = -alpha_sRho2*P_R0*(xPos(1)-xaxis(1))
+!  Aphi= 0.
 
   Bcart(1)= BR*coszeta-Bphi*sinzeta
   Bcart(2)= BR*sinzeta+Bphi*coszeta
@@ -658,32 +663,65 @@ END DO !iNode
 
 WRITE(UNIT_stdOut,'(A)')'  ...DONE.                             '
 
-!for newton search
 CONTAINS
+!for newton search
   FUNCTION FR1(r)
-    USE MOD_PsiEval,ONLY:EvalPsi
+    !USE MOD_PsiEval,ONLY:EvalPsi
+    !uses ApproxFluxMap function
+    !uses current theta from subroutine
     IMPLICIT NONE
+    !-----------------------------------------------------------------
     REAL     :: r
     REAL     :: FR1
     !local
     REAL     :: xloc(2)
+    !-----------------------------------------------------------------
     xloc=ApproxFluxMap(r,Theta) !theta from subroutine!
     FR1=EvalPsi(xloc(1),xloc(2))
   END FUNCTION FR1
 
   FUNCTION dFR1(r)
-    USE MOD_PsiEval,ONLY:EvaldPsi
+    !USE MOD_PsiEval,ONLY:EvaldPsi
+    !uses ApproxFluxMap function
+    !uses ApproxFluxMap_dr function
+    !uses current theta from subroutine
     IMPLICIT NONE
+    !-----------------------------------------------------------------
     REAL     :: r
     REAL     :: dFR1
     !local
     REAL     :: xloc(2),dxloc_dr(2)
+    !-----------------------------------------------------------------
     xloc=ApproxFluxMap(r,Theta) !theta from subroutine!
     dxloc_dr=ApproxFluxMap_dr(r,Theta) !theta from subroutine!
     !d/dr(psi(x(r),y(r))) = dpsi_dx(r)*dx_dr(r) +dpsi_dy*dy_dr(r)
     dFR1= EvaldPsi(1,1,xloc(1),xloc(2))*dxloc_dr(1) &
           +EvaldPsi(2,1,xloc(1),xloc(2))*dxloc_dr(2)
   END FUNCTION dFR1
+
+  !Function for cc integration to compute poloidal vector potential
+  FUNCTION FI1(nn,rhohat)
+    !USE MOD_PsiEval,     ONLY:EvalPsi
+    !uses PsiToPsiNorm(psi) 
+    !uses current point position xPos(1:2) from subroutine
+    !uses xaxis,F_axis,deltaF2,p_R0 from subroutine
+    IMPLICIT NONE
+    !-----------------------------------------------------------------
+    INTEGER  :: nn
+    REAL     :: rhohat(1:nn) !integration interval, should be [0,1]
+    REAL     :: FI1(1:nn)
+    !local
+    INTEGER  :: i
+    REAL     :: xloc(2),Fpsi
+    !-----------------------------------------------------------------
+    !Integrand alpha = F(Psi(x,y))*rhohat/R(x) 
+    DO i=1,nn
+      xloc=rhohat(i)*(xPos(:)-xaxis(:))+xaxis(:) !position at rhohat
+      Fpsi=SQRT(F_axis**2+deltaF2*PsiToPsiNorm(EvalPsi(xloc(1),xloc(2))))
+      FI1(i)=Fpsi*rhohat(i)/(P_R0*xloc(1))  !xloc(1)is always >0
+    END DO !i=1,nn
+  END FUNCTION FI1
+
 
 END SUBROUTINE MapToSolov 
 
