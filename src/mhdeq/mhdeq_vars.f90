@@ -41,8 +41,8 @@ CHARACTER(LEN=255),DIMENSION(10),PARAMETER :: MHDEQvarNames(10)=(/ CHARACTER(LEN
                      ,'MHDEQ-BX'          & ! 3
                      ,'MHDEQ-BY'          & ! 4
                      ,'MHDEQ-BZ'          & ! 5
-                     ,'MHDEQ-polfluxnorm' & ! 6
-                     ,'MHDEQ-torfluxnorm' & ! 7
+                     ,'MHDEQ-polflux'     & ! 6
+                     ,'MHDEQ-torflux'     & ! 7
                      ,'MHDEQ-AX'          & ! 8
                      ,'MHDEQ-AY'          & ! 9
                      ,'MHDEQ-AZ'          & !10    

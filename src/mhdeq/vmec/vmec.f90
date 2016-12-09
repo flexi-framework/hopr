@@ -103,7 +103,7 @@ REAL,ALLOCATABLE     :: gmnc_half_nyq(:,:)
   !density coefficients of the polynomial coefficients: rho_1+rho_2*x + rho_3*x^2 ...
   nRhoCoefs=GETINT("nRhoCoefs","0")
   IF(nRhoCoefs.GT.0)THEN
-    RhoFluxVar=GETINT("RhoFluxVar") ! dependant variable: =0: phinorm (tor. flux), =1:chinorm (pol. flux)
+    RhoFluxVar=GETINT("RhoFluxVar") ! dependant variable: =0: psinorm (tor. flux), =1:chinorm (pol. flux)
     ALLOCATE(RhoCoefs(nRhoCoefs))
     RhoCoefs=GETREALARRAY("RhoCoefs",nRhoCoefs)
   END IF
@@ -120,13 +120,19 @@ REAL,ALLOCATABLE     :: gmnc_half_nyq(:,:)
   gmnc_half_nyq     = gmnc
   ! half data is stored from 2:nFluxVMEC
 
+  !toroidal flux from VMEC, now called PSI!!!
+  ALLOCATE(Psi_prof(nFluxVMEC))
+  ALLOCATE(psinorm_prof(nFluxVMEC))
+  Psi_prof = phi
   !normalized toroidal flux (=flux variable s [0;1] in VMEC)
-  ALLOCATE(phinorm(nFluxVMEC))
-  phinorm=(phi-phi(1))/phi(nFluxVMEC)
-  WRITE(UNIT_stdOut,'(A,3F10.4)')'   normalized flux of first three flux surfaces',phinorm(2:4)
+  psinorm_prof=(psi_prof-psi_prof(1))/(psi_prof(nFluxVMEC)-psi_prof(1))
+  WRITE(UNIT_stdOut,'(A,3F10.4)')'   normalized flux of first three flux surfaces',psinorm_prof(2:4)
+  !poloidal flux from VMEC
+  ALLOCATE(chi_prof(nFluxVMEC))
+  chi_prof=chi
   !normalized poloidal flux (=flux variable in Grad-Shafranov equation)
-  ALLOCATE(chinorm(nFluxVMEC))
-  chinorm=(chi-chi(1))/(chi(nFluxVMEC)-chi(1))
+  ALLOCATE(chinorm_Prof(nFluxVMEC))
+  chinorm_Prof=(chi_prof-chi_prof(1))/(chi_prof(nFluxVMEC)-chi_prof(1))
 
   WRITE(UNIT_stdOut,*)'   Total Number of mn-modes:',mn_mode
   WRITE(UNIT_stdOut,*)'   Max Mode m,n: ',MAXVAL(xm),MAXVAL(xn)
@@ -165,7 +171,7 @@ REAL,ALLOCATABLE     :: gmnc_half_nyq(:,:)
 
   !prepare Spline interpolation
   ALLOCATE(rho(1:nFluxVMEC))
-  rho(:)=SQRT(phinorm(:))
+  rho(:)=SQRT(psinorm_prof(:))
   
 
   ALLOCATE(Rmnc_Spl(4,1:nFluxVMEC,mn_mode)) !first dim is for spline interpolation
@@ -180,15 +186,18 @@ REAL,ALLOCATABLE     :: gmnc_half_nyq(:,:)
   ALLOCATE(pres_spl(4,1:nFluxVMEC))
   pres_spl(1,:)=presf(:)
   CALL SPLINE1_FIT(nFluxVMEC,rho,pres_Spl(:,:), K_BC1=3, K_BCN=0)
-  ALLOCATE(phipf_spl(4,1:nFluxVMEC))
-  phipf_spl(1,:)=phipf(:)
-  CALL SPLINE1_FIT(nFluxVMEC,rho,phipf_Spl(:,:), K_BC1=3, K_BCN=0)
+  ALLOCATE(dpsi_ds_spl(4,1:nFluxVMEC))
+  dpsi_ds_spl(1,:)=phipf(:)
+  CALL SPLINE1_FIT(nFluxVMEC,rho,dpsi_ds_Spl(:,:), K_BC1=3, K_BCN=0)
   ALLOCATE(iota_spl(4,1:nFluxVMEC))
   iota_spl(1,:)=iotaf(:)
   CALL SPLINE1_FIT(nFluxVMEC,rho,iota_Spl(:,:), K_BC1=3, K_BCN=0)
-  ALLOCATE(chinorm_spl(4,1:nFluxVMEC))
-  chinorm_spl(1,:)=chinorm(:)
-  CALL SPLINE1_FIT(nFluxVMEC,rho,chinorm_Spl(:,:), K_BC1=3, K_BCN=0)
+  ALLOCATE(Psi_spl(4,1:nFluxVMEC))
+  Psi_spl(1,:)=Psi_Prof(:)
+  CALL SPLINE1_FIT(nFluxVMEC,rho,Psi_Spl(:,:), K_BC1=3, K_BCN=0)
+  ALLOCATE(chi_spl(4,1:nFluxVMEC))
+  chi_spl(1,:)=chi_Prof(:)
+  CALL SPLINE1_FIT(nFluxVMEC,rho,chi_Spl(:,:), K_BC1=3, K_BCN=0)
 
 
   WRITE(UNIT_stdOut,'(A)')'  ... DONE'
@@ -250,7 +259,7 @@ SUBROUTINE FitSplineHalf(modes,mabs,Xmn_half,Xmn_Spl)
 ! MODULES
 USE MOD_Globals
 USE MOD_VMEC_Mappings, ONLY: nFluxVMEC
-USE MOD_VMEC_Vars,     ONLY: rho,phinorm 
+USE MOD_VMEC_Vars,     ONLY: rho,psinorm_prof
 USE SPLINE1_MOD,       ONLY:SPLINE1_FIT 
 USE SPLINE1_MOD,       ONLY:SPLINE1_INTERP 
 ! IMPLICIT VARIABLE HANDLING
@@ -272,7 +281,7 @@ INTEGER           :: iFlag
 CHARACTER(len=100):: message
 !===================================================================================================================================
 DO iFlux=1,nFluxVMEC-1
-  rho_half(iFlux+1)=SQRT(0.5*(phinorm(iFlux+1)+phinorm(iFlux))) !0.5*(rho(iFlux)+rho(iFlux+1))
+  rho_half(iFlux+1)=SQRT(0.5*(psinorm_prof(iFlux+1)+psinorm_prof(iFlux))) !0.5*(rho(iFlux)+rho(iFlux+1))
 END DO
 !add end points
 rho_half(1)=0.
@@ -323,7 +332,6 @@ USE MOD_VMEC_Mappings, ONLY: mn_mode,xm,xn
 USE MOD_VMEC_Mappings, ONLY: mn_mode_nyq,xm_nyq,xn_nyq
 USE MOD_VMEC_Mappings, ONLY: nFluxVMEC
 USE MOD_VMEC_Mappings, ONLY: mu0
-USE MOD_VMEC_Mappings, ONLY: chi,phi
 USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -345,20 +353,22 @@ INTEGER :: iGuess=1
 REAL    :: CosMN(mn_mode)
 REAL    :: SinMN(mn_mode)
 REAL    :: CosMN_nyq(mn_mode_nyq)
-REAL    :: r_p    ! raduis in cylindrical coordinate system
-REAL    :: phi_p  ! normalized toroidal flux (=flux coordinate s [0,1]) (use radial distance of point position)
-REAL    :: chi_p  ! normalized poloidal flux [0,1] 
-REAL    :: theta  ! poloidal angle [0,2pi]
-REAL    :: zeta ! toroidal angle [0,2pi]
+REAL    :: r_p          ! raduis in cylindrical coordinate system
+REAL    :: psinorm      ! normalized poloidal flux (=flux coordinate s [0,1]) (use radial distance of input point position)
+REAL    :: chinorm      ! normalized toroidal flux [0,1], from spline interpolation 
+REAL    :: theta        ! poloidal angle [0,2pi]
+REAL    :: zeta         ! toroidal angle [0,2pi]
 REAL    :: coszeta,sinzeta
 REAL    :: R,Z   
-REAL    :: sqrtG   
+!REAL    :: sqrtG
+REAL    :: sqrtGr 
 REAL    :: dRdrho,dRdtheta,dRdzeta      !derivatives
 REAL    :: dZdrho,dZdtheta,dZdzeta 
-REAL    :: phi_int,chi_int,phipf_int,iota_int
+REAL    :: psi_int,dpsi_drho_int,dpsi_ds_int
+REAL    :: chi_int,dchi_ds_int,iota_int
 REAL    :: rho_p,rhom,drhom,splOut(3) !for interpolation
 REAL    :: Density,Pressure
-REAL    :: lam,dldtheta,dldzeta,dldrho
+REAL    :: lam,dldtheta,dldzeta!,dldrho
 REAL    :: Btheta,Bzeta          ! also called B^u, B^v, contravariant components of the magnetic field
 REAL    :: Br,Bz,Bphi            !mangetic field components in (R,Z,phi) system (phi=zeta)
                                  ! Br=dRdtheta*Btheta+dRdzeta*Bszeta 
@@ -395,11 +405,11 @@ DO iNode=1,nTotal
   SinMN(:)      = SIN(    xm(:) * theta -     xn(:) * zeta) 
   CosMN_nyq(:)  = COS(xm_nyq(:) * theta - xn_nyq(:) * zeta)
   
-  phi_p=r_p**2 ! use scaling of radius to phi evaluation variable
-  
-  phi_p=MIN(1.,MAX(phi_p,1.0E-08))
-  rho_p=SQRT(phi_p)
+  !psinorm ~ r_p**2 , use scaling of radius to psi evaluation variable
+  !rho_p = SQRT(psinorm)=r_p
 
+  rho_p=MIN(1.,MAX(r_p,1.0E-4)) ! ~ psinorm [1.0-e08,1.]
+  
   R         =0.
   Z         =0.
   dRdtheta  =0.
@@ -411,7 +421,7 @@ DO iNode=1,nTotal
   lam       =0.
   dldtheta  =0.
   dldzeta   =0.
-  dldrho    =0.
+  !dldrho    =0.
   DO iMode=1,mn_mode
     SELECT CASE(xmabs(iMode))
     CASE(0)
@@ -450,85 +460,116 @@ DO iNode=1,nTotal
     dldtheta = dldtheta + rhom*splout(1)*CosMN(iMode)*xm(iMode) 
     !dl/dzeta  (sin(m*theta-n*zeta))=-n*cos(m*theta-n*zeta)
     dldzeta  = dldzeta  - rhom*splout(1)*CosMN(iMode)*xn(iMode)
-    !dl/drho = sum_mn [ rho**m * dl_mn/drho + l_mn *d(rho**m)/drho ] * sin(m*theta-n*zeta)
-    dldrho   = dldrho   + (rhom*splout(2)+splout(1)*drhom)*SinMN(iMode)
+    !derivatives of lambda is rho not needed
+    !!dl/drho = sum_mn [ rho**m * dl_mn/drho + l_mn *d(rho**m)/drho ] * sin(m*theta-n*zeta)
+    !dldrho   = dldrho   + (rhom*splout(2)+splout(1)*drhom)*SinMN(iMode)
   END DO !iMode=1,mn_mode 
 
-  sqrtG     =0.
-  DO iMode=1,mn_mode_nyq
-    IF(xmabs_nyq(iMode).EQ.0)THEN
-      rhom=1.
-      drhom=0.
-    ELSEIF(xmabs_nyq(iMode).EQ.1)THEN
-      rhom=rho_p
-      drhom=1.
-    ELSE
-      rhom=rho_p**xmabs_nyq(iMode)
-      drhom=xmabs_nyq(iMode)*rho_p**(xmabs_nyq(iMode)-1)
-    END IF
-    CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,gmnc_nyq_Spl(:,:,iMode),iGuess,splout) 
-    sqrtG    = sqrtG    + rhom*splout(1)*CosMN_nyq(iMode)
-  END DO !iMode=1,mn_mode_nyq 
+  !sqrtG     =0.
+  !DO iMode=1,mn_mode_nyq
+  !  IF(xmabs_nyq(iMode).EQ.0)THEN
+  !    rhom=1.
+  !    drhom=0.
+  !  ELSEIF(xmabs_nyq(iMode).EQ.1)THEN
+  !    rhom=rho_p
+  !    drhom=1.
+  !  ELSE
+  !    rhom=rho_p**xmabs_nyq(iMode)
+  !    drhom=xmabs_nyq(iMode)*rho_p**(xmabs_nyq(iMode)-1)
+  !  END IF
+  !  CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,gmnc_nyq_Spl(:,:,iMode),iGuess,splout) 
+  !  sqrtG    = sqrtG    + rhom*splout(1)*CosMN_nyq(iMode)
+  !END DO !iMode=1,mn_mode_nyq 
 
   CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,pres_Spl(:,:),iGuess,splout) 
   pressure=splout(1)
-  CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,chinorm_Spl(:,:),iGuess,splout) 
-  chi_p=splout(1) !normalized chi (poloidal flux)
-  CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,phipf_Spl(:,:),iGuess,splout) 
-  phipf_int=splout(1)
-  CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,iota_Spl(:,:),iGuess,splout) 
-  iota_int=splout(1)
-  
+  !save way to compute dpsi_ds=dpsi_drho*drho/ds, drho/ds=1/(2*rho), where s=psinorm
+  CALL SPLINE1_EVAL((/1,1,0/), nFluxVMEC,rho_p,rho,Psi_Spl(:,:),iGuess,splout) 
+  psi_int=splout(1)
+  dpsi_drho_int=splout(2)
+  dpsi_ds_int=dpsi_drho_int/(2.*rho_p)
+  !!!CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,dpsi_ds_Spl(:,:),iGuess,splout) 
+  !!!IF(ABS(dpsi_ds_int-splout(1)).GT.1.0E-07) &
+  !!!  WRITE(*,*)'DEBUG,ABS(dpsi_ds-dpsi_drho/(2rho))>1.0-07',dpsi_ds_int,splout(1)
+
+  CALL SPLINE1_EVAL((/1,1,0/), nFluxVMEC,rho_p,rho,chi_Spl(:,:),iGuess,splout) 
+  chi_int=splout(1)
+  dchi_ds_int=splout(2)/(2.*rho_p)
+
+  !!CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,iota_Spl(:,:),iGuess,splout) 
+  !!iota_int=splout(1)
+  ! iota should be >0, chi is growing radially, but psi is decreasing radially 
+  iota_int = - dchi_ds_int/dpsi_ds_int 
 
   !  !compute magnetic field, following Michael Kraus formulas: 
   !  ! B^s     = 0 
-  !  ! B^theta = dphi/ds*(iota-dlambda/dzeta)  : phipf*(iotaf -  (lVmnc) ) 
-  !  ! B^zeta = dphi/ds*(1+dlambda/dtheta)     : phipf*(1+ (lUmnc) )
+  !  ! B^theta = dpsi/ds*(iota-dlambda/dzeta)  : dpsi_ds*(iotaf -  (lVmnc) ) 
+  !  ! B^zeta = dpsi/ds*(1+dlambda/dtheta)     : dpsi_ds*(1+ (lUmnc) )
   !  !   ...( lmns is overwritten to full mesh and then d/dtheta d/dzeta is applied )
   
 
-  !do not use sqrtG
-  !sqrtG=0.5/(rho_p)*R*(dRdtheta*dZdrho-dRdrho*dZdtheta) ! =drho/ds *R*(dRdtheta*dZdrho-dRdrho*dZdtheta)
+  !compute sqrtG=Jacobian: R*(dRdtheta*dZds-dRds*dZdtheta)
+  !sqrtG=R*(dRdtheta*dZds-dRds*dZdtheta) =  1/(2*rho_p)*R*(dRdtheta*dZdrho-dRdrho*dZdtheta) 
+  !sqrtG=R/(2*rho_p)*sqrtGr 
+  sqrtGr= (dRdtheta*dZdrho-dRdrho*dZdtheta) 
+  ! CHECK WITH INTERPOLATION
+  !IF(ABS(1-2*rho_p/R*sqrtG/sqrtGr).GT.1.0E-02)  &
+  !    WRITE(*,'(A,E11.5,A,F11.5)')'rel.err. sqrtG: |1 - 2*rho_p/R*sqrtG/sqrtGr|>1.0E-02 ',1- 2*rho_p/R*sqrtG/sqrtGr, ' psinorm= ' ,psinorm_p
 
-  !contravariant components of B (B^s=0) !!! sqrtG=Jacobian: R*(dRdtheta*dZds-dRds*dZdtheta)
-!  Btheta = phipf_int/sqrtG*(iota_int - dldzeta)
-!  Bzeta  = phipf_int/sqrtG*(1.  + dldtheta)
-!
-!  Br   =  dRdtheta*Btheta+dRdzeta*Bzeta
-!  Bz   =  dZdtheta*Btheta+dZdzeta*Bzeta
-!  Bphi =  R*Bzeta
+  !contravariant components of B (B^s=0) !!! 
+  !Btheta = (dchi_ds_int - dpsi_ds_int*dldzeta) /sqrtG
+  !Bzeta  = dpsi_ds_int/sqrtG*(1.  + dldtheta)
+  !
+  !Br   =  dRdtheta*Btheta+dRdzeta*Bzeta
+  !Bz   =  dZdtheta*Btheta+dZdzeta*Bzeta
+  !Bphi =  R*Bzeta
 
   !cylindrical components of B
-!  Br   =  phipf_int*(dRdtheta*(iota_int-dldzeta)+dRdzeta*(1.  + dldtheta))*2*rho_p/(R*(dRdtheta*dZdrho-dRdrho*dZdtheta))
-!  Bz   =  phipf_int*(dZdtheta*(iota_int-dldzeta)+dZdzeta*(1.  + dldtheta))*2*rho_p/(R*(dRdtheta*dZdrho-dRdrho*dZdtheta))
-!  Bphi =  phipf_int*(1.  + dldtheta)*2*rho_p/(dRdtheta*dZdrho-dRdrho*dZdtheta)
+  Br   =  (  dRdtheta*(dchi_ds_int-dpsi_ds_int*dldzeta) &
+           + dRdzeta * dpsi_ds_int*(1.  + dldtheta)    )* 2.*rho_p/(R*sqrtGr)
+  Bz   =  (  dZdtheta*(dchi_ds_int-dpsi_ds_int*dldzeta) &
+           + dZdzeta * dpsi_ds_int*(1.  + dldtheta)    )* 2.*rho_p/(R*sqrtGr)
+  Bphi =  dpsi_ds_int*(1.  + dldtheta)* 2.*rho_p/sqrtGr
 
-  ! directly cylindrical components of B
-  Br   =  phipf_int*(dRdtheta*(iota_int-dldzeta)+dRdzeta*(1.  + dldtheta))/sqrtG
-  Bz   =  phipf_int*(dZdtheta*(iota_int-dldzeta)+dZdzeta*(1.  + dldtheta))/sqrtG
-  Bphi =  phipf_int*(1.  + dldtheta)*R/sqrtG
+
+  ! compute cylindrical components of A (R,Z, phi) ,  
+  ! needs metric tensor to rho,theta,zeta (from inverse of Jacobian DR/Drho)
+  ! coordinates directions (rho,theta,zeta)  expressed in (R,Z,phi)
+  !
+  ! detJ = dphi_dzeta*(dR_drho*dZ_dtheta - dR_dtheta*dZ_drho) , dphi_dzeta=R
+  ! grad(rho  ) = 1/detJ * (/ R*dZ_dtheta, 
+  !                          -R*dR_dtheta, 
+  !                          (dR_dtheta*dZ_dzeta-dR_dzeta*dZ_dtheta) /)
+  ! grad(theta) = 1/detJ * (/-R*dZ_drho  , 
+  !                           R*dR_drho  ,
+  !                          -(dR_drho  *dZ_dzeta-dR_dzeta*dZ_drho  ) /)
+  ! grad(zeta ) = (/0 , 0, 1/R /)
  
-  phi_int= phi(1)+(phi(nFluxVMEC)-phi(1))*phi_p 
-  chi_int= chi(1)+(chi(nFluxVMEC)-chi(1))*chi_p 
+  ! the vector potential reads as
+  ! A=psi*grad(theta) + psi*grad(lambda) - chi*grad(zeta) 
+  !
+  !    with  psi*grad(lambda)=psi*(lambda_rho*grad(rho)+lambda_theta*grad(theta)+lamdba_zeta*grad(zeta))
+  !
+  !A=psi* [ (1+lambda_theta)*grad(theta) + lambda_rho*grad(rho) ] + (psi*lambda_zeta-chi)*grad(zeta)
 
-!  !covariant components of A!!!
-!  Arho   = 0.5/rho_p*phi_int*dldrho
-!  Atheta = phi_int*(1+dldtheta)
-!  Azeta  = phi_int*dldzeta-chi_int
-!
-!  !cylindrical components of A
-!  
-!  Ar   = (-dZdtheta*Arho + (0.5/rho_p*dZdrho)*Atheta )*R/sqrtG
-!  Az   = ( dRdtheta*Arho - (0.5/rho_p*dRdrho)*Atheta )*R/sqrtG
-!  Aphi = ((dZdtheta*dRdzeta -dRdtheta*dZdzeta)*Arho-(0.5/rho_p*(dZdrho*dRdzeta-dRdrho*dZdzeta))*Atheta)/sqrtG-Azeta/R
 
-  !directly cylindrical components of A
-  Ar   = phi_int*(-dZdtheta*dldrho + dZdrho*(1+dldtheta) )/(dRdtheta*dZdrho-dRdrho*dZdtheta)
-  Az   = phi_int*( dRdtheta*dldrho - dRdrho*(1+dldtheta) )/(dRdtheta*dZdrho-dRdrho*dZdtheta)
-  Aphi = phi_int*( (dZdtheta*dRdzeta -dRdtheta*dZdzeta)*dldrho &
-                  -(dZdrho  *dRdzeta -dRdrho  *dZdzeta)*(1+dldtheta))/ (R*(dRdtheta*dZdrho-dRdrho*dZdtheta)) &
-         +(chi_int-phi_int*dldzeta)/R
-  
+  !Ar   = psi_int *(dldrho*( dZdtheta) + (1.+dldtheta)*(-dZdrho)    )/(dRdrho*dZdtheta - dRdtheta*dZdrho) !*R/R
+  !Az   = psi_int *(dldrho*(-dRdtheta) + (1.+dldtheta)*( dRdrho)    )/(dRdrho*dZdtheta - dRdtheta*dZdrho) !*R/R
+  !Aphi = psi_int *(dldrho*(dRdtheta*dZdzeta-dRdzeta*dZdtheta)                             & 
+  !                                    + (1.+dldtheta)*(-(dRdrho*dZdzeta-dRdzeta*dZdrho))) &
+  !                /(R*(dRdrho*dZdtheta - dRdtheta*dZdrho))                                &
+  !       + (psi_int*dldzeta-chi_int)/R 
+
+  ! OR also, without lambda derivatives:
+  !  psi grad(theta) - lambda grad(psi) - chi grad(zeta) , where grad(psi) = dPsi_drho *grad(rho)
+
+  Ar   = (-lam*dpsi_drho_int*( dZdtheta)  + psi_int *(-dZdrho)    )/(dRdrho*dZdtheta - dRdtheta*dZdrho) !*R/R
+  Az   = (-lam*dpsi_drho_int*(-dRdtheta)  + psi_int *( dRdrho)    )/(dRdrho*dZdtheta - dRdtheta*dZdrho) !*R/R
+  Aphi = (-lam*dpsi_drho_int*(dRdtheta*dZdzeta-dRdzeta*dZdtheta)                          &
+                                          + psi_int *(-(dRdrho*dZdzeta-dRdzeta*dZdrho)) ) &
+         /(R*(dRdrho*dZdtheta - dRdtheta*dZdrho))                                            &
+         -chi_int/R 
+ 
 
   coszeta=COS(zeta)
   sinzeta=SIN(zeta)
@@ -545,13 +586,17 @@ DO iNode=1,nTotal
   Acart(2)= Ar*sinzeta+Aphi*coszeta
   Acart(3)= Az
   
-  Density=Eval1DPoly(nRhoCoefs,RhoCoefs,MERGE(phi_p,chi_p,RhoFluxVar.EQ.0)) 
+
+  psinorm=(psi_int-psi_prof(1))/(psi_prof(nFluxVMEC)-psi_prof(1))
+  chinorm=(chi_int-chi_prof(1))/(chi_prof(nFluxVMEC)-chi_prof(1))
+
+  Density=Eval1DPoly(nRhoCoefs,RhoCoefs,MERGE(psinorm,chinorm,RhoFluxVar.EQ.0)) 
 
   MHDEQdata(  1,iNode)=Density
   MHDEQdata(  2,iNode)=pressure*mu0 !pressure transformed to mu0=1
   MHDEQdata( 3:5,iNode)=Bcart(:)
-  MHDEQdata(   6,iNode)=phi_p
-  MHDEQdata(   7,iNode)=chi_p
+  MHDEQdata(   6,iNode)=chi_int !poloidal flux
+  MHDEQdata(   7,iNode)=psi_int !toroidal flux
   MHDEQdata(8:10,iNode)=Acart(:)
 !  MHDEQdata( 11,iNode)=dRdrho
 !  MHDEQdata( 12,iNode)=dldrho

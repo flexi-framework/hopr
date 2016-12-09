@@ -32,23 +32,30 @@ PUBLIC
 ! GLOBAL VARIABLES 
 LOGICAL             :: useVMEC
 CHARACTER(LEN = 256):: VMECdataFile
-INTEGER,ALLOCATABLE :: xmAbs(:)                      ! abs |xm(iMode)|
-INTEGER,ALLOCATABLE :: xmAbs_nyq(:)                      ! abs |xm(iMode)|
-REAL,ALLOCATABLE    :: phinorm(:)                        !normalized toroidal flux 
-REAL,ALLOCATABLE    :: chinorm(:)                        !normalized poloidal flux 
-REAL,ALLOCATABLE    :: rho(:)                            !sqrt(phinorm)
-REAL,ALLOCATABLE    :: pres_Spl(:,:)       
-REAL,ALLOCATABLE    :: phipf_Spl(:,:)       
+INTEGER,ALLOCATABLE :: xmAbs(:)                  ! abs |xm(iMode)|
+INTEGER,ALLOCATABLE :: xmAbs_nyq(:)              ! abs |xm(iMode)|
+REAL,ALLOCATABLE    :: Psi_prof(:)               ! TOROIDAL flux profile (called phi_pf in VMEC)
+REAL,ALLOCATABLE    :: chi_prof(:)               ! POLOIDAL flux profile ( called chi_pf in VMEC)
+
+REAL,ALLOCATABLE    :: psinorm_prof(:)           ! normalized toroidal flux profile
+REAL,ALLOCATABLE    :: chinorm_prof(:)           ! normalized poloidal flux profile
+REAL,ALLOCATABLE    :: rho(:)                    ! := sqrt(psinorm) 
+REAL,ALLOCATABLE    :: pres_Spl(:,:)             ! Spline coefficients in (rho) for Pressure, iota 
 REAL,ALLOCATABLE    :: iota_Spl(:,:)       
-REAL,ALLOCATABLE    :: chinorm_Spl(:,:)       
-REAL,ALLOCATABLE    :: Rmnc_Spl(:,:,:)                   ! modified spline coefficients of Rmnc
-REAL,ALLOCATABLE    :: Zmns_Spl(:,:,:)                   !
-REAL,ALLOCATABLE    :: lmns_Spl(:,:,:)                   !
-REAL,ALLOCATABLE    :: gmnc_nyq_Spl(:,:,:)               !
-INTEGER             :: nRhoCoefs                        ! number of density coefficients 
-INTEGER             :: RhoFluxVar                        ! =0: rho(phinorm) Normalized toroidal flux variable, =1: rho(chinorm) 
-REAL,ALLOCATABLE    :: RhoCoefs(:)                      !density coefficients of the polynomial coefficients:
-                                                         !rho_1+rho_2*x + rho_3*x^2 ...
+REAL,ALLOCATABLE    :: dPsi_ds_Spl(:,:)          ! two modes in vmec: if toroidal flux is used for profiles, 
+                                                 ! then s=Psinorm [0,1], Psi(s)=Psi(1)+(Psi(n)-Psi(1))*s,dPsi/ds=Psi(n)-Psi(1). 
+                                                 ! VMEC can also use the normalized polodial fluxes for s (RFP=.TRUE. option),
+                                                 ! then dPsi/ds = dPsi/dchinorm = (chi(n)-chi(1))/iota
+REAL,ALLOCATABLE    :: Psi_Spl(:,:)       
+REAL,ALLOCATABLE    :: chi_Spl(:,:)       
+REAL,ALLOCATABLE    :: Rmnc_Spl(:,:,:)           ! modified spline coefficients of Rmnc
+REAL,ALLOCATABLE    :: Zmns_Spl(:,:,:)           !
+REAL,ALLOCATABLE    :: lmns_Spl(:,:,:)           !
+REAL,ALLOCATABLE    :: gmnc_nyq_Spl(:,:,:)       !
+INTEGER             :: nRhoCoefs                 ! number of density coefficients 
+INTEGER             :: RhoFluxVar                ! =0: rho(psinorm) Normalized toroidal flux variable, =1: rho(chinorm) 
+REAL,ALLOCATABLE    :: RhoCoefs(:)               ! density coefficients of the polynomial coefficients:
+                                                 ! rho_1+rho_2*x + rho_3*x^2 ...
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! Private Part ---------------------------------------------------------------------------------------------------------------------
 ! Public Part ----------------------------------------------------------------------------------------------------------------------

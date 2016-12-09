@@ -655,8 +655,8 @@ DO iNode=1,nTotal
   MHDEQdata(  1,iNode)=Density
   MHDEQdata(  2,iNode)=p_paxis + (PresEdge-p_paxis)*psiNorm !linear pressure profile
   MHDEQdata( 3:5,iNode)=Bcart(:)
-  MHDEQdata(   6,iNode)=psiNorm
-  MHDEQdata(   7,iNode)=-1.
+  MHDEQdata(   6,iNode)=psi_scale*PsiVal !polodial flux
+  MHDEQdata(   7,iNode)=0.               !toroidal flux, not known
   MHDEQdata(8:10,iNode)=Acart(:)
 END DO !iNode
 
