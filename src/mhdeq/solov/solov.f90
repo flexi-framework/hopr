@@ -496,9 +496,10 @@ END SUBROUTINE SolveForPsiCoefs
 
 SUBROUTINE MapToSolov(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
 !===================================================================================================================================
-! Maps a cylinder (r,z,phi) to a toroidal closed flux surface configuration derived from VMEC data. 
+! Maps a cylinder (r,z,phi) to a toroidal closed flux surface configuration derived from a tokamak soloviev equilibrium. 
 ! Surfaces with constant r become flux surfaces. z [0;1] is mapped to [0;2*pi] 
-! for a fixed theta, uses a newton method to find the exact location  in r of psi(x(r),y(r))-Psi0=0, psi0=psi(psinorm=r_p^2)
+! for a fixed theta, uses a newton method to find the exact location  in r of psi(x(r),y(r))-Psi0=0, psi0=psi(psinorm=r_p^2),
+! using an approximate map(R,Z)<->(rho,theta) of the soloviev equilibrium. 
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals

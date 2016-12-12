@@ -58,7 +58,7 @@ USE MOD_Globals,ONLY:UNIT_stdOut,abort
 USE MOD_ReadInTools
 USE MOD_VMEC_Vars
 USE SPLINE1_MOD,       ONLY:SPLINE1_FIT 
-USE MOD_VMEC_Mappings !ReadVMECoutput,VMEC variables
+USE MOD_VMEC_Mappings ! for ReadVMECoutput,VMEC variables
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -72,7 +72,7 @@ IMPLICIT NONE
 INTEGER              :: iMode
 LOGICAL              :: useFilter
 REAL,ALLOCATABLE     :: lmns_half(:,:)
-REAL,ALLOCATABLE     :: gmnc_half_nyq(:,:)
+!REAL,ALLOCATABLE     :: gmnc_half_nyq(:,:)
 !===================================================================================================================================
   WRITE(UNIT_stdOut,'(A)')'  INIT VMEC INPUT ...'
 
@@ -114,25 +114,24 @@ REAL,ALLOCATABLE     :: gmnc_half_nyq(:,:)
 
   !data on half mesh (copy before its overwritten in precalcdata)
   ALLOCATE(lmns_half(1:nFluxVMEC,mn_mode)) 
-  ALLOCATE(gmnc_half_nyq(1:nFluxVMEC,mn_mode_nyq))
-
   lmns_half         = lmns
-  gmnc_half_nyq     = gmnc
+
+  !gmnc not needed anymore
+  !ALLOCATE(gmnc_half_nyq(1:nFluxVMEC,mn_mode_nyq))
+  !gmnc_half_nyq     = gmnc
   ! half data is stored from 2:nFluxVMEC
 
   !toroidal flux from VMEC, now called PSI!!!
   ALLOCATE(Psi_prof(nFluxVMEC))
-  ALLOCATE(psinorm_prof(nFluxVMEC))
   Psi_prof = phi
+
   !normalized toroidal flux (=flux variable s [0;1] in VMEC)
+  ALLOCATE(psinorm_prof(nFluxVMEC))
   psinorm_prof=(psi_prof-psi_prof(1))/(psi_prof(nFluxVMEC)-psi_prof(1))
   WRITE(UNIT_stdOut,'(A,3F10.4)')'   normalized flux of first three flux surfaces',psinorm_prof(2:4)
   !poloidal flux from VMEC
   ALLOCATE(chi_prof(nFluxVMEC))
   chi_prof=chi
-  !normalized poloidal flux (=flux variable in Grad-Shafranov equation)
-  ALLOCATE(chinorm_Prof(nFluxVMEC))
-  chinorm_Prof=(chi_prof-chi_prof(1))/(chi_prof(nFluxVMEC)-chi_prof(1))
 
   WRITE(UNIT_stdOut,*)'   Total Number of mn-modes:',mn_mode
   WRITE(UNIT_stdOut,*)'   Max Mode m,n: ',MAXVAL(xm),MAXVAL(xn)
@@ -155,19 +154,20 @@ REAL,ALLOCATABLE     :: gmnc_half_nyq(:,:)
     END IF !usefilter
   END DO !iMode=1,mn_mode
 
-  ALLOCATE(xmabs_nyq(mn_mode_nyq))
-  DO iMode=1,mn_mode_nyq
-    xmabs_nyq(iMode)=ABS(NINT(xm_nyq(iMode)))
-    IF(useFilter)THEN
-      IF(xmabs_nyq(iMode) > 3) THEN !Filtering for |m| > 3
-        IF(MOD(xmabs_nyq(iMode),2) == 0) THEN
-          xmabs_nyq(iMode)=2 !Even mode, remove rho**2
-        ELSE
-          xmabs_nyq(iMode)=3 !Odd mode, remove rho**3
-        END IF
-      END IF
-    END IF !usefilter
-  END DO !iMode=1,mn_mode
+  !xmabs_nyq not needed anymore (only for gmnc)...
+  !ALLOCATE(xmabs_nyq(mn_mode_nyq))
+  !DO iMode=1,mn_mode_nyq
+  !  xmabs_nyq(iMode)=ABS(NINT(xm_nyq(iMode)))
+  !  IF(useFilter)THEN
+  !    IF(xmabs_nyq(iMode) > 3) THEN !Filtering for |m| > 3
+  !      IF(MOD(xmabs_nyq(iMode),2) == 0) THEN
+  !        xmabs_nyq(iMode)=2 !Even mode, remove rho**2
+  !      ELSE
+  !        xmabs_nyq(iMode)=3 !Odd mode, remove rho**3
+  !      END IF
+  !    END IF
+  !  END IF !usefilter
+  !END DO !iMode=1,mn_mode
 
   !prepare Spline interpolation
   ALLOCATE(rho(1:nFluxVMEC))
@@ -175,29 +175,37 @@ REAL,ALLOCATABLE     :: gmnc_half_nyq(:,:)
   
 
   ALLOCATE(Rmnc_Spl(4,1:nFluxVMEC,mn_mode)) !first dim is for spline interpolation
-  ALLOCATE(Zmns_Spl(4,1:nFluxVMEC,mn_mode))
-  ALLOCATE(lmns_Spl(4,1:nFluxVMEC,mn_mode))
-  ALLOCATE(gmnc_nyq_Spl(4,1:nFluxVMEC,mn_mode_nyq))
-
   CALL FitSpline(mn_mode,xmAbs,Rmnc,Rmnc_Spl)
+
+  ALLOCATE(Zmns_Spl(4,1:nFluxVMEC,mn_mode))
   CALL FitSpline(mn_mode,xmAbs,Zmns,Zmns_Spl)
+
+  ALLOCATE(lmns_Spl(4,1:nFluxVMEC,mn_mode))
   CALL FitSplineHalf(mn_mode,xmAbs,lmns_half,lmns_Spl)
-  CALL FitSplineHalf(mn_mode_nyq,xmAbs_nyq,gmnc_half_nyq,gmnc_nyq_Spl)
+
   ALLOCATE(pres_spl(4,1:nFluxVMEC))
   pres_spl(1,:)=presf(:)
   CALL SPLINE1_FIT(nFluxVMEC,rho,pres_Spl(:,:), K_BC1=3, K_BCN=0)
-  ALLOCATE(dpsi_ds_spl(4,1:nFluxVMEC))
-  dpsi_ds_spl(1,:)=phipf(:)
-  CALL SPLINE1_FIT(nFluxVMEC,rho,dpsi_ds_Spl(:,:), K_BC1=3, K_BCN=0)
-  ALLOCATE(iota_spl(4,1:nFluxVMEC))
-  iota_spl(1,:)=iotaf(:)
-  CALL SPLINE1_FIT(nFluxVMEC,rho,iota_Spl(:,:), K_BC1=3, K_BCN=0)
+
   ALLOCATE(Psi_spl(4,1:nFluxVMEC))
   Psi_spl(1,:)=Psi_Prof(:)
   CALL SPLINE1_FIT(nFluxVMEC,rho,Psi_Spl(:,:), K_BC1=3, K_BCN=0)
+
   ALLOCATE(chi_spl(4,1:nFluxVMEC))
   chi_spl(1,:)=chi_Prof(:)
   CALL SPLINE1_FIT(nFluxVMEC,rho,chi_Spl(:,:), K_BC1=3, K_BCN=0)
+
+  !not needed anymore
+  !ALLOCATE(gmnc_nyq_Spl(4,1:nFluxVMEC,mn_mode_nyq))
+  !CALL FitSplineHalf(mn_mode_nyq,xmAbs_nyq,gmnc_half_nyq,gmnc_nyq_Spl)
+  !
+  !ALLOCATE(dpsi_ds_spl(4,1:nFluxVMEC))
+  !dpsi_ds_spl(1,:)=phipf(:)
+  !CALL SPLINE1_FIT(nFluxVMEC,rho,dpsi_ds_Spl(:,:), K_BC1=3, K_BCN=0)
+  !
+  !ALLOCATE(iota_spl(4,1:nFluxVMEC))
+  !iota_spl(1,:)=iotaf(:)
+  !CALL SPLINE1_FIT(nFluxVMEC,rho,iota_Spl(:,:), K_BC1=3, K_BCN=0)
 
 
   WRITE(UNIT_stdOut,'(A)')'  ... DONE'
@@ -329,7 +337,6 @@ USE MOD_MHDEQ_Vars,    ONLY: nVarMHDEQ
 USE MOD_MHDEQ_Tools,   ONLY: Eval1DPoly
 USE MOD_VMEC_Vars
 USE MOD_VMEC_Mappings, ONLY: mn_mode,xm,xn
-USE MOD_VMEC_Mappings, ONLY: mn_mode_nyq,xm_nyq,xn_nyq
 USE MOD_VMEC_Mappings, ONLY: nFluxVMEC
 USE MOD_VMEC_Mappings, ONLY: mu0
 USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
@@ -337,50 +344,50 @@ USE SPLINE1_MOD, ONLY: SPLINE1_EVAL
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-INTEGER,INTENT(IN) :: nTotal         ! total number of points
-REAL, INTENT(IN)   :: x_in(3,nTotal) ! input coordinates represent a cylinder: 
-INTEGER, INTENT(IN):: InputCoordSys  ! =0: x_in(1:3) are (x,y,z) coordinates in a cylinder of size r=[0;1], z=[0;1]
-                                     ! =1: x_in(1:3) are (r,z,phi) coordinates r= [0;1], z= [0;1], phi=[0;1]
+INTEGER,INTENT(IN) :: nTotal          ! total number of points
+REAL, INTENT(IN)   :: x_in(3,nTotal)  ! input coordinates represent a cylinder: 
+INTEGER, INTENT(IN):: InputCoordSys   ! =0: x_in(1:3) are (x,y,z) coordinates in a cylinder of size r=[0;1], z=[0;1]
+                                      ! =1: x_in(1:3) are (r,z,phi) coordinates r= [0;1], z= [0;1], phi=[0;1]
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 REAL,INTENT(OUT)   :: x_out(3,nTotal) ! mapped x,y,z coordinates with vmec data
-REAL,INTENT(OUT)   :: MHDEQdata(nVarMHDEQ,nTotal) 
+REAL,INTENT(OUT)   :: MHDEQdata(nVarMHDEQ,nTotal) !vector of equilibrium variables, see definition in mhdeq_vars.f90
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER :: iNode,percent
 INTEGER :: iMode
 INTEGER :: iGuess=1
-REAL    :: CosMN(mn_mode)
-REAL    :: SinMN(mn_mode)
-REAL    :: CosMN_nyq(mn_mode_nyq)
-REAL    :: r_p          ! raduis in cylindrical coordinate system
-REAL    :: psinorm      ! normalized poloidal flux (=flux coordinate s [0,1]) (use radial distance of input point position)
-REAL    :: chinorm      ! normalized toroidal flux [0,1], from spline interpolation 
-REAL    :: theta        ! poloidal angle [0,2pi]
-REAL    :: zeta         ! toroidal angle [0,2pi]
-REAL    :: coszeta,sinzeta
-REAL    :: R,Z   
-!REAL    :: sqrtG
-REAL    :: sqrtGr 
-REAL    :: dRdrho,dRdtheta,dRdzeta      !derivatives
-REAL    :: dZdrho,dZdtheta,dZdzeta 
-REAL    :: psi_int,dpsi_drho_int,dpsi_ds_int
-REAL    :: chi_int,dchi_ds_int,iota_int
-REAL    :: rho_p,rhom,drhom,splOut(3) !for interpolation
-REAL    :: Density,Pressure
-REAL    :: lam,dldtheta,dldzeta!,dldrho
-REAL    :: Btheta,Bzeta          ! also called B^u, B^v, contravariant components of the magnetic field
-REAL    :: Br,Bz,Bphi            !mangetic field components in (R,Z,phi) system (phi=zeta)
-                                 ! Br=dRdtheta*Btheta+dRdzeta*Bszeta 
-                                 ! Bz=dZdtheta*Btheta+dZdzeta*Bzeta
-                                 ! Bphi=R*Bzeta
-REAL    :: Bcart(3)              !magnetic field components in (X,Y,Z) system 
-                                 ! Bx=Br*cos(phi) - Bphi*sin(phi)
-                                 ! By=Br*sin(phi) + Bphi*cos(phi)
-                                 ! Bz=Bz
-REAL    :: Arho,Atheta,Azeta
-REAL    :: Ar,Az,Aphi,Acart(3)   !magnetic potential
-REAL    :: ssqrtG
+REAL    :: CosMN(mn_mode)          !=cos(m*theta-n*zeta) for all modes
+REAL    :: SinMN(mn_mode)          !=sin(m*theta-n*zeta) for all modes
+REAL    :: r_p                     ! radius in cylindrical coordinate system
+REAL    :: psinorm                 ! normalized poloidal flux (=flux coordinate s [0,1]), use map r_p ~ sqrt(psinorm)
+REAL    :: chinorm                 ! normalized toroidal flux [0,1]
+REAL    :: theta                   ! poloidal angle [0,2pi]
+REAL    :: zeta                    ! toroidal angle [0,2pi]
+
+REAL    :: rho_p,rhom,drhom,splOut(3) !for weighted spline interpolation
+REAL    :: dRdrho,dRdtheta,dRdzeta !derivatives of R,Z, from splines
+REAL    :: dZdrho,dZdtheta,dZdzeta ! 
+REAL    :: lam,dldtheta,dldzeta    !spline interpolation of lambda function and derivatives
+REAL    :: sqrtGr                  !(part of) mapping Jacobian between VMEC and cylinder coords. 
+                                   ! (R,Z,phi) <->(rho,theta,zeta)
+REAL    :: psi_int,dpsi_drho_int   !toroidal flux and derivative from interpolation at rho_p
+REAL    :: chi_int,dchi_drho_int   !poloidal flux and derivative from interpolation at rho_p
+REAL    :: iota_int                !rotational transform, >0, iota=-chi'/psi'
+REAL    :: Btheta,Bzeta            ! also called B^u, B^v, contra-variant components of the magnetic field (B^rho=0)
+REAL    :: Br,Bz,Bphi              !mangetic field components in (R,Z,phi) system (phi=R*zeta)
+                                   ! Br=dRdtheta*Btheta+dRdzeta*Bszeta 
+                                   ! Bz=dZdtheta*Btheta+dZdzeta*Bzeta
+                                   ! Bphi=R*Bzeta
+REAL    :: Bcart(3)                !magnetic field components in (X,Y,Z) system 
+                                   ! Bx=Br*cos(phi) - Bphi*sin(phi)
+                                   ! By=Br*sin(phi) + Bphi*cos(phi)
+                                   ! Bz=Bz
+REAL    :: Arho,Atheta,Azeta       !covariant components of the magnetic vector potential
+REAL    :: Ar,Az,Aphi,Acart(3)     ! R,Z,phi and cartesian components of the magnetic vector potential
+REAL    :: Density,Pressure        !from density and pressure profiles
+REAL    :: coszeta,sinzeta         !cos(zeta),sin(zeta)
+REAL    :: R,Z                     !
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A,I8,A,A,A)')'  MAP ', nTotal,' NODES TO VMEC DATA FROM ',TRIM(VMECdataFile),' ...'
 percent=0
@@ -403,7 +410,8 @@ DO iNode=1,nTotal
   
   CosMN(:)      = COS(    xm(:) * theta -     xn(:) * zeta)
   SinMN(:)      = SIN(    xm(:) * theta -     xn(:) * zeta) 
-  CosMN_nyq(:)  = COS(xm_nyq(:) * theta - xn_nyq(:) * zeta)
+    !not needed anymore (only for gmnc)
+  !CosMN_nyq(:)  = COS(xm_nyq(:) * theta - xn_nyq(:) * zeta)
   
   !psinorm ~ r_p**2 , use scaling of radius to psi evaluation variable
   !rho_p = SQRT(psinorm)=r_p
@@ -487,19 +495,19 @@ DO iNode=1,nTotal
   CALL SPLINE1_EVAL((/1,1,0/), nFluxVMEC,rho_p,rho,Psi_Spl(:,:),iGuess,splout) 
   psi_int=splout(1)
   dpsi_drho_int=splout(2)
-  dpsi_ds_int=dpsi_drho_int/(2.*rho_p)
+  !dpsi_ds_int=dpsi_drho_int/(2.*rho_p)
   !!!CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,dpsi_ds_Spl(:,:),iGuess,splout) 
   !!!IF(ABS(dpsi_ds_int-splout(1)).GT.1.0E-07) &
   !!!  WRITE(*,*)'DEBUG,ABS(dpsi_ds-dpsi_drho/(2rho))>1.0-07',dpsi_ds_int,splout(1)
 
   CALL SPLINE1_EVAL((/1,1,0/), nFluxVMEC,rho_p,rho,chi_Spl(:,:),iGuess,splout) 
   chi_int=splout(1)
-  dchi_ds_int=splout(2)/(2.*rho_p)
+  dchi_drho_int=splout(2)
 
   !!CALL SPLINE1_EVAL((/1,0,0/), nFluxVMEC,rho_p,rho,iota_Spl(:,:),iGuess,splout) 
   !!iota_int=splout(1)
   ! iota should be >0, chi is growing radially, but psi is decreasing radially 
-  iota_int = - dchi_ds_int/dpsi_ds_int 
+  iota_int = - dchi_drho_int/dpsi_drho_int 
 
   !  !compute magnetic field, following Michael Kraus formulas: 
   !  ! B^s     = 0 
@@ -512,37 +520,39 @@ DO iNode=1,nTotal
   !sqrtG=R*(dRdtheta*dZds-dRds*dZdtheta) =  1/(2*rho_p)*R*(dRdtheta*dZdrho-dRdrho*dZdtheta) 
   !sqrtG=R/(2*rho_p)*sqrtGr 
   sqrtGr= (dRdtheta*dZdrho-dRdrho*dZdtheta) 
+
   ! CHECK WITH INTERPOLATION
   !IF(ABS(1-2*rho_p/R*sqrtG/sqrtGr).GT.1.0E-02)  &
   !    WRITE(*,'(A,E11.5,A,F11.5)')'rel.err. sqrtG: |1 - 2*rho_p/R*sqrtG/sqrtGr|>1.0E-02 ',1- 2*rho_p/R*sqrtG/sqrtGr, ' psinorm= ' ,psinorm_p
 
-  !contravariant components of B (B^s=0) !!! 
-  !Btheta = (dchi_ds_int - dpsi_ds_int*dldzeta) /sqrtG
-  !Bzeta  = dpsi_ds_int/sqrtG*(1.  + dldtheta)
+  !contravariant components of B  !!! 
+  !B^s    = 0
+  !B^theta = (dchi_ds_int - dpsi_ds_int*dldzeta) /sqrtG
+  !B^zeta  = dpsi_ds_int*(1.  + dldtheta)  /sqrtG
   !
   !Br   =  dRdtheta*Btheta+dRdzeta*Bzeta
   !Bz   =  dZdtheta*Btheta+dZdzeta*Bzeta
-  !Bphi =  R*Bzeta
+  !Bphi =               dPhi_dzeta*Bzeta = R*Bzeta
 
-  !cylindrical components of B
-  Br   =  (  dRdtheta*(dchi_ds_int-dpsi_ds_int*dldzeta) &
-           + dRdzeta * dpsi_ds_int*(1.  + dldtheta)    )* 2.*rho_p/(R*sqrtGr)
-  Bz   =  (  dZdtheta*(dchi_ds_int-dpsi_ds_int*dldzeta) &
-           + dZdzeta * dpsi_ds_int*(1.  + dldtheta)    )* 2.*rho_p/(R*sqrtGr)
-  Bphi =  dpsi_ds_int*(1.  + dldtheta)* 2.*rho_p/sqrtGr
+  !cylindrical components of B 
+  Br   =  (  (dchi_drho_int-dpsi_drho_int*dldzeta)*dRdtheta &
+                               + dpsi_drho_int*(1.  + dldtheta)*dRdzeta     )/(R*sqrtGr)
+  Bz   =  (  (dchi_drho_int-dpsi_drho_int*dldzeta)*dZdtheta &
+                               + dpsi_drho_int*(1.  + dldtheta)*dZdzeta     )/(R*sqrtGr)
+  Bphi =                         dpsi_drho_int*(1.  + dldtheta)              /sqrtGr    !*R/R
 
 
   ! compute cylindrical components of A (R,Z, phi) ,  
   ! needs metric tensor to rho,theta,zeta (from inverse of Jacobian DR/Drho)
   ! coordinates directions (rho,theta,zeta)  expressed in (R,Z,phi)
   !
-  ! detJ = dphi_dzeta*(dR_drho*dZ_dtheta - dR_dtheta*dZ_drho) , dphi_dzeta=R
-  ! grad(rho  ) = 1/detJ * (/ R*dZ_dtheta, 
-  !                          -R*dR_dtheta, 
-  !                          (dR_dtheta*dZ_dzeta-dR_dzeta*dZ_dtheta) /)
-  ! grad(theta) = 1/detJ * (/-R*dZ_drho  , 
-  !                           R*dR_drho  ,
-  !                          -(dR_drho  *dZ_dzeta-dR_dzeta*dZ_drho  ) /)
+  ! detJ = dphi_dzeta*(dR_dtheta*dZ_drho - dR_drho*dZ_dtheta) , dphi_dzeta=R
+  ! grad(rho  ) = 1/detJ * (/-R*dZ_dtheta, 
+  !                           R*dR_dtheta, 
+  !                          (dR_dzeta*dZ_dtheta-dR_dtheta*dZ_dzeta) /)
+  ! grad(theta) = 1/detJ * (/ R*dZ_drho  , 
+  !                          -R*dR_drho  ,
+  !                          (dR_drho  *dZ_dzeta-dR_dzeta*dZ_drho  ) /)
   ! grad(zeta ) = (/0 , 0, 1/R /)
  
   ! the vector potential reads as
@@ -553,24 +563,24 @@ DO iNode=1,nTotal
   !A=psi* [ (1+lambda_theta)*grad(theta) + lambda_rho*grad(rho) ] + (psi*lambda_zeta-chi)*grad(zeta)
 
 
-  !Ar   = psi_int *(dldrho*( dZdtheta) + (1.+dldtheta)*(-dZdrho)    )/(dRdrho*dZdtheta - dRdtheta*dZdrho) !*R/R
-  !Az   = psi_int *(dldrho*(-dRdtheta) + (1.+dldtheta)*( dRdrho)    )/(dRdrho*dZdtheta - dRdtheta*dZdrho) !*R/R
-  !Aphi = psi_int *(dldrho*(dRdtheta*dZdzeta-dRdzeta*dZdtheta)                             & 
-  !                                    + (1.+dldtheta)*(-(dRdrho*dZdzeta-dRdzeta*dZdrho))) &
-  !                /(R*(dRdrho*dZdtheta - dRdtheta*dZdrho))                                &
+  !Ar   = psi_int *(dldrho*(-dZdtheta) + (1.+dldtheta)*( dZdrho)    )/(dRdtheta*dZdrho - dRdrho*dZdtheta) !*R/R
+  !Az   = psi_int *(dldrho*(+dRdtheta) + (1.+dldtheta)*(-dRdrho)    )/(dRdtheta*dZdrho - dRdrho*dZdtheta) !*R/R
+  !Aphi = psi_int *(dldrho*(dRdzeta*dZdtheta-dRdtheta*dZdzeta)                                             & 
+  !                                    + (1.+dldtheta)*(dRdrho*dZdzeta-dRdzeta*dZdrho))                    &
+  !                                                               /(R*(dRdtheta*dZdrho - dRdrho*dZdtheta)) &
   !       + (psi_int*dldzeta-chi_int)/R 
 
-  ! OR also, without lambda derivatives:
-  !  psi grad(theta) - lambda grad(psi) - chi grad(zeta) , where grad(psi) = dPsi_drho *grad(rho)
+  ! OR also, much better, without lambda derivatives:
+  ! A= psi grad(theta) - lambda grad(psi) - chi grad(zeta) , where grad(psi) = dPsi_drho *grad(rho)
 
-  Ar   = (-lam*dpsi_drho_int*( dZdtheta)  + psi_int *(-dZdrho)    )/(dRdrho*dZdtheta - dRdtheta*dZdrho) !*R/R
-  Az   = (-lam*dpsi_drho_int*(-dRdtheta)  + psi_int *( dRdrho)    )/(dRdrho*dZdtheta - dRdtheta*dZdrho) !*R/R
-  Aphi = (-lam*dpsi_drho_int*(dRdtheta*dZdzeta-dRdzeta*dZdtheta)                          &
-                                          + psi_int *(-(dRdrho*dZdzeta-dRdzeta*dZdrho)) ) &
-         /(R*(dRdrho*dZdtheta - dRdtheta*dZdrho))                                            &
+  Ar   = (-lam*dpsi_drho_int*(-dZdtheta)  + psi_int *( dZdrho)    )/(sqrtGr) !*R/R
+  Az   = (-lam*dpsi_drho_int*( dRdtheta)  + psi_int *(-dRdrho)    )/(sqrtGr) !*R/R
+  Aphi = (-lam*dpsi_drho_int*(dRdzeta*dZdtheta-dRdtheta*dZdzeta)                                         &
+                                          + psi_int *(dRdrho*dZdzeta-dRdzeta*dZdrho) )                   &
+                                                                /(R*(sqrtGr)) &
          -chi_int/R 
  
-
+  !convert to cartesian
   coszeta=COS(zeta)
   sinzeta=SIN(zeta)
   
@@ -598,10 +608,7 @@ DO iNode=1,nTotal
   MHDEQdata(   6,iNode)=chi_int !poloidal flux
   MHDEQdata(   7,iNode)=psi_int !toroidal flux
   MHDEQdata(8:10,iNode)=Acart(:)
-!  MHDEQdata( 11,iNode)=dRdrho
-!  MHDEQdata( 12,iNode)=dldrho
-!  MHDEQdata( 13,iNode)=dRdtheta
-!  MHDEQdata( 14,iNode)=dZdtheta
+
 END DO !iNode=1,nTotal
 
 WRITE(UNIT_stdOut,'(A)')'  ...DONE.                             '
