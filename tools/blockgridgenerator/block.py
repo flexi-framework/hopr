@@ -266,6 +266,7 @@ class Blocks(QtGui.QStandardItemModel) :
         return xtotalmin,xtotalmax,ytotalmin,ytotalmax
 
     def refine(self, xs,ys, xe,ye) :
+        self.setHeaderData(0, QtCore.Qt.Horizontal, "Blocks")
         block_s = None
         block_e = None
         # get block of start point
