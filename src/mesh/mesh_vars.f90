@@ -256,7 +256,8 @@ LOGICAL                        :: meshIsAlreadyCurved    ! flag: mesh is already
 !-----------------------------------------------------------------------------------------------------------------------------------
 INTEGER          :: nElems(3),BCIndex(6)  ! ?
 INTEGER          :: CurvedMeshType,WhichMapping   ! ?
-REAL             :: R_0,R_INF,DY   ! R_0...radius of cylinder, R_INF...radius of domain, DY...extension in - and + y dir
+REAL             :: R_0,R_INF,DY,PHI   ! R_0...radius of cylinder, R_INF...radius of domain, DY...extension in - and + y dir
+                                        ! PHI...angle of circle segment
 INTEGER          :: StretchType(3) ! Type of Strechting: 1 (default): dx(i)=dx(i-1)*fac, 2. DxMaxToDxMin-> fac 3. bell shaped 
 REAL             :: fac(3),fac2(3)  ! ?
 REAL             :: DxMaxToDxMin(3)  ! ?

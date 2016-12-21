@@ -724,7 +724,7 @@ SUBROUTINE EvaluateFace(X,Para,DX,XP,WhichMapping,WhichFace)
 ! gets 2D reference parameter Para (-1...1) and gives 3D physical value X
 !===================================================================================================================================
 ! MODULE INPUT VARIABLES
-USE MOD_Mesh_Vars,ONLY:R_0,R_INF,DY
+USE MOD_Mesh_Vars,ONLY:R_0,R_INF,DY,PHI
 ! MODULES
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -742,7 +742,7 @@ REAL,INTENT(OUT)    :: X(3)  ! ?
 REAL,DIMENSION(3)   :: e1,e2,e3        ! kartesian unit vectors
 REAL,DIMENSION(3)   :: Gamma1,Gamma2,Gamma3,Gamma4     ! values of the 4 1D curves
 REAL,DIMENSION(3)   :: Corner1,Corner2,Corner3,Corner4 ! values of the 4 corner points of the 2D face
-REAL                :: PI,Z_Value  ! ?
+REAL                :: PI,Z_Value,Fac,Para2(2)  ! ?
 !===================================================================================================================================
 SELECT CASE(WhichMapping)
 CASE(1) ! TriLinearMapping 
@@ -820,62 +820,75 @@ CASE(2) ! Vulgo No Tron
               +XP(:,8)*(1.-Para(1))*(1.+Para(2)))&
               +(/0.,0.,DX(3)/)*(1.-Para(1)**2)*(1.-Para(2)**2) 
   END SELECT
-CASE(3) ! half cylinder, Kopriva Book pg. 263 (we change y and z direction!!)
+CASE(3) ! half cylinder, Kopriva Book pg. 263 (we change y and z direction!! Changed to segment: PHI=180deg for half cylinder)
   PI=ACOS(-1.)
   e1=(/1.,0.,0./)
   e2=(/0.,1.,0./)
   e3=(/0.,0.,1./)
+  Fac=PHI/180. !scale azimuth of half cylinder
+  Para2=Para !respective component might be scaled with Fac
   SELECT CASE(WhichFace)
   CASE(1) ! Face 1, Zeta=-1, Para = Xi,Eta
+    ! Scale azimuth of half cylinder
+    Para2(2)= Fac*(Para(2)+1.)-1.
     ! Determine the values of the face and move it to y=-dy
     ! GammaI 
-    Gamma1 = -r_0 * COS(PI*(Para(2) + 1.)*0.5)*e1 + r_0*sin(PI*(Para(2) + 1.)*0.5)*e2
-    Gamma2 = (r_0 + (r_inf-r_0)*(Para(1)+1.)*0.5)*e1
-    Gamma3 = -r_inf * COS(PI*(Para(2) + 1.)*0.5)*e1 + r_inf*sin(PI*(Para(2) + 1.)*0.5)*e2
-    Gamma4 = (-r_0 - (r_inf-r_0)*(Para(1)+1.)*0.5)*e1
+    Gamma1 = -r_0 * COS(PI*(Para2(2) + 1.)*0.5)*e1 + r_0*sin(PI*(Para2(2) + 1.)*0.5)*e2
+    Gamma2 = (r_0 + (r_inf-r_0)*(Para2(1)+1.)*0.5)*e1
+    Gamma3 = -r_inf * COS(PI*(Para2(2) + 1.)*0.5)*e1 + r_inf*sin(PI*(Para2(2) + 1.)*0.5)*e2
+    Gamma4 = (-r_0 - (r_inf-r_0)*(Para2(1)+1.)*0.5)*e1
     ! Determine the 4 corner points of the face
-    Corner1 = (/-r_0,0.,0./) != Gamma1 mit Para(1) = -1. =XP1 without y component
-    Corner2 = (/+r_0,0.,0./) != Gamma2 mit Para(2) = -1. = XP2 without y component
-    Corner3 = (/+r_inf,0.,0./) != Gamma3 mit Para(1) = +1. = XP6 without y component
-    Corner4 = (/-r_inf,0.,0./) != Gamma4 mit Para(2) = +1. = XP7 without y component
+    Corner1 = -r_0 * COS(PI*(-1. + 1.)*0.5)*e1 + r_0*sin(PI*(-1. + 1.)*0.5)*e2 != Gamma1 mit Para = -1.: Para2=-1
+    Corner2 = (r_0 + (r_inf-r_0)*(-1.+1.)*0.5)*e1 != Gamma2 mit Para = -1.: Para2=-1
+    Corner3 = -r_inf * COS(PI*((2.*Fac-1.) + 1.)*0.5)*e1 + r_inf*sin(PI*((2.*Fac-1.) + 1.)*0.5)*e2 != Gamma3 mit Para = +1.: Para2=2*Fac-1
+    Corner4 = (-r_0 - (r_inf-r_0)*((2.*Fac-1.)+1.)*0.5)*e1 != Gamma4 mit Para = +1.: Para2=2*Fac-1
     ! Now use the classic "2D" coons mapping to determine the face, Kopriva Book pg. 230 
-    X = 0.5 * ( Gamma4*(1.-Para(1)) + Gamma2*(1.+Para(1)) + Gamma1*(1.-Para(2)) + Gamma3*(1.+Para(2)))&
-      - 0.25* ( (1.-Para(1))*(Corner1*(1.-Para(2))+Corner4*(1.+Para(2)))+(1.+Para(1))*(Corner2*(1.-Para(2))+Corner3*(1.+Para(2))))
+    X = 0.5 * ( Gamma4*(1.-Para2(1)) + Gamma2*(1.+Para2(1)) + Gamma1*(1.-Para2(2)) + Gamma3*(1.+Para2(2)))&
+      - 0.25* ( (1.-Para2(1))*(Corner1*(1.-Para2(2))+Corner4*(1.+Para2(2)))+(1.+Para2(1))*(Corner2*(1.-Para2(2))+Corner3*(1.+Para2(2))))
     X(3) = -dy
   CASE(2) ! Face 2, Eta=-1, Para = Xi,Zeta
+    ! Scale azimuth of half cylinder
+    Para2(1)= Fac*(Para(1)+1.)-1.
     ! X = Gamma1 + Zeta*dy*e2
-    X = -r_0 * COS(PI*(Para(1) + 1.)*0.5)*e1 + r_0*sin(PI*(Para(1) + 1.)*0.5)*e2 + e3*dy*Para(2)
-    !X = (r_0 + (r_inf-r_0)*(Para(1)+1.)*0.5)*e1 + e3*dy*Para(2)
+    X = -r_0 * COS(PI*(Para2(1) + 1.)*0.5)*e1 + r_0*sin(PI*(Para2(1) + 1.)*0.5)*e2 + e3*dy*Para2(2)
+    !X = (r_0 + (r_inf-r_0)*(Para2(1)+1.)*0.5)*e1 + e3*dy*Para2(2)
   CASE(3) ! Face 3, Xi=+1, Para = Eta, Zeta
+    ! Do not scale Para, only rotate entire face
     ! X = Gamma2 + Zeta*dy*e2
-    !X = r_inf * COS(PI*(Para(1) + 1.)*0.5)*e1 + r_inf*sin(PI*(Para(1) + 1.)*0.5)*e2 + e3*dy*Para(2)
-    X = (r_0 + (r_inf-r_0)*(Para(1)+1.)*0.5)*e1 + e3*dy*Para(2)
+    !X = r_inf * COS(PI*(Para2(1) + 1.)*0.5)*e1 + r_inf*sin(PI*(Para2(1) + 1.)*0.5)*e2 + e3*dy*Para2(2)
+    !X = (r_0 + (r_inf-r_0)*(Para2(1)+1.)*0.5)*e1 + e3*dy*Para2(2)
+    X = -(r_0 + (r_inf-r_0)*(Para2(1)+1.)*0.5)*e1*COS(PHI*PI/180.) + (r_0 + (r_inf-r_0)*(Para2(1)+1.)*0.5)*e2*SIN(PHI*PI/180.) + e3*dy*Para2(2)
   CASE(4) !  Face 4, Eta=+1, Para = Xi, Zeta
+    ! Scale azimuth of half cylinder
+    Para2(1)= Fac*(Para(1)+1.)-1.
     ! Similar to face 1, expect we have now r_inf instead of r_inf
     ! X = Gamma3 + Zeta*dy*e2
-    X = - r_inf * COS(PI*(Para(1) + 1.)*0.5)*e1 + r_inf*sin(PI*(Para(1) + 1.)*0.5)*e2 + e3*dy*Para(2)
-    !X = (r_0 + (r_inf-r_0)*(Para(1)+1.)*0.5)*e1 + e3*dy*Para(2)
+    X = - r_inf * COS(PI*(Para2(1) + 1.)*0.5)*e1 + r_inf*sin(PI*(Para2(1) + 1.)*0.5)*e2 + e3*dy*Para2(2)
+    !X = (r_0 + (r_inf-r_0)*(Para2(1)+1.)*0.5)*e1 + e3*dy*Para2(2)
   CASE(5) ! Face 5, Xi=-1, Para = Eta, Zeta
+    ! No scaling of azimuth needed, since this face is always at same position
     ! For the full cylinder Face5 = Face3 !!
     ! X = Gamma4 + Zeta*dy*e2
-    X = (-r_0 - (r_inf-r_0)*(Para(1)+1.)*0.5)*e1 + e3*dy*Para(2)
-    !X = r_0 * COS(PI*(Para(1) + 1.)*0.5)*e1 + r_0*sin(PI*(Para(1) + 1.)*0.5)*e2 + e3*dy*Para(2)
+    X = (-r_0 - (r_inf-r_0)*(Para2(1)+1.)*0.5)*e1 + e3*dy*Para2(2)
+    !X = r_0 * COS(PI*(Para2(1) + 1.)*0.5)*e1 + r_0*sin(PI*(Para2(1) + 1.)*0.5)*e2 + e3*dy*Para2(2)
   CASE(6) !  Face 6, Zeta=+1, Xi, Eta
     ! The same as Face 2, except that we have now +dy instead of -dy in y direction!
+    ! Scale azimuth of half cylinder
+    Para2(2)= Fac*(Para(2)+1.)-1.
     ! Determine the values of the face and move it to y=+dy
     ! GammaI 
-    Gamma1 = -r_0 * COS(PI*(Para(2) + 1.)*0.5)*e1 + r_0*sin(PI*(Para(2) + 1.)*0.5)*e2
-    Gamma2 = (r_0 + (r_inf-r_0)*(Para(1)+1.)*0.5)*e1
-    Gamma3 = -r_inf * COS(PI*(Para(2) + 1.)*0.5)*e1 + r_inf*sin(PI*(Para(2) + 1.)*0.5)*e2
-    Gamma4 = (-r_0 - (r_inf-r_0)*(Para(1)+1.)*0.5)*e1
+    Gamma1 = -r_0 * COS(PI*(Para2(2) + 1.)*0.5)*e1 + r_0*sin(PI*(Para2(2) + 1.)*0.5)*e2
+    Gamma2 = (r_0 + (r_inf-r_0)*(Para2(1)+1.)*0.5)*e1
+    Gamma3 = -r_inf * COS(PI*(Para2(2) + 1.)*0.5)*e1 + r_inf*sin(PI*(Para2(2) + 1.)*0.5)*e2
+    Gamma4 = (-r_0 - (r_inf-r_0)*(Para2(1)+1.)*0.5)*e1
     ! Determine the 4 corner points of the face
-    Corner1 = (/-r_0,0.,0./) != Gamma1 mit Para(1) = -1.
-    Corner2 = (/r_0,0.,0./) != Gamma2 mit Para(2) = -1.
-    Corner3 = (/r_inf,0.,0./) != Gamma3 mit Para(1) = +1.
-    Corner4 = (/-r_inf,0.,0./) != Gamma4 mit Para(2) = +1.
+    Corner1 = -r_0 * COS(PI*(-1. + 1.)*0.5)*e1 + r_0*sin(PI*(-1. + 1.)*0.5)*e2 != Gamma1 mit Para = -1.: Para2=-1
+    Corner2 = (r_0 + (r_inf-r_0)*(-1.+1.)*0.5)*e1 != Gamma2 mit Para = -1.: Para2=-1
+    Corner3 = -r_inf * COS(PI*((2.*Fac-1.) + 1.)*0.5)*e1 + r_inf*sin(PI*((2.*Fac-1.) + 1.)*0.5)*e2 != Gamma3 mit Para = +1.: Para2=2*Fac-1
+    Corner4 = (-r_0 - (r_inf-r_0)*((2.*Fac-1.)+1.)*0.5)*e1 != Gamma4 mit Para = +1.: Para2=2*Fac-1
     ! Now use the classic "2D" coons mapping to determine the face, Kopriva Book pg. 230 
-    X = 0.5 * ( Gamma4*(1.-Para(1)) + Gamma2*(1.+Para(1)) + Gamma1*(1.-Para(2)) + Gamma3*(1.+Para(2)))&
-      - 0.25* ( (1.-Para(1))*(Corner1*(1.-Para(2))+Corner4*(1.+Para(2)))+(1.+Para(1))*(Corner2*(1.-Para(2))+Corner3*(1.+Para(2))))
+    X = 0.5 * ( Gamma4*(1.-Para2(1)) + Gamma2*(1.+Para2(1)) + Gamma1*(1.-Para2(2)) + Gamma3*(1.+Para2(2)))&
+      - 0.25* ( (1.-Para2(1))*(Corner1*(1.-Para2(2))+Corner4*(1.+Para2(2)))+(1.+Para2(1))*(Corner2*(1.-Para2(2))+Corner3*(1.+Para2(2))))
     X(3)=dy
   END SELECT !whichface
 
