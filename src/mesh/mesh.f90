@@ -156,6 +156,7 @@ ELSEIF (MeshMode .EQ. 11) THEN
       R_0   = GETREAL('R_0','0.5')
       R_INF = GETREAL('R_INF','10.')
       DY    = GETREAL('DZ','2.')
+      IF (WhichMapping.EQ.3) PHI   = GETREAL('PHI','180.') !angle of segment (def.: half cylinder, i.e. 180deg)
     CASE(5) ! SINE BUMP  
       DX    = GETREALARRAY('DX',3,'4.,1.,1.') ! half length, width and height of domain
       R_0   = GETREAL('R_0','0.1') ! height of bump
