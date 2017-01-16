@@ -94,9 +94,6 @@ SET(HOPR_CGNS_INT "32" CACHE STRING "integer type in CGNS lib")
 IF(HOPR_BUILD_CGNS)
   SET(HOPR_CGNSTAG "v3.2.1" CACHE STRING "CGNS version tag")
 ENDIF()
-IF(HOPR_BUILD_HDF5)
-  SET(HOPR_HDF5TAG "1.8.17" CACHE STRING "HDF5 version tag")
-ENDIF()
 
 OPTION(HOPR_NETCDF "Link to local NetCDF library" ON)
 # =========================================================================
