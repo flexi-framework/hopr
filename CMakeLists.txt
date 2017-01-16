@@ -1,13 +1,10 @@
 # =========================================================================
 # HOPR CMake configuration
 # =========================================================================
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.11)
-# TODO: eventually require CMake 3.0 in future releases
-# Advantages: Possible to split string
-IF ("${CMAKE_VERSION}" VERSION_GREATER 3.0.0)
-  cmake_policy (SET CMP0045 OLD)
-  cmake_policy (SET CMP0046 OLD)
-ENDIF()
+CMAKE_MINIMUM_REQUIRED(VERSION 3.0.0)
+cmake_policy (SET CMP0045 OLD)
+cmake_policy (SET CMP0046 OLD)
+
 LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
 INCLUDE(ExternalProject)
@@ -16,40 +13,24 @@ INCLUDE(CMakeDependentOption)
 # =========================================================================
 # Check whether we are on Github or at IAG
 # =========================================================================
-execute_process(
-  COMMAND git config --get remote.origin.url
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  OUTPUT_VARIABLE GIT_ORIGIN
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-)
+EXECUTE_PROCESS(COMMAND git ls-remote --get-url OUTPUT_VARIABLE GIT_ORIGIN)
 
 STRING(FIND "${GIT_ORIGIN}" ".iag.uni-stuttgart.de" HOMERUN)
 STRING(FIND "${GIT_ORIGIN}" "git@" USESSH)
 IF (HOMERUN GREATER -1)
   IF(USESSH EQUAL 0)
-    SET(HOPR_DLPATH "git@gitlab.iag.uni-stuttgart.de:flexi")
+    SET(HOPR_DLPATH "git@gitlab.iag.uni-stuttgart.de:libs")
   ELSE()
-    SET(HOPR_DLPATH "https://gitlabext.iag.uni-stuttgart.de/flexi")
+    SET(HOPR_DLPATH "https://gitlabext.iag.uni-stuttgart.de/libs")
   ENDIF()
+  SET(CGNSDOWNLOAD ${HOPR_DLPATH}/CGNS.git )
+  SET(HDF5DOWNLOAD ${HOPR_DLPATH}/hdf5.git )
 ELSE()
-  IF(USESSH EQUAL 0)
-    SET(HOPR_DLPATH "git@github.com:flexi-framework")
-  ELSE()
-    SET(HOPR_DLPATH "https://github.com/flexi-framework")
-  ENDIF()
+  SET(CGNSDOWNLOAD https://github.com/CGNS/CGNS.git )
+  SET(HDF5DOWNLOAD https://bitbucket.hdfgroup.org/scm/hdffv/hdf5.git )
 ENDIF()
-
-# =========================================================================
-# Project definitions and output paths
-# =========================================================================
-SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
-SET(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
-SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
-SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
-
-IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  SET(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "Prefix prepended to install directories" FORCE)
-ENDIF()
+SET(HOPR_HDF5TAG "hdf5-1_10_0-patch1" CACHE STRING "HDF5 version tag")
+SET(HOPR_CGNSTAG "v3.2.1"             CACHE STRING "CGNS version tag")
 
 # =========================================================================
 # Detect machine environements
@@ -65,15 +46,27 @@ IF (ONHORNET GREATER -1)
   MARK_AS_ADVANCED(C_PATH CXX_PATH Fortran_PATH)
   MESSAGE(STATUS "Compiling on Hazelhen")
   ADD_DEFINITIONS(-DLUSTRE)
-  SET (CGNSDOWNLOAD git@129.69.43.151:libs/CGNS.git )
+ENDIF()
+
+# =========================================================================
+# Project definitions and output paths
+# =========================================================================
+PROJECT(Hopr)
+ENABLE_LANGUAGE(C Fortran)
+
+SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
+SET(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
+SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
+SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
+
+# Set custom install dir (needs to be done after project has been defined!)
+IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  SET(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "Prefix prepended to install directories" FORCE)
 ENDIF()
 
 # =========================================================================
 # Options
 # =========================================================================
-
-PROJECT(Hopr)
-ENABLE_LANGUAGE(C Fortran)
 
 MACRO(SUBDIRLIST result curdir)
   FILE(GLOB children RELATIVE ${curdir} ${curdir}/*)
@@ -91,9 +84,6 @@ OPTION(HOPR_BUILD_YPLUSESTIMATOR "Compile and build Y+-Estimator" OFF)
 OPTION(HOPR_BUILD_HDF5 "Compile and build hdf5 library" ON)
 OPTION(HOPR_BUILD_CGNS "Compile and build CGNS library" ON)
 SET(HOPR_CGNS_INT "32" CACHE STRING "integer type in CGNS lib")
-IF(HOPR_BUILD_CGNS)
-  SET(HOPR_CGNSTAG "v3.2.1" CACHE STRING "CGNS version tag")
-ENDIF()
 
 OPTION(HOPR_NETCDF "Link to local NetCDF library" ON)
 # =========================================================================
@@ -209,8 +199,6 @@ IF(NOT HOPR_BUILD_HDF5)
   ENDIF()
 ELSE()
   # define here the path to download from
-  SET (HDF5DOWNLOAD ${HOPR_DLPATH}/HDF5.git )
-  SET (HDF5TAG "1.10.0-patch1" CACHE STRING "HDF5 version tag")
 
   SET(HOPR_HDF5_DLDIR ${HOPR_EXTERNAL_LIB_DIR}/HDF5)
   SET(HOPR_HDF5_DIR  ${HOPR_HDF5_DLDIR}/build)
@@ -227,7 +215,7 @@ ELSE()
     #NOTE: old 1.8.X versions of HDF5 require additional flag --enable-fortran2003
     ExternalProject_Add(HDF5
       GIT_REPOSITORY ${HDF5DOWNLOAD}
-      GIT_TAG ${HDF5TAG}
+      GIT_TAG ${HOPR_HDF5TAG}
       PREFIX ${HOPR_HDF5_DIR}
       UPDATE_COMMAND ""
       CONFIGURE_COMMAND FC=${HOPR_HDF5FC} CC=${HOPR_HDF5CC} ${HOPR_HDF5_DIR}/src/HDF5/configure --prefix=${HOPR_HDF5_DIR} --enable-fortran ${HOPR_HDF5PARALLEL} --disable-shared --libdir=${HOPR_HDF5_DIR}/lib
@@ -319,29 +307,31 @@ ENDIF()
 ADD_DEFINITIONS(-DPP_CGNS_INT=${HOPR_CGNS_INT})
 
 IF (HOPR_BUILD_CGNS)
-  SET(HOPR_CGNSDIR ${CMAKE_CURRENT_SOURCE_DIR}/share/${HOPR_COMPILERNAME}/cgns)
-  IF (NOT EXISTS "${HOPR_CGNSDIR}/build/lib/libcgns.a")
+  SET(HOPR_CGNS_DLDIR ${HOPR_EXTERNAL_LIB_DIR}/CGNS)
+  SET(HOPR_CGNS_DIR   ${HOPR_CGNS_DLDIR}/build)
+  IF (NOT EXISTS "${HOPR_CGNS_DIR}/lib/libcgns.a")
     STRING(COMPARE EQUAL ${HOPR_CGNS_INT} "64" HOPR_CGNS_64BIT)
-    SET(CGNSDOWNLOAD https://github.com/CGNS/CGNS.git )
 
     ExternalProject_Add(cgns
     GIT_REPOSITORY ${CGNSDOWNLOAD}
     GIT_TAG ${HOPR_CGNSTAG}
-    PATCH_COMMAND sed -i s/^c/!/g ${HOPR_CGNSDIR}/src/cgns/src/cgnslib_f.h.in
-    PREFIX ${HOPR_CGNSDIR}
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${HOPR_CGNSDIR}/build /
+    PATCH_COMMAND sed -i s/^c/!/g ${HOPR_CGNS_DIR}/src/cgns/src/cgnslib_f.h.in
+    PREFIX ${HOPR_CGNS_DIR}
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${HOPR_CGNS_DIR}/build /
     -DCGNS_ENABLE_FORTRAN=ON   -DCGNS_ENABLE_64BIT=${HOPR_CGNS_64BIT} -DCGNS_BUILD_SHARED=OFF -DCGNS_USE_SHARED=OFF /
     -DCMAKE_BUILD_TYPE=Release -DCGNS_BUILD_CGNSTOOLS=OFF -DCGNS_ENABLE_TESTS=OFF -DCMAKE_SKIP_RPATH=ON
     )
   ENDIF()
-  LIST(APPEND linkedlibs ${HOPR_CGNSDIR}/build/lib/libcgns.a)
-  INCLUDE_DIRECTORIES(${HOPR_CGNSDIR}/build/include)
+  LIST(APPEND linkedlibs ${HOPR_CGNS_DIR}/build/lib/libcgns.a)
+  INCLUDE_DIRECTORIES(${HOPR_CGNS_DIR}/build/include)
 ELSE()
   FIND_PACKAGE(CGNS)
-  IF (NOT CGNS_FOUND)
+  IF (CGNS_FOUND)
     MESSAGE(STATUS "CGNS include dir: " ${CGNS_INCLUDE_DIR})
     LIST(APPEND linkedlibs ${CGNS_LIBRARIES})
     INCLUDE_DIRECTORIES (${CGNS_INCLUDE_DIR})
+ ELSE()
+    MESSAGE(ERROR "CGNS not found")
   ENDIF()
 ENDIF()
 

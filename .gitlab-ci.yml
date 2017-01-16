@@ -1,0 +1,91 @@
+stages:
+  - build
+  - error_clean
+  - test
+  - documentation
+  - deploy
+
+cache:
+  key: "$CI_BUILD_REF"
+  paths: 
+    - build_gnu/
+    - build_intel/
+    - doc/doxygen/doxygen
+    - doc/Meshformat/Meshformat.pdf
+
+
+build_gnu:
+  stage: build
+  tags:
+    - withmodules
+  script:
+    - module load env/gnu ; rm -rf build_gnu || true 
+    - mkdir -p build_gnu ; cd build_gnu
+    - if [ -n "${DO_NIGHTLY}" ]; then cmake .. ; fi
+    - if [ -z "${DO_NIGHTLY}" ]; then cmake .. -DHOPR_BUILD_HDF5=OFF ; fi
+    - make all
+
+build_intel:
+  stage: build
+  tags:
+    - withmodules
+  script:
+    - module load env/intel ; rm -rf build_intel || true 
+    - mkdir -p build_intel ; cd build_intel
+    - if [ -n "${DO_NIGHTLY}" ]; then cmake .. ; fi
+    - if [ -z "${DO_NIGHTLY}" ]; then cmake .. -DHOPR_BUILD_HDF5=OFF ; fi
+    - make all
+
+clean:
+  stage: error_clean
+  tags:
+    - withmodules
+  script:
+    - rm -rf build_gnu
+    - rm -rf build_intel
+    - rm -rf share
+  when: on_failure
+
+run_gnu:
+  stage: test
+  tags:
+    - withmodules
+  script:
+    - module load env/gnu ; cd tutorials ; ./executeall.sh ../build_gnu/bin/hopr
+
+run_intel:
+  stage: test
+  tags:
+    - withmodules
+  script:
+    - module load env/intel ; cd tutorials ; ./executeall.sh ../build_intel/bin/hopr
+
+doxygen:
+  stage: documentation
+  tags:
+    - pomodoro
+  script:
+    - cd doc/doxygen ; ./builddoxy.sh
+
+meshformat:
+  stage: documentation
+  tags:
+    - pomodoro
+  script:
+    - cd doc/Meshformat ; make
+
+deploy_homepage:
+  stage: deploy
+  tags:
+    - pomodoro
+  script:
+    - if [ -n "${DO_DEPLOY}" ]; then if [ -d "doc/doxygen/doxygen" ]; then ssh flexi@euler rm -rf homepage_hopr/doxygen ; scp -r doc/doxygen/doxygen flexi@euler:~/homepage_hopr/. ; fi ; fi
+    - if [ -n "${DO_DEPLOY}" ]; then if [ -f "doc/Meshformat/Meshformat.pdf" ]; then scp doc/Meshformat/Meshformat.pdf flexi@euler:~/homepage_hopr/. ; fi ; fi
+
+deploy_github:
+  stage: deploy
+  tags:
+    - pomodoro
+  script:
+    - if [ -z "${DO_DEPLOY}" ]; then exit ; fi
+    - git clone --single-branch git@gitlab.iag.uni-stuttgart.de:hopr/hopr.git hopr_github ; cd hopr_github ; git push --mirror git@github.com:flexi-framework/hopr.git ; cd ../

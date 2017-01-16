@@ -85,7 +85,6 @@ TYPE(tSide),POINTER       :: pSide  ! ?
 INTEGER                   :: iNode,i  ! ?
 INTEGER                   :: nInner(2),nPeriodic(2)  ! ?
 INTEGER                   :: nBCSides,nTotalSides,nPeriodicSides,connectedSides  ! ?
-integer :: counter
 !===================================================================================================================================
 CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("~"))')

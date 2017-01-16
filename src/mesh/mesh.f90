@@ -142,8 +142,8 @@ ELSEIF (MeshMode .EQ. 11) THEN
     XP(:,4) = GETREALARRAY('GeometricXP4',3,'0.,1.,0.')
     XP(:,5) = GETREALARRAY('GeometricXP5',3,'0.,0.,1.')
     XP(:,6) = GETREALARRAY('GeometricXP6',3,'1.,0.,1.')
-    XP(:,7) = GETREALARRAY('GeometricXP7',3,'0.,1.,1.')
-    XP(:,8) = GETREALARRAY('GeometricXP8',3,'0.,0.,1.')
+    XP(:,7) = GETREALARRAY('GeometricXP7',3,'1.,1.,1.')
+    XP(:,8) = GETREALARRAY('GeometricXP8',3,'0.,1.,1.')
   CASE(3) ! general curved
     ! Used for curved meshes (i.e. meshmode = 3) and determines the curved mapping
     WhichMapping = GETINT('WhichMapping','1')
@@ -156,12 +156,13 @@ ELSEIF (MeshMode .EQ. 11) THEN
       XP(:,4) = GETREALARRAY('GeometricXP4',3,'0.,1.,0.')
       XP(:,5) = GETREALARRAY('GeometricXP5',3,'0.,0.,1.')
       XP(:,6) = GETREALARRAY('GeometricXP6',3,'1.,0.,1.')
-      XP(:,7) = GETREALARRAY('GeometricXP7',3,'0.,1.,1.')
-      XP(:,8) = GETREALARRAY('GeometricXP8',3,'0.,0.,1.')
+      XP(:,7) = GETREALARRAY('GeometricXP7',3,'1.,1.,1.')
+      XP(:,8) = GETREALARRAY('GeometricXP8',3,'0.,1.,1.')
     CASE(3,4) ! half/full cylinder ...needs r_0 = radius of the cylinder and r_inf=radius of the domain, dy=extension in y dir
       R_0   = GETREAL('R_0','0.5')
       R_INF = GETREAL('R_INF','10.')
       DY    = GETREAL('DZ','2.')
+      IF (WhichMapping.EQ.3) PHI   = GETREAL('PHI','180.') !angle of segment (def.: half cylinder, i.e. 180deg)
     CASE(5) ! SINE BUMP  
       DX    = GETREALARRAY('DX',3,'4.,1.,1.') ! half length, width and height of domain
       R_0   = GETREAL('R_0','0.1') ! height of bump

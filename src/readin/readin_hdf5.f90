@@ -104,7 +104,8 @@ WRITE(UNIT_stdOut,'(A)')'READ MESH FROM HDF5 FILE "'//TRIM(FileString)//'" ...'
 CALL OpenHDF5File(FileString,create=.FALSE.)
 
 CALL GetHDF5DataSize(File_ID,'ElemInfo',nDims,HSize)
-nGlobalElems=HSize(2) !global number of elements
+CHECKSAFEINT(HSize(2),4)
+nGlobalElems=INT(HSize(2),4) ! global number of elements
 DEALLOCATE(HSize)
 
 nElems=nGlobalElems   !local number of Elements 
@@ -618,7 +619,8 @@ INTEGER                        :: Offset=0 ! Every process reads all BCs
 !===================================================================================================================================
 ! Read boundary names from HDF5 file
 CALL GetHDF5DataSize(File_ID,'BCNames',nDims,HSize)
-nBCs=HSize(1)
+CHECKSAFEINT(HSize(1),4)
+nBCs=INT(HSize(1),4)
 DEALLOCATE(HSize)
 ALLOCATE(BCNames(nBCs), BCMapping(nBCs))
 CALL ReadArrayFromHDF5(File_ID,'BCNames',1,(/nBCs/),Offset,StrArray=BCNames)  ! Type is a dummy type only
