@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ -z "$1" ]; then
-  HOPREXEC=$(readlink -f ../bin/hopr)
+  HOPREXEC=$(readlink -f ../build/bin/hopr)
 else
   HOPREXEC=$(readlink -f "$1")
 fi

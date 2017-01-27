@@ -213,6 +213,7 @@ INTEGER                        :: TypeIndex_surf(4)      ! typeIndex_surf(nNodes
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! MORTAR VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
+LOGICAL             :: MortarFound            ! from checking all sides in fillmesh, if they have associated mortars.
 INTEGER             :: MortarMesh             ! 0: conforming, 1: non-conforming octree based
 INTEGER             :: nNonconformingSides    ! number of small and big mortar sides
 ! MoratarMesh==1

@@ -258,9 +258,8 @@ IF(useCurveds) THEN
   ! 2-n: first n layers from the boundary are curved
   nCurvedBoundaryLayers=GETINT('nCurvedBoundaryLayers','-1')
 
-  ! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
-  doRebuildMortarGeometry=GETLOGICAL('doRebuildMortarGeometry','.TRUE.')
 END IF !usecurveds
+
 BoundaryOrder=N+1
 
 ! Boundaries
@@ -332,6 +331,10 @@ END IF
 SplitToHex=GETLOGICAL('SplitToHex','.FALSE.')   ! split all elements to hexa
 nFineHexa=GETINT('nFineHexa','1')               ! split all hexa by a factor 
 
+
+! for mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
+! does not work for periodic mortars, will be set true by default for postdeform!
+doRebuildMortarGeometry=GETLOGICAL('doRebuildMortarGeometry','.TRUE.')
 
 meshPostDeform=GETINT('MeshPostDeform','0')
 IF(meshPostDeform.GT.0) THEN
@@ -424,6 +427,7 @@ USE MOD_GlobalUniqueNodes,ONLY: GlobalUniqueNodes
 USE MOD_CartMesh,         ONLY: CartesianMesh
 USE MOD_CurvedCartMesh,   ONLY: CurvedCartesianMesh
 USE MOD_Mesh_Tools,       ONLY: CountSplines,Netvisu,BCvisu,chkspl_surf,chkspl_vol
+USE MOD_Mesh_Tools,       ONLY: CheckMortarWaterTight
 USE MOD_Mesh_PostDeform,  ONLY: PostDeform
 USE MOD_Output_HDF5,      ONLY: WriteMeshToHDF5
 USE MOD_Mesh_Jacobians,   ONLY: CheckJacobians
@@ -618,6 +622,20 @@ END IF ! useCurveds
 ! make all nodes unique
 CALL GlobalUniqueNodes(.TRUE.)
 
+! check if sides with mortars exist
+mortarFound=.FALSE.
+DO iElem=1,nMeshElems
+  Side=>Elems(iElem)%ep%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    IF(Side%MortarType.GT.0) THEN
+      mortarFound=.TRUE.
+      EXIT !do loop
+    END IF
+    Side=>Side%nextElemSide
+  END DO
+  IF(mortarFound) EXIT !do loop
+END DO !iElem
+
 IF(doExactSurfProjection) CALL ProjectToExactSurfaces()
 ! get element types
 CALL FindElemTypes()
@@ -634,8 +652,11 @@ END IF
 
 CALL PostDeform()
 
-IF(useCurveds.AND.doRebuildMortarGeometry) CALL RebuildMortarGeometry()
-
+IF(mortarFound) THEN
+  IF(doRebuildMortarGeometry) CALL RebuildMortarGeometry()
+  !after rebuild , mortars should be fine, but checking is better:
+  CALL CheckMortarWaterTight()
+END IF !mortarFound
 
 ! apply meshscale before output (default)
 IF(doScale.AND.postScale) CALL ApplyMeshScale(FirstElem)

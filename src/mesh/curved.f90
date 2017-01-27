@@ -2644,8 +2644,15 @@ Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))
   Side=>Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
-    IF(Side%MortarType.GT.0) &
+    IF(Side%MortarType.GT.0) THEN
+      IF(ASSOCIATED(Side%BC))THEN
+        IF(Side%BC%BCType.EQ.1) THEN
+          CALL abort(__STAMP__,&
+            'Rebuilding periodic mortar sides is not yet implemented.')
+        END IF
+      END IF !assoc BC
       CALL MapBigSideToSmall(Side)
+    END IF  !Mortar
     Side=>Side%nextElemSide
   END DO
   Elem=>Elem%nextElem
@@ -2659,19 +2666,16 @@ DO WHILE(ASSOCIATED(Elem))
       DO iEdge=1,Side%nNodes
         Edge=>Side%Edge(iEdge)%edp
         IF(.NOT.ASSOCIATED(Edge%parentEdge).AND.ASSOCIATED(Edge%MortarEdge))THEN
-          IF(ASSOCIATED(Side%BC))THEN
-            IF(Side%BC%BCType.EQ.1) &
-            CALL abort(__STAMP__,&
-              'Rebuilding curved periodic mortar edges is not yet implemented.')
-          END IF
           CALL MapBigEdgeToSmall(Edge)
         END IF
-      END DO
-    END IF
+      END DO !iEdge
+    END IF !Mortar
     Side=>Side%nextElemSide
   END DO
   Elem=>Elem%nextElem
 END DO
+WRITE(UNIT_stdOut,*)'...DONE.'
+WRITE(UNIT_stdOut,'(132("~"))')
 END SUBROUTINE RebuildMortarGeometry
 
 

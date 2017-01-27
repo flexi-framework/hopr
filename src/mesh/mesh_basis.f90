@@ -894,9 +894,14 @@ REAL,INTENT(OUT)               :: data_out(3,0:Ngeo)
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo 
 !===================================================================================================================================
-DO iNgeo=0,Ngeo
-  data_out(:,iNgeo) = edge%curvedNode(iNgeo+1)%np%x
-END DO 
+IF(NGeo.GT.1)THEN
+  DO iNgeo=0,Ngeo
+    data_out(:,iNgeo) = edge%curvedNode(iNgeo+1)%np%x
+  END DO 
+ELSE 
+  data_out(:,0) = edge%Node(1)%np%x
+  data_out(:,1) = edge%Node(2)%np%x
+END IF
 END SUBROUTINE Pack1D
 
 SUBROUTINE Pack2D(Ngeo,side,data_out) 
@@ -918,12 +923,19 @@ REAL,INTENT(OUT)    :: data_out(3,0:Ngeo,0:Ngeo)
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo,jNgeo,i1D 
 !===================================================================================================================================
-DO jNgeo=0,Ngeo
-  DO iNgeo=0,Ngeo
-    i1D = QuadMapInv(iNgeo,jNgeo)
-    data_out(:,iNgeo,jNgeo) = side%curvedNode(i1D)%NP%x
+IF(Ngeo.GT.1)THEN
+  DO jNgeo=0,Ngeo
+    DO iNgeo=0,Ngeo
+      i1D = QuadMapInv(iNgeo,jNgeo)
+      data_out(:,iNgeo,jNgeo) = side%curvedNode(i1D)%NP%x
+    END DO 
   END DO 
-END DO 
+ELSE
+  data_out(:,0,0) = side%OrientedNode(1)%NP%x
+  data_out(:,1,0) = side%OrientedNode(2)%NP%x
+  data_out(:,1,1) = side%OrientedNode(3)%NP%x
+  data_out(:,0,1) = side%OrientedNode(4)%NP%x
+END IF
 END SUBROUTINE Pack2D
 
 SUBROUTINE Pack3D(Ngeo,elem,data_out) 
@@ -945,14 +957,25 @@ REAL,INTENT(OUT)    :: data_out(3,0:Ngeo,0:Ngeo,0:Ngeo)
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo,jNgeo,kNgeo,i1D 
 !===================================================================================================================================
-DO kNgeo=0,Ngeo
-  DO jNgeo=0,Ngeo
-    DO iNgeo=0,Ngeo
-      i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
-      data_out(:,iNgeo,jNgeo,kNgeo) = elem%curvedNode(i1D)%NP%x
+IF(Ngeo.GT.1)THEN
+  DO kNgeo=0,Ngeo
+    DO jNgeo=0,Ngeo
+      DO iNgeo=0,Ngeo
+        i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
+        data_out(:,iNgeo,jNgeo,kNgeo) = elem%curvedNode(i1D)%NP%x
+      END DO 
     END DO 
   END DO 
-END DO 
+ELSE
+  data_out(:,0,0,0) = elem%Node(1)%NP%x
+  data_out(:,1,0,0) = elem%Node(2)%NP%x
+  data_out(:,1,1,0) = elem%Node(3)%NP%x
+  data_out(:,0,1,0) = elem%Node(4)%NP%x
+  data_out(:,0,0,1) = elem%Node(5)%NP%x
+  data_out(:,1,0,1) = elem%Node(6)%NP%x
+  data_out(:,1,1,1) = elem%Node(7)%NP%x
+  data_out(:,0,1,1) = elem%Node(8)%NP%x
+END IF
 END SUBROUTINE Pack3D
 
 SUBROUTINE Unpack1D(Ngeo,data_in,edge) 
@@ -973,9 +996,14 @@ TYPE(tEdge),POINTER,INTENT(IN) :: edge
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo 
 !===================================================================================================================================
-DO iNgeo=0,Ngeo
-  edge%curvedNode(iNgeo+1)%NP%x = data_in(:,iNgeo)
-END DO 
+IF(NGeo.GT.1)THEN
+  DO iNgeo=0,Ngeo
+    edge%curvedNode(iNgeo+1)%NP%x = data_in(:,iNgeo)
+  END DO 
+ELSE
+  edge%Node(1)%NP%x = data_in(:,0)
+  edge%Node(2)%NP%x = data_in(:,1)
+END IF
 END SUBROUTINE Unpack1D
 
 SUBROUTINE Unpack2D(Ngeo,data_in,side) 
@@ -997,12 +1025,19 @@ TYPE(tSide),POINTER,INTENT(IN) :: side
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo,jNgeo,i1D
 !===================================================================================================================================
-DO jNgeo=0,Ngeo
-  DO iNgeo=0,Ngeo
-    i1D = QuadMapInv(iNgeo,jNgeo)
-    side%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo)
+IF(NGeo.GT.1)THEN
+  DO jNgeo=0,Ngeo
+    DO iNgeo=0,Ngeo
+      i1D = QuadMapInv(iNgeo,jNgeo)
+      side%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo)
+    END DO 
   END DO 
-END DO 
+ELSE
+  side%OrientedNode(1)%NP%x = data_in(:,0,0)
+  side%OrientedNode(2)%NP%x = data_in(:,1,0)
+  side%OrientedNode(3)%NP%x = data_in(:,1,1)
+  side%OrientedNode(4)%NP%x = data_in(:,0,1)
+END IF
 END SUBROUTINE Unpack2D
 
 SUBROUTINE Unpack3D(Ngeo,data_in,elem) 
@@ -1024,14 +1059,25 @@ TYPE(tElem),POINTER,INTENT(IN) :: elem
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo,jNgeo,kNgeo,i1D
 !===================================================================================================================================
-DO kNgeo=0,Ngeo
-  DO jNgeo=0,Ngeo
-    DO iNgeo=0,Ngeo
-      i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
-      elem%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo,kNgeo)
+IF(NGeo.GT.1)THEN
+  DO kNgeo=0,Ngeo
+    DO jNgeo=0,Ngeo
+      DO iNgeo=0,Ngeo
+        i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
+        elem%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo,kNgeo)
+      END DO 
     END DO 
   END DO 
-END DO 
+ELSE
+  elem%Node(1)%NP%x = data_in(:,0,0,0)
+  elem%Node(2)%NP%x = data_in(:,1,0,0)
+  elem%Node(3)%NP%x = data_in(:,1,1,0)
+  elem%Node(4)%NP%x = data_in(:,0,1,0)
+  elem%Node(5)%NP%x = data_in(:,0,0,1)
+  elem%Node(6)%NP%x = data_in(:,1,0,1)
+  elem%Node(7)%NP%x = data_in(:,1,1,1)
+  elem%Node(8)%NP%x = data_in(:,0,1,1)
+END IF
 END SUBROUTINE Unpack3D
 
 END MODULE MOD_Mesh_Basis
