@@ -54,7 +54,6 @@ USE MOD_Mesh_Vars   ,ONLY: N,nMeshElems
 USE MOD_Basis_Vars  ,ONLY: HexaMap
 USE MOD_Basis1D     ,ONLY: LegGaussLobNodesAndWeights,BarycentricWeights,InitializeVandermonde
 USE MOD_ChangeBasis ,ONLY: ChangeBasis3D
-USE MOD_Output_vars ,ONLY:DebugVisu,DebugVisuLevel
 !MODULE OUTPUT VARIABLES
 ! MODULES
 ! IMPLICIT VARIABLE HANDLING
