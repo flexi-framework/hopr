@@ -49,10 +49,10 @@ END INTERFACE
 
 INTERFACE
    FUNCTION evalhilbert(disc,nbits,ndims) Result(indx)
-       INTEGER(KIND=8),INTENT(IN)  :: disc(3) ! ?
-       INTEGER(KIND=8)  :: indx ! ?
-       INTEGER(KIND=4),INTENT(IN)  :: nbits ! ?
        INTEGER(KIND=4),INTENT(IN)  :: nDims ! ?
+       INTEGER(KIND=4),INTENT(IN)  :: nbits ! ?
+       INTEGER(KIND=8),INTENT(IN)  :: disc(1:nDims) ! ?
+       INTEGER(KIND=8)  :: indx ! ?
    END FUNCTION evalhilbert
 END INTERFACE
 
