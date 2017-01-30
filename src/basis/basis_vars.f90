@@ -46,8 +46,6 @@ REAL,ALLOCATABLE,TARGET        :: VdM_visu_Prism(:,:)
 REAL,ALLOCATABLE,TARGET        :: D_visu_Prism(:,:,:)          
 REAL,ALLOCATABLE,TARGET        :: VdM_visu_Hexa(:,:)          
 REAL,ALLOCATABLE,TARGET        :: D_visu_Hexa(:,:,:)          
-REAL,ALLOCATABLE,TARGET        :: VdM_analyze_Hexa(:,:)          
-REAL,ALLOCATABLE,TARGET        :: D_analyze_Hexa(:,:,:)          
 
 ! Tensorproduct mappings + inverse mappings for all elements
 INTEGER,ALLOCATABLE,TARGET     :: TriaMap(:,:) 

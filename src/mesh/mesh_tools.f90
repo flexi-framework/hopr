@@ -700,11 +700,10 @@ SUBROUTINE checkMortarWatertight()
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
-USE MOD_Mesh_Vars ,ONLY:N
-USE MOD_Mesh_Vars ,ONLY:tElem,tSide
-USE MOD_Mesh_Vars ,ONLY:FirstElem
-USE MOD_Mesh_Vars ,ONLY:N
-USE MOD_Mesh_Basis,ONLY:PackGeo
+USE MOD_Mesh_Vars ,ONLY: tElem,tSide
+USE MOD_Mesh_Vars ,ONLY: FirstElem
+USE MOD_Mesh_Vars ,ONLY: N
+USE MOD_Mesh_Basis,ONLY: PackGeo
 USE MOD_Basis1D   ,ONLY: LegendreGaussNodesAndWeights
 USE MOD_Basis1D   ,ONLY: PolynomialDerivativeMatrix
 USE MOD_Basis1D   ,ONLY: BarycentricWeights
