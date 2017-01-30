@@ -39,7 +39,6 @@ readin/readin_GMSH_Vars.f90
 readin/readin_ICEM.f90
 readin/readin_gambit.f90
 readin/readin_hdf5.f90
-readin/readin_hdf5_old.f90
 readin/readintools.f90
 search/search.f90
 search/search_vars.f90

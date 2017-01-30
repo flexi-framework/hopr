@@ -75,7 +75,8 @@ ifeq ($(MACHINE),)
     endif
   endif
   ifneq ($(BUILD_HDF5),)
-    HDF5_VERSION = 1.8.16
+    HDF5_VERSIONR = hdf5-1.10/hdf5-1.10.0-patch1
+    HDF5_VERSION = 1.10.0-patch1
     HDF5_BASE = ../share/$(SHARECOMP)/hdf5-$(HDF5_VERSION)/hdf5
   endif
 endif

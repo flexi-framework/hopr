@@ -142,7 +142,7 @@ DO iFile=1,nMeshFiles
     ELSEIF(ZoneType.EQ.Unstructured)THEN
       CALL ReadCGNSMeshUnstruct(FirstElem,CGNSFile,CGNSBase,iZone,nZonesGlob,nNodesGlob)
     ELSE
-      STOP 'dasgehtsonicht'
+      STOP 'Wrong zone type specifier, should be structured or unstructured.'
     END IF
 
 
@@ -607,7 +607,7 @@ PP_CGNS_INT_TYPE              :: iError                                 ! Error 
 PP_CGNS_INT_TYPE              :: i,j,k,l,m,step,kk,ll,mm  ! ?
 PP_CGNS_INT_TYPE              :: k2,k3  ! ?
 PP_CGNS_INT_TYPE              :: stepk,stepl,stepm  ! ?
-PP_CGNS_INT_TYPE              :: nSkipk,nSkipl,nSkipm,whichdir  ! ?
+PP_CGNS_INT_TYPE              :: whichdir  ! ?
 PP_CGNS_INT_TYPE              :: nElems(3)
 REAL                          :: dir(3,3),scalprod  ! ?
 INTEGER                       :: N_loc  ! ?

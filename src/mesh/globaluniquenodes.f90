@@ -137,7 +137,9 @@ DO WHILE(ASSOCIATED(Elem))
     IF(Side%tmp2.GT.0)THEN
       !dummy side found
       DO iNode=1,Side%nNodes
-        CALL SetCountNodeID(Side%connection%Node(iNode)%np%tmp,NodeID)
+        Node=>Side%connection%Node(iNode)%np
+        CALL SetCountNodeID(Node%tmp,NodeID)
+        Node%ind=SIGN(Node%ind,-1) ! ensure that ind of periodics is negative
       END DO
     END IF
     Side=>Side%nextElemSide

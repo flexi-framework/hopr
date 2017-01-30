@@ -653,14 +653,14 @@ DO iZone=1,nZones
   DO l=0,ne(1)-1,Ngeo
     DO m=0,ne(2)-1,Ngeo
       DO n=0,ne(3)-1,Ngeo
-        CornerNode(1)%np=>Mnodes(l     ,m     ,n     )%np ! (-,-,-)
-        CornerNode(2)%np=>Mnodes(l+Ngeo,m     ,n     )%np ! (+,-,-)
-        CornerNode(3)%np=>Mnodes(l+Ngeo,m+Ngeo,n     )%np ! (+,+,-)
-        CornerNode(4)%np=>Mnodes(l     ,m+Ngeo,n     )%np ! (-,+,-)
-        CornerNode(5)%np=>Mnodes(l     ,m     ,n+Ngeo)%np ! (-,-,+)
-        CornerNode(6)%np=>Mnodes(l+Ngeo,m     ,n+Ngeo)%np ! (+,-,+)
-        CornerNode(7)%np=>Mnodes(l+Ngeo,m+Ngeo,n+Ngeo)%np ! (+,+,+)
-        CornerNode(8)%np=>Mnodes(l     ,m+Ngeo,n+Ngeo)%np ! (-,+,+)
+        CornerNode(1)%np=>Mnodes(l     ,m     ,n     )%np
+        CornerNode(2)%np=>Mnodes(l+Ngeo,m     ,n     )%np
+        CornerNode(3)%np=>Mnodes(l+Ngeo,m+Ngeo,n     )%np
+        CornerNode(4)%np=>Mnodes(l     ,m+Ngeo,n     )%np
+        CornerNode(5)%np=>Mnodes(l     ,m     ,n+Ngeo)%np
+        CornerNode(6)%np=>Mnodes(l+Ngeo,m     ,n+Ngeo)%np
+        CornerNode(7)%np=>Mnodes(l+Ngeo,m+Ngeo,n+Ngeo)%np
+        CornerNode(8)%np=>Mnodes(l     ,m+Ngeo,n+Ngeo)%np
         SELECT CASE(CartMesh%ElemType)
         CASE(104) ! Tetrahedron
           CALL GetNewTetrahedron(CornerNode,CartMesh,l,m,n,ind=NodeInd)

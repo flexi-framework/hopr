@@ -16,7 +16,7 @@ hdf5: dir
 		echo "= M A K E   H D F 5                                           =";\
 		echo "===============================================================";\
 		if [ ! -f hdf5-$(HDF5_VERSION).tar.bz2 ] ; then \
-		  wget -N http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-$(HDF5_VERSION)/src/hdf5-$(HDF5_VERSION).tar.bz2 ; \
+		  wget -N https://support.hdfgroup.org/ftp/HDF5/releases/$(HDF5_VERSIONR)/src/hdf5-$(HDF5_VERSION).tar.bz2 ; \
 		fi ; \
 		if [ ! -d $(SHARECOMP)/hdf5-$(HDF5_VERSION) ] ; then \
 			cd $(SHARECOMP)/ && tar -xvjf ../hdf5-$(HDF5_VERSION).tar.bz2 1>/dev/null && cd .. ; \

@@ -93,7 +93,7 @@ meshIsAlreadyCurved=.FALSE.
 IF (MeshMode .EQ. 1) THEN
   ! ---------- INTERNAL CARTESIAN MESH ---------------------------------------------------------------------------------------------
   IF(useCurveds) THEN
-    InnerElemStretch = GETLOGICAL('InnerElemStretch','F')
+    InnerElemStretch = GETLOGICAL('InnerElemStretch','.TRUE.')
   ELSE
     InnerElemStretch = .FALSE.
   END IF
@@ -142,8 +142,8 @@ ELSEIF (MeshMode .EQ. 11) THEN
     XP(:,4) = GETREALARRAY('GeometricXP4',3,'0.,1.,0.')
     XP(:,5) = GETREALARRAY('GeometricXP5',3,'0.,0.,1.')
     XP(:,6) = GETREALARRAY('GeometricXP6',3,'1.,0.,1.')
-    XP(:,7) = GETREALARRAY('GeometricXP7',3,'0.,1.,1.')
-    XP(:,8) = GETREALARRAY('GeometricXP8',3,'0.,0.,1.')
+    XP(:,7) = GETREALARRAY('GeometricXP7',3,'1.,1.,1.')
+    XP(:,8) = GETREALARRAY('GeometricXP8',3,'0.,1.,1.')
   CASE(3) ! general curved
     ! Used for curved meshes (i.e. meshmode = 3) and determines the curved mapping
     WhichMapping = GETINT('WhichMapping','1')
@@ -156,12 +156,13 @@ ELSEIF (MeshMode .EQ. 11) THEN
       XP(:,4) = GETREALARRAY('GeometricXP4',3,'0.,1.,0.')
       XP(:,5) = GETREALARRAY('GeometricXP5',3,'0.,0.,1.')
       XP(:,6) = GETREALARRAY('GeometricXP6',3,'1.,0.,1.')
-      XP(:,7) = GETREALARRAY('GeometricXP7',3,'0.,1.,1.')
-      XP(:,8) = GETREALARRAY('GeometricXP8',3,'0.,0.,1.')
+      XP(:,7) = GETREALARRAY('GeometricXP7',3,'1.,1.,1.')
+      XP(:,8) = GETREALARRAY('GeometricXP8',3,'0.,1.,1.')
     CASE(3,4) ! half/full cylinder ...needs r_0 = radius of the cylinder and r_inf=radius of the domain, dy=extension in y dir
       R_0   = GETREAL('R_0','0.5')
       R_INF = GETREAL('R_INF','10.')
       DY    = GETREAL('DZ','2.')
+      IF (WhichMapping.EQ.3) PHI   = GETREAL('PHI','180.') !angle of segment (def.: half cylinder, i.e. 180deg)
     CASE(5) ! SINE BUMP  
       DX    = GETREALARRAY('DX',3,'4.,1.,1.') ! half length, width and height of domain
       R_0   = GETREAL('R_0','0.1') ! height of bump
@@ -257,9 +258,8 @@ IF(useCurveds) THEN
   ! 2-n: first n layers from the boundary are curved
   nCurvedBoundaryLayers=GETINT('nCurvedBoundaryLayers','-1')
 
-  ! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
-  doRebuildMortarGeometry=GETLOGICAL('doRebuildMortarGeometry','.TRUE.')
 END IF !usecurveds
+
 BoundaryOrder=N+1
 
 ! Boundaries
@@ -331,6 +331,10 @@ END IF
 SplitToHex=GETLOGICAL('SplitToHex','.FALSE.')   ! split all elements to hexa
 nFineHexa=GETINT('nFineHexa','1')               ! split all hexa by a factor 
 
+
+! for mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
+! does not work for periodic mortars, will be set true by default for postdeform!
+doRebuildMortarGeometry=GETLOGICAL('doRebuildMortarGeometry','.TRUE.')
 
 meshPostDeform=GETINT('MeshPostDeform','0')
 IF(meshPostDeform.GT.0) THEN
@@ -405,7 +409,6 @@ USE MOD_Readin_CGNS
 USE MOD_Readin_Gambit
 USE MOD_Readin_GMSH
 USE MOD_Readin_HDF5
-USE MOD_Readin_HDF5_OLD
 USE MOD_Readin_ICEM
 USE MOD_zcorrection,      ONLY: zcorrection
 USE MOD_zcorrection,      ONLY: OrientElemsToZ
@@ -424,6 +427,7 @@ USE MOD_GlobalUniqueNodes,ONLY: GlobalUniqueNodes
 USE MOD_CartMesh,         ONLY: CartesianMesh
 USE MOD_CurvedCartMesh,   ONLY: CurvedCartesianMesh
 USE MOD_Mesh_Tools,       ONLY: CountSplines,Netvisu,BCvisu,chkspl_surf,chkspl_vol
+USE MOD_Mesh_Tools,       ONLY: CheckMortarWaterTight
 USE MOD_Mesh_PostDeform,  ONLY: PostDeform
 USE MOD_Output_HDF5,      ONLY: WriteMeshToHDF5
 USE MOD_Mesh_Jacobians,   ONLY: CheckJacobians
@@ -456,9 +460,6 @@ NULLIFY(FirstElem)
 
 ! read mesh
 SELECT CASE (MeshMode)
-  CASE(-1)
-    CALL ReadMeshFromHDF5_OLD(MeshFileName(1)) ! meshfile
-    meshIsAlreadyCurved=.TRUE.
   CASE(0)
     CALL ReadMeshFromHDF5(MeshFileName(1),.TRUE.) ! meshfile
     meshIsAlreadyCurved=.TRUE.
@@ -621,6 +622,20 @@ END IF ! useCurveds
 ! make all nodes unique
 CALL GlobalUniqueNodes(.TRUE.)
 
+! check if sides with mortars exist
+mortarFound=.FALSE.
+DO iElem=1,nMeshElems
+  Side=>Elems(iElem)%ep%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    IF(Side%MortarType.GT.0) THEN
+      mortarFound=.TRUE.
+      EXIT !do loop
+    END IF
+    Side=>Side%nextElemSide
+  END DO
+  IF(mortarFound) EXIT !do loop
+END DO !iElem
+
 IF(doExactSurfProjection) CALL ProjectToExactSurfaces()
 ! get element types
 CALL FindElemTypes()
@@ -637,8 +652,11 @@ END IF
 
 CALL PostDeform()
 
-IF(useCurveds.AND.doRebuildMortarGeometry) CALL RebuildMortarGeometry()
-
+IF(mortarFound) THEN
+  IF(doRebuildMortarGeometry) CALL RebuildMortarGeometry()
+  !after rebuild , mortars should be fine, but checking is better:
+  CALL CheckMortarWaterTight()
+END IF !mortarFound
 
 ! apply meshscale before output (default)
 IF(doScale.AND.postScale) CALL ApplyMeshScale(FirstElem)

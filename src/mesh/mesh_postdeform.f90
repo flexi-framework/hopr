@@ -80,11 +80,13 @@ IF(MeshPostDeform.EQ.0) RETURN
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'POST DEFORM THE MESH...'
 CALL Timer(.TRUE.)
+
 IF(N.EQ.1)THEN
   HexaMapN1(:,1)=(/0,1,1,0,0,1,1,0/)
   HexaMapN1(:,2)=(/0,0,1,1,0,0,1,1/)
   HexaMapN1(:,3)=(/0,0,0,0,1,1,1,1/)
 END IF !N=1
+
 !prepare EQ to GL tranform
 CALL LegGaussLobNodesAndWeights(N,xi_GL)
 DO i=0,N
@@ -117,7 +119,7 @@ END DO ! iElem
 
 !transform Equidist. to Gauss-Lobatto points
 IF((PostDeform_useGL).AND.(N.GT.2))THEN
-  CALL ChangeBasis3D(3,nMeshElems,N,N,Vdm_EqToGL,xElem,xElem,.FALSE.)
+  CALL ChangeBasis3D(3,nMeshElems,N,N,Vdm_EQtoGL,xElem,xElem,.FALSE.)
 END IF !PostDeform_useGL
 
 !transform (all nodes are marked from -2 to -1)
@@ -126,7 +128,7 @@ CALL PostDeformFunc(nTotal,xElem,xElem)
 
 IF((PostDeform_useGL).AND.(N.GT.2))THEN
   !transform back from GL to EQ
-  CALL ChangeBasis3D(3,nMeshElems,N,N,Vdm_GLtoEq,xElem,xElem,.FALSE.)
+  CALL ChangeBasis3D(3,nMeshElems,N,N,Vdm_GLtoEQ,xElem,xElem,.FALSE.)
 END IF
   
 ! copy back (all nodes are marked from -1 to 0)

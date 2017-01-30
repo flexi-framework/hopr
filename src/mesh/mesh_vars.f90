@@ -213,6 +213,7 @@ INTEGER                        :: TypeIndex_surf(4)      ! typeIndex_surf(nNodes
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! MORTAR VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
+LOGICAL             :: MortarFound            ! from checking all sides in fillmesh, if they have associated mortars.
 INTEGER             :: MortarMesh             ! 0: conforming, 1: non-conforming octree based
 INTEGER             :: nNonconformingSides    ! number of small and big mortar sides
 ! MoratarMesh==1
@@ -257,7 +258,8 @@ LOGICAL                        :: InnerElemStretch       ! for cartmeshes, apply
 !-----------------------------------------------------------------------------------------------------------------------------------
 INTEGER          :: nElems(3),BCIndex(6)  ! ?
 INTEGER          :: CurvedMeshType,WhichMapping   ! ?
-REAL             :: R_0,R_INF,DY   ! R_0...radius of cylinder, R_INF...radius of domain, DY...extension in - and + y dir
+REAL             :: R_0,R_INF,DY,PHI   ! R_0...radius of cylinder, R_INF...radius of domain, DY...extension in - and + y dir
+                                        ! PHI...angle of circle segment
 INTEGER          :: StretchType(3) ! Type of Strechting: 1 (default): dx(i)=dx(i-1)*fac, 2. DxMaxToDxMin-> fac 3. bell shaped 
 REAL             :: fac(3),fac2(3)  ! ?
 REAL             :: DxMaxToDxMin(3)  ! ?
@@ -315,6 +317,7 @@ REAL                           :: PostDeform_R0
 REAL                           :: PostDeform_Lz  
 REAL                           :: PostDeform_sq  
 REAL                           :: PostDeform_Rtorus  
+
 TYPE(tElemPtr),POINTER         :: Elems(:)
 ! INTERFACES -----------------------------------------------------------------------------------------------------------------------
 INTERFACE getNewElem
