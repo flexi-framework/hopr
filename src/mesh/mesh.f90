@@ -450,9 +450,6 @@ INTEGER             :: iElem  ! ?
 !===================================================================================================================================
 CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("="))')
-WRITE(UNIT_stdOut,*)
-WRITE(UNIT_stdOut,'(45X,A)')' Entering fillMesh '
-WRITE(UNIT_stdOut,*)
 
 IF(.NOT.useCurveds) curvingMethod = -1
 nMeshElems=0
@@ -670,11 +667,9 @@ IF(DebugVisu) THEN
 END IF
 IF(checkElemJacobians) CALL CheckJacobians()
 
-WRITE(UNIT_stdOut,*)
-WRITE(UNIT_stdOut,'(40X,A,F0.2,A)')'GOT mesh (incl. rasterfahndung) '
 IF(useCurveds .AND. Logging) CALL CountSplines()   ! In case of restart there can be splines
 CALL WriteMeshToHDF5(TRIM(ProjectName)//'_mesh.h5')
-
+WRITE(UNIT_stdOut,'(132("~"))')
 CALL Timer(.FALSE.)
 END SUBROUTINE fillMesh
 

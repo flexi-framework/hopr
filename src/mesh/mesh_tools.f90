@@ -133,7 +133,6 @@ IF(hasChanged .OR. (CallCount .EQ. 0))THEN
   WRITE(UNIT_logOut,'(A,I12)',ADVANCE='NO')' | #Boundary Splines: ',splineCounter(1)
   WRITE(UNIT_logOut,'(A,I12)',ADVANCE='NO')' | #Periodic Splines: ',splineCounter(2)
   WRITE(UNIT_logOut,'(A,I12,A)')' | #Inner Splines:    ',splineCounter(3),' <'
-  WRITE(UNIT_logOut,'(132("~"))')
 END IF ! hasChanged
 END SUBROUTINE CountSplines
 
@@ -217,7 +216,6 @@ DEALLOCATE(Coord,Solution)
 
 WRITE(UNIT_stdOut,'(3X,A,A)')' Mesh visualized for debug purposes in file : ',TRIM(filestring)
 CALL Timer(.FALSE.)
-WRITE(UNIT_stdOut,'(132("~"))')
 
 END SUBROUTINE netVisu
 
@@ -318,7 +316,6 @@ DEALLOCATE(Coord,Solution)
 
 WRITE(UNIT_stdOut,'(3X,A,A)')' Boundary mesh visualized for debug purposes in file : ',TRIM(FileString)
 CALL Timer(.FALSE.)
-WRITE(UNIT_stdOut,'(132("~"))')
 END SUBROUTINE BCVisu
 
 

@@ -58,7 +58,7 @@ SUBROUTINE SortElemsByCoords(nElems,ElemBary,nElems_IJK,Elem_IJK)
 ! and 2.5D unstructured mesh for example (1:nElems/nz,1,1:nz) and fully structured domains have (1:nElems/ny/nz,1:ny,1:nz) 
 !===================================================================================================================================
 ! MODULES
-USE MOD_globals,ONLY:UNIT_stdOut
+USE MOD_globals
 USE MOD_Output_Vars,ONLY:DebugVisu
 USE MOD_Mesh_Vars,ONLY:SpaceQuandt
 USE MOD_SortingTools,ONLY:Qsort1DoubleInt1Pint
@@ -89,6 +89,8 @@ INTEGER         :: ii,jj,kk   ! ?
 LOGICAL         :: structDir(3)  ! ?
 INTEGER         :: tol  ! ?
 !===================================================================================================================================
+CALL Timer(.TRUE.)
+WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A,A,A)')'SORT ELEMENTS BY COORDINATES ...'
 IF(nElems.EQ.1)THEN
   nElems_IJK=1
@@ -241,7 +243,7 @@ DO kk=1,nElems_IJK(3)
 END DO
 CLOSE(101)
 END IF
-WRITE(UNIT_stdOut,'(A)')'... DONE'
+CALL Timer(.FALSE.)
 END SUBROUTINE SortElemsByCoords
 
 SUBROUTINE setBoundingBox2(box, mini, maxi)
