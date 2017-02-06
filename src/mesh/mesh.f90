@@ -335,7 +335,7 @@ CASE(1,2)
   PostDeform_Lz=GETREAL('PostDeform_Lz','1.')
   PostDeform_sq=GETINT('PostDeform_sq','0')
   PostDeform_Rtorus=GETREAL('PostDeform_Rtorus','-1.')
-CASE(3,4,5) ! cartbox [-1,1]^3 sin innercurved  
+CASE(30,31,32) ! cartbox [-1,1]^3 sin innercurved  
 CASE DEFAULT
   CALL abort(__STAMP__,&
              'This MeshPostDeform case is not implemented.',MeshPostDeform)
