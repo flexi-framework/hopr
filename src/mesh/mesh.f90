@@ -291,6 +291,9 @@ IF((MeshMode .EQ. 2) .OR. (MeshMode .EQ. 3))THEN
  ! 2.5D mesh: convert 2D mesh to 3D mesh (gambit and cgns mesh only)
   MeshDim=GETINT('MeshDim','3') 
 END IF
+!for SpecMesh only 2D available
+IF((MeshMode .EQ. 6)) MeshDim=2
+
 IF(MeshDim .EQ. 2)THEN
   zLength=GETREAL('zLength')
   nElemsZ=GETINT('nElemsZ')
@@ -410,6 +413,7 @@ USE MOD_Readin_Gambit
 USE MOD_Readin_GMSH
 USE MOD_Readin_HDF5
 USE MOD_Readin_ICEM
+USE MOD_Readin_SpecMesh2D
 USE MOD_zcorrection,      ONLY: zcorrection
 USE MOD_zcorrection,      ONLY: OrientElemsToZ
 USE MOD_SplitToHex,       ONLY: SplitElementsToHex,SplitAllHexa
@@ -478,6 +482,10 @@ SELECT CASE (MeshMode)
     CALL readStar()       ! Read Star file (ANSA)
   CASE(5)
     CALL readGMSH()       ! Read .MSH file (GMSH)
+  CASE(6)
+    CALL readSpecMesh2D()   
+    meshIsAlreadyCurved=.TRUE.
+    CALL fill25DMesh() 
   CASE DEFAULT
     CALL abort(__STAMP__, &
       'Not known how to construct mesh')
