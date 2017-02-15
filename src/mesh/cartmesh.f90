@@ -58,11 +58,7 @@ INTERFACE CartesianMesh
   MODULE PROCEDURE CartesianMesh
 END INTERFACE
 
-INTERFACE GetNewHexahedron
-  MODULE PROCEDURE GetNewHexahedron
-END INTERFACE
-
-PUBLIC::CartesianMesh, GetNewHexahedron
+PUBLIC::CartesianMesh
 !===================================================================================================================================
 
 CONTAINS
@@ -431,45 +427,6 @@ NULLIFY(aElem)
 END SUBROUTINE GetNewPrism
 
 
-SUBROUTINE GetNewHexahedron(CornerNode)
-!===================================================================================================================================
-! Build new hexahedron for cartesian mesh.
-!===================================================================================================================================
-! MODULES
-USE MOD_Mesh_Vars,ONLY:tNodePtr,tElem
-USE MOD_Mesh_Vars,ONLY:FirstElem
-USE MOD_Mesh_Vars,ONLY:getNewElem
-! IMPLICIT VARIABLE HANDLING
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-TYPE(tNodePtr),INTENT(IN)                  :: CornerNode(8)  ! ?
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-TYPE(tElem),POINTER             :: aElem   ! ?
-INTEGER                         :: i  ! ?
-!===================================================================================================================================
-CALL getNewElem(aElem)
-aElem%nNodes=8
-ALLOCATE(aElem%Node(aElem%nNodes))
-DO i=1,8
-  aElem%Node(i)%NP=>CornerNode(i)%NP
-END DO
-
-! Add elements to list
-IF(.NOT.ASSOCIATED(FirstElem))THEN
-  FirstElem=>aElem
-ELSE
-  aElem%nextElem          => FirstElem
-  aElem%nextElem%prevElem => aElem
-  FirstElem          => aElem
-END IF
-NULLIFY(aElem)
-END SUBROUTINE GetNewHexahedron
-
-
 SUBROUTINE CartesianMesh()
 !===================================================================================================================================
 ! Builds cartesian mesh. Called by fillMesh.
@@ -481,8 +438,8 @@ USE MOD_Mesh_Vars,ONLY:nZones,BoundaryType
 USE MOD_Mesh_Vars,ONLY:getNewSide,getNewNode,getNewBC
 USE MOD_Mesh_Vars,ONLY:deleteSide,deleteNode
 USE MOD_Mesh_Vars,ONLY:BoundaryOrder,InnerElemStretch
+USE MOD_Mesh_Basis,ONLY:getNewHexahedron,GetNewCurvedHexahedron
 USE MOD_Mesh_Basis,ONLY:CreateSides
-USE MOD_CurvedCartMesh,ONLY:GetNewCurvedHexahedron
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -675,7 +632,7 @@ DO iZone=1,nZones
             END DO; END DO; END DO; 
             CALL GetNewCurvedHexahedron(CurvedNode,Ngeo,iZone)
           ELSE 
-            CALL GetNewHexahedron(CornerNode)
+            CALL GetNewHexahedron(CornerNode,doCreateSides=.FALSE.)
           END IF
         CASE DEFAULT
           CALL abort(__STAMP__,&

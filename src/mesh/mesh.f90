@@ -483,6 +483,7 @@ SELECT CASE (MeshMode)
   CASE(5)
     CALL readGMSH()       ! Read .MSH file (GMSH)
   CASE(6)
+    MeshDim=3 !overwrite, build first 3D element layer in readin
     CALL readSpecMesh2D()   
     meshIsAlreadyCurved=.TRUE.
     CALL fill25DMesh() 
