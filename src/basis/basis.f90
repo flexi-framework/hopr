@@ -88,7 +88,7 @@ IF(.NOT.MeshInitDone)THEN
 END IF
 WRITE(tmpstr,'(I4)')N
 nVisu=GETINT('nVisu',tmpstr)
-WRITE(tmpstr,'(I4)')N+2
+WRITE(tmpstr,'(I4)')3*(N+1)
 nAnalyze=GETINT('nAnalyze',tmpstr)
 IF(nVisu.LT.1)THEN
   CALL abort(__STAMP__,'nVisu has to be >= 1')
@@ -106,7 +106,7 @@ SUBROUTINE fillBasisMapping()
 ! iAns=1: 1, iAns=2: x, iAns=3: y
 !===================================================================================================================================
 ! MODULES
-USE MOD_Basis_Vars,ONLY:nVisu,nAnalyze
+USE MOD_Basis_Vars,ONLY:nVisu
 USE MOD_Basis_Vars,ONLY:TriaMap,TriaMapInv,VisuTriaMap,VisuTriaMapInv,Vdm_visu_Tria,D_visu_Tria
 USE MOD_Basis_Vars,ONLY:QuadMap,QuadMapInv,VisuQuadMap,VisuQuadMapInv,Vdm_visu_Quad,D_visu_Quad
 USE MOD_Basis_Vars,ONLY:TetraMap,TetraMapInv !,Vdm_visu_Tetra,D_visu_Tetra
@@ -114,7 +114,6 @@ USE MOD_Basis_Vars,ONLY:PyraMap,PyraMapInv   !,Vdm_visu_Pyra,D_visu_Pyra
 USE MOD_Basis_Vars,ONLY:PrismMap,PrismMapInv !,Vdm_visu_Prism,D_visu_Prism
 USE MOD_Basis_Vars,ONLY:HexaMap,HexaMapInv,Vdm_visu_Hexa,D_visu_Hexa,VisuHexaMap,VisuHexaMapInv
 USE MOD_Basis_Vars,ONLY:MapSideToVol
-USE MOD_Basis_Vars,ONLY:Vdm_Analyze_Hexa,D_Analyze_Hexa
 USE MOD_Basis_Vars,ONLY:EdgeToTria,EdgeToQuad
 USE MOD_Mesh_Vars,ONLY:N
 USE MOD_QuadBasis
@@ -152,7 +151,6 @@ CALL getTriaBasis(N,nVisu+1,Vdm_visu_Tria,D_visu_Tria)
 CALL getQuadBasis(N,nVisu+1,Vdm_visu_Quad,D_visu_Quad)
 !CALL getTetraBasis(N,nVisu+1,Vdm_visu_Tetra,D_visu_Tetra)
 CALL getHexaBasis(N,nVisu+1,Vdm_visu_Hexa,D_visu_Hexa)
-CALL getHexaBasis(N,nAnalyze,Vdm_Analyze_Hexa,D_Analyze_Hexa)
 
 ! map edges of triangle surface counterclockwise points to BoundaBasisMappingInv(i,j)
 ALLOCATE(EdgeToTria(3,N+1))

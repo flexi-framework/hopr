@@ -258,9 +258,8 @@ IF(useCurveds) THEN
   ! 2-n: first n layers from the boundary are curved
   nCurvedBoundaryLayers=GETINT('nCurvedBoundaryLayers','-1')
 
-  ! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
-  doRebuildMortarGeometry=GETLOGICAL('doRebuildMortarGeometry','.TRUE.')
 END IF !usecurveds
+
 BoundaryOrder=N+1
 
 ! Boundaries
@@ -292,6 +291,9 @@ IF((MeshMode .EQ. 2) .OR. (MeshMode .EQ. 3))THEN
  ! 2.5D mesh: convert 2D mesh to 3D mesh (gambit and cgns mesh only)
   MeshDim=GETINT('MeshDim','3') 
 END IF
+!for SpecMesh only 2D available
+IF((MeshMode .EQ. 6)) MeshDim=2
+
 IF(MeshDim .EQ. 2)THEN
   zLength=GETREAL('zLength')
   nElemsZ=GETINT('nElemsZ')
@@ -333,6 +335,10 @@ SplitToHex=GETLOGICAL('SplitToHex','.FALSE.')   ! split all elements to hexa
 nFineHexa=GETINT('nFineHexa','1')               ! split all hexa by a factor 
 
 
+! for mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
+! does not work for periodic mortars, will be set true by default for postdeform!
+doRebuildMortarGeometry=GETLOGICAL('doRebuildMortarGeometry','.TRUE.')
+
 meshPostDeform=GETINT('MeshPostDeform','0')
 IF(meshPostDeform.GT.0) THEN
   PostDeform_useGL=GETLOGICAL('PostDeform_useGL','.TRUE.')
@@ -346,7 +352,7 @@ END IF !PostDeform
 ConformConnect=GETLOGICAL('ConformConnect','.TRUE.') ! Fast connect for conform mesh
 
 ! Elem Check
-checkElemJacobians=GETLOGICAL('checkElemJacobians','.FALSE.')
+checkElemJacobians=GETLOGICAL('checkElemJacobians','.TRUE.')
 jacobianTolerance=GETREAL('jacobianTolerance','1.E-16')
 
 
@@ -407,6 +413,7 @@ USE MOD_Readin_Gambit
 USE MOD_Readin_GMSH
 USE MOD_Readin_HDF5
 USE MOD_Readin_ICEM
+USE MOD_Readin_SpecMesh2D
 USE MOD_zcorrection,      ONLY: zcorrection
 USE MOD_zcorrection,      ONLY: OrientElemsToZ
 USE MOD_SplitToHex,       ONLY: SplitElementsToHex,SplitAllHexa
@@ -424,6 +431,7 @@ USE MOD_GlobalUniqueNodes,ONLY: GlobalUniqueNodes
 USE MOD_CartMesh,         ONLY: CartesianMesh
 USE MOD_CurvedCartMesh,   ONLY: CurvedCartesianMesh
 USE MOD_Mesh_Tools,       ONLY: CountSplines,Netvisu,BCvisu,chkspl_surf,chkspl_vol
+USE MOD_Mesh_Tools,       ONLY: CheckMortarWaterTight
 USE MOD_Mesh_PostDeform,  ONLY: PostDeform
 USE MOD_Output_HDF5,      ONLY: WriteMeshToHDF5
 USE MOD_Mesh_Jacobians,   ONLY: CheckJacobians
@@ -446,9 +454,6 @@ INTEGER             :: iElem  ! ?
 !===================================================================================================================================
 CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("="))')
-WRITE(UNIT_stdOut,*)
-WRITE(UNIT_stdOut,'(45X,A)')' Entering fillMesh '
-WRITE(UNIT_stdOut,*)
 
 IF(.NOT.useCurveds) curvingMethod = -1
 nMeshElems=0
@@ -477,6 +482,11 @@ SELECT CASE (MeshMode)
     CALL readStar()       ! Read Star file (ANSA)
   CASE(5)
     CALL readGMSH()       ! Read .MSH file (GMSH)
+  CASE(6)
+    MeshDim=3 !overwrite, build first 3D element layer in readin
+    CALL readSpecMesh2D()   
+    meshIsAlreadyCurved=.TRUE.
+    CALL fill25DMesh() 
   CASE DEFAULT
     CALL abort(__STAMP__, &
       'Not known how to construct mesh')
@@ -618,6 +628,20 @@ END IF ! useCurveds
 ! make all nodes unique
 CALL GlobalUniqueNodes(.TRUE.)
 
+! check if sides with mortars exist
+mortarFound=.FALSE.
+DO iElem=1,nMeshElems
+  Side=>Elems(iElem)%ep%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    IF(Side%MortarType.GT.0) THEN
+      mortarFound=.TRUE.
+      EXIT !do loop
+    END IF
+    Side=>Side%nextElemSide
+  END DO
+  IF(mortarFound) EXIT !do loop
+END DO !iElem
+
 IF(doExactSurfProjection) CALL ProjectToExactSurfaces()
 ! get element types
 CALL FindElemTypes()
@@ -634,8 +658,11 @@ END IF
 
 CALL PostDeform()
 
-IF(useCurveds.AND.doRebuildMortarGeometry) CALL RebuildMortarGeometry()
-
+IF(mortarFound) THEN
+  IF(doRebuildMortarGeometry) CALL RebuildMortarGeometry()
+  !after rebuild , mortars should be fine, but checking is better:
+  CALL CheckMortarWaterTight()
+END IF !mortarFound
 
 ! apply meshscale before output (default)
 IF(doScale.AND.postScale) CALL ApplyMeshScale(FirstElem)
@@ -647,13 +674,11 @@ IF(DebugVisu) THEN
     IF(DebugVisuLevel.GE.2) CALL chkSpl_Vol()
   END IF
 END IF
-IF(useCurveds.AND.(checkElemJacobians.AND.MeshDim.EQ.3)) CALL CheckJacobians()
+IF(checkElemJacobians) CALL CheckJacobians()
 
-WRITE(UNIT_stdOut,*)
-WRITE(UNIT_stdOut,'(40X,A,F0.2,A)')'GOT mesh (incl. rasterfahndung) '
 IF(useCurveds .AND. Logging) CALL CountSplines()   ! In case of restart there can be splines
 CALL WriteMeshToHDF5(TRIM(ProjectName)//'_mesh.h5')
-
+WRITE(UNIT_stdOut,'(132("~"))')
 CALL Timer(.FALSE.)
 END SUBROUTINE fillMesh
 

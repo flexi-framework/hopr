@@ -567,15 +567,15 @@ SUBROUTINE ReadCGNSMeshStruct(FirstElem_in,CGNSFile,CGNSBase,iZone,nZonesGlob,nN
 ! This subroutine reads structured 2D and 3D meshes from the CGNS file and prepares the element list.
 !===================================================================================================================================
 ! MODULES
-USE MOD_CartMesh ,ONLY:GetNewHexahedron
 USE MOD_Mesh_Vars,ONLY:tElem,tElemPtr,tSide,tNodePtr
 USE MOD_Mesh_Vars,ONLY:DZ,nMeshElems,meshDim
 USE MOD_Mesh_Vars,ONLY:BoundaryType,useCurveds,N,NBlock,MeshIsAlreadyCurved
 USE MOD_Mesh_Vars,ONLY:nSkip,nSkipZ
 USE MOD_Mesh_Vars,ONLY:getNewElem,getNewNode,getNewBC,GETNEWQUAD,deleteNode
 USE MOD_Mesh_Basis,ONLY:createSides,GetBoundaryIndex
-USE MOD_Basis_Vars,ONLY:HexaMapInv
+USE MOD_Mesh_Basis,ONLY:GetNewHexahedron
 USE MOD_Basis     ,ONLY:GetVandermonde
+USE MOD_Basis_Vars,ONLY:HexaMapInv
 USE MOD_ChangeBasis,ONLY:ChangeBasis2D,ChangeBasis3D
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -791,8 +791,7 @@ DO k=1,irmax(1)-N,N
       CornerNode(7)%np=>Mnodes(k+N,l+N,m+N)%np
       CornerNode(8)%np=>Mnodes(k  ,l+N,m+N)%np
       IF(meshdim.EQ.3)THEN
-        CALL GetNewHexahedron(CornerNode)
-        CALL CreateSides(FirstElem_in,.TRUE.)
+        CALL GetNewHexahedron(CornerNode,doCreateSides=.TRUE.)
       ELSE
         CALL GetNewQuad(FirstElem_in,CornerNode(1:4))
         CALL CreateSides(FirstElem_in,.TRUE.) ! Transforms 2D element to hexahedron using DZ

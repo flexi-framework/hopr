@@ -27,7 +27,6 @@ MODULE MOD_Mesh_Basis
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
-USE MOD_Mesh_Vars,ONLY:tEdge
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 PRIVATE
@@ -46,6 +45,14 @@ END INTERFACE
 
 INTERFACE getNewHexa
   MODULE PROCEDURE getNewHexa
+END INTERFACE
+
+INTERFACE GetNewHexahedron
+  MODULE PROCEDURE GetNewHexahedron
+END INTERFACE
+
+INTERFACE GetNewCurvedHexahedron
+  MODULE PROCEDURE GetNewCurvedHexahedron
 END INTERFACE
 
 INTERFACE CreateSides
@@ -91,6 +98,8 @@ END INTERFACE
 
 PUBLIC::ElemGeometry
 PUBLIC::getNewHexa
+PUBLIC::getNewHexahedron
+PUBLIC::getNewCurvedHexahedron
 PUBLIC::CreateSides
 !PUBLIC::AdjustOrientedNodes
 PUBLIC::GetBoundaryIndex
@@ -399,6 +408,104 @@ TYPE(tNode),POINTER,INTENT(IN)            :: node8   ! ?
   Elem%Node(8)%np=>Node8
   CALL CreateSides(Elem,.TRUE.)
 END SUBROUTINE getNewHexa
+
+
+SUBROUTINE GetNewHexahedron(CornerNode,doCreateSides)
+!===================================================================================================================================
+! Build new hexahedron for cartesian mesh.
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars,ONLY:tNodePtr,tElem
+USE MOD_Mesh_Vars,ONLY:FirstElem
+USE MOD_Mesh_Vars,ONLY:getNewElem
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+TYPE(tNodePtr),INTENT(IN)                  :: CornerNode(8)  ! ?
+LOGICAL,INTENT(IN)                         :: doCreateSides
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+TYPE(tElem),POINTER             :: Elem   ! ?
+INTEGER                         :: i  ! ?
+!===================================================================================================================================
+CALL getNewElem(Elem)
+Elem%nNodes=8
+ALLOCATE(Elem%Node(Elem%nNodes))
+DO i=1,8
+  Elem%Node(i)%NP=>CornerNode(i)%NP
+END DO
+
+! Add elements to list
+IF(.NOT.ASSOCIATED(FirstElem))THEN
+  FirstElem=>Elem
+ELSE
+  Elem%nextElem          => FirstElem
+  Elem%nextElem%prevElem => Elem
+  FirstElem               => Elem
+END IF
+IF(doCreateSides) CALL CreateSides(Elem,.TRUE.)
+
+NULLIFY(Elem)
+END SUBROUTINE GetNewHexahedron
+
+
+SUBROUTINE GetNewCurvedHexahedron(CurvedNode,Ngeo,Zone)
+!===================================================================================================================================
+! Build new hexahedron for cartesian mesh.
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars,ONLY:tNodePtr,tElem
+USE MOD_Mesh_Vars,ONLY:FirstElem
+USE MOD_Mesh_Vars,ONLY:getNewElem
+USE MOD_Basis_Vars,ONLY:HexaMap
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+INTEGER,INTENT(IN)              :: NGeo  ! ?
+INTEGER,INTENT(IN)              :: Zone  ! ?
+TYPE(tNodePtr),INTENT(IN)                  :: CurvedNode(0:Ngeo,0:NGeo,0:Ngeo)  ! ?
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+TYPE(tElem),POINTER             :: Elem   ! ?
+INTEGER                         :: i  ! ?
+!===================================================================================================================================
+CALL getNewElem(Elem)
+Elem%zone=Zone
+Elem%nNodes=8
+ALLOCATE(Elem%Node(Elem%nNodes))
+Elem%Node(1)%NP=>CurvedNode(   0,   0,   0)%NP
+Elem%Node(2)%NP=>CurvedNode(NGeo,   0,   0)%NP
+Elem%Node(3)%NP=>CurvedNode(NGeo,NGeo,   0)%NP
+Elem%Node(4)%NP=>CurvedNode(   0,NGeo,   0)%NP
+Elem%Node(5)%NP=>CurvedNode(   0,   0,NGeo)%NP
+Elem%Node(6)%NP=>CurvedNode(NGeo,   0,NGeo)%NP
+Elem%Node(7)%NP=>CurvedNode(NGeo,NGeo,NGeo)%NP
+Elem%Node(8)%NP=>CurvedNode(   0,NGeo,NGeo)%NP
+CALL CreateSides(Elem,.TRUE.)
+IF(Ngeo.GT.1)THEN !curved
+  Elem%nCurvedNodes=(Ngeo+1)**3
+  ALLOCATE(Elem%CurvedNode(Elem%nCurvedNodes))
+  DO i=1,Elem%nCurvedNodes
+    Elem%CurvedNode(i)%NP=>CurvedNode(HexaMap(i,1),HexaMap(i,2),HexaMap(i,3))%NP
+  END DO
+END IF !curved
+
+! Add elements to list
+IF(.NOT.ASSOCIATED(FirstElem))THEN
+  FirstElem=>Elem
+ELSE
+  Elem%nextElem          => FirstElem
+  Elem%nextElem%prevElem => Elem
+  FirstElem              => Elem
+END IF
+NULLIFY(Elem)
+END SUBROUTINE GetNewCurvedHexahedron
 
 
 SUBROUTINE CreateSides(Elem,buildSides)
@@ -894,9 +1001,14 @@ REAL,INTENT(OUT)               :: data_out(3,0:Ngeo)
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo 
 !===================================================================================================================================
-DO iNgeo=0,Ngeo
-  data_out(:,iNgeo) = edge%curvedNode(iNgeo+1)%np%x
-END DO 
+IF(NGeo.GT.1)THEN
+  DO iNgeo=0,Ngeo
+    data_out(:,iNgeo) = edge%curvedNode(iNgeo+1)%np%x
+  END DO 
+ELSE 
+  data_out(:,0) = edge%Node(1)%np%x
+  data_out(:,1) = edge%Node(2)%np%x
+END IF
 END SUBROUTINE Pack1D
 
 SUBROUTINE Pack2D(Ngeo,side,data_out) 
@@ -918,12 +1030,19 @@ REAL,INTENT(OUT)    :: data_out(3,0:Ngeo,0:Ngeo)
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo,jNgeo,i1D 
 !===================================================================================================================================
-DO jNgeo=0,Ngeo
-  DO iNgeo=0,Ngeo
-    i1D = QuadMapInv(iNgeo,jNgeo)
-    data_out(:,iNgeo,jNgeo) = side%curvedNode(i1D)%NP%x
+IF(Ngeo.GT.1)THEN
+  DO jNgeo=0,Ngeo
+    DO iNgeo=0,Ngeo
+      i1D = QuadMapInv(iNgeo,jNgeo)
+      data_out(:,iNgeo,jNgeo) = side%curvedNode(i1D)%NP%x
+    END DO 
   END DO 
-END DO 
+ELSE
+  data_out(:,0,0) = side%OrientedNode(1)%NP%x
+  data_out(:,1,0) = side%OrientedNode(2)%NP%x
+  data_out(:,1,1) = side%OrientedNode(3)%NP%x
+  data_out(:,0,1) = side%OrientedNode(4)%NP%x
+END IF
 END SUBROUTINE Pack2D
 
 SUBROUTINE Pack3D(Ngeo,elem,data_out) 
@@ -945,14 +1064,25 @@ REAL,INTENT(OUT)    :: data_out(3,0:Ngeo,0:Ngeo,0:Ngeo)
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo,jNgeo,kNgeo,i1D 
 !===================================================================================================================================
-DO kNgeo=0,Ngeo
-  DO jNgeo=0,Ngeo
-    DO iNgeo=0,Ngeo
-      i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
-      data_out(:,iNgeo,jNgeo,kNgeo) = elem%curvedNode(i1D)%NP%x
+IF(Ngeo.GT.1)THEN
+  DO kNgeo=0,Ngeo
+    DO jNgeo=0,Ngeo
+      DO iNgeo=0,Ngeo
+        i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
+        data_out(:,iNgeo,jNgeo,kNgeo) = elem%curvedNode(i1D)%NP%x
+      END DO 
     END DO 
   END DO 
-END DO 
+ELSE
+  data_out(:,0,0,0) = elem%Node(1)%NP%x
+  data_out(:,1,0,0) = elem%Node(2)%NP%x
+  data_out(:,1,1,0) = elem%Node(3)%NP%x
+  data_out(:,0,1,0) = elem%Node(4)%NP%x
+  data_out(:,0,0,1) = elem%Node(5)%NP%x
+  data_out(:,1,0,1) = elem%Node(6)%NP%x
+  data_out(:,1,1,1) = elem%Node(7)%NP%x
+  data_out(:,0,1,1) = elem%Node(8)%NP%x
+END IF
 END SUBROUTINE Pack3D
 
 SUBROUTINE Unpack1D(Ngeo,data_in,edge) 
@@ -973,9 +1103,14 @@ TYPE(tEdge),POINTER,INTENT(IN) :: edge
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo 
 !===================================================================================================================================
-DO iNgeo=0,Ngeo
-  edge%curvedNode(iNgeo+1)%NP%x = data_in(:,iNgeo)
-END DO 
+IF(NGeo.GT.1)THEN
+  DO iNgeo=0,Ngeo
+    edge%curvedNode(iNgeo+1)%NP%x = data_in(:,iNgeo)
+  END DO 
+ELSE
+  edge%Node(1)%NP%x = data_in(:,0)
+  edge%Node(2)%NP%x = data_in(:,1)
+END IF
 END SUBROUTINE Unpack1D
 
 SUBROUTINE Unpack2D(Ngeo,data_in,side) 
@@ -997,12 +1132,19 @@ TYPE(tSide),POINTER,INTENT(IN) :: side
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo,jNgeo,i1D
 !===================================================================================================================================
-DO jNgeo=0,Ngeo
-  DO iNgeo=0,Ngeo
-    i1D = QuadMapInv(iNgeo,jNgeo)
-    side%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo)
+IF(NGeo.GT.1)THEN
+  DO jNgeo=0,Ngeo
+    DO iNgeo=0,Ngeo
+      i1D = QuadMapInv(iNgeo,jNgeo)
+      side%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo)
+    END DO 
   END DO 
-END DO 
+ELSE
+  side%OrientedNode(1)%NP%x = data_in(:,0,0)
+  side%OrientedNode(2)%NP%x = data_in(:,1,0)
+  side%OrientedNode(3)%NP%x = data_in(:,1,1)
+  side%OrientedNode(4)%NP%x = data_in(:,0,1)
+END IF
 END SUBROUTINE Unpack2D
 
 SUBROUTINE Unpack3D(Ngeo,data_in,elem) 
@@ -1024,14 +1166,25 @@ TYPE(tElem),POINTER,INTENT(IN) :: elem
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo,jNgeo,kNgeo,i1D
 !===================================================================================================================================
-DO kNgeo=0,Ngeo
-  DO jNgeo=0,Ngeo
-    DO iNgeo=0,Ngeo
-      i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
-      elem%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo,kNgeo)
+IF(NGeo.GT.1)THEN
+  DO kNgeo=0,Ngeo
+    DO jNgeo=0,Ngeo
+      DO iNgeo=0,Ngeo
+        i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
+        elem%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo,kNgeo)
+      END DO 
     END DO 
   END DO 
-END DO 
+ELSE
+  elem%Node(1)%NP%x = data_in(:,0,0,0)
+  elem%Node(2)%NP%x = data_in(:,1,0,0)
+  elem%Node(3)%NP%x = data_in(:,1,1,0)
+  elem%Node(4)%NP%x = data_in(:,0,1,0)
+  elem%Node(5)%NP%x = data_in(:,0,0,1)
+  elem%Node(6)%NP%x = data_in(:,1,0,1)
+  elem%Node(7)%NP%x = data_in(:,1,1,1)
+  elem%Node(8)%NP%x = data_in(:,0,1,1)
+END IF
 END SUBROUTINE Unpack3D
 
 END MODULE MOD_Mesh_Basis

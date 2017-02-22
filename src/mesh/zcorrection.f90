@@ -74,8 +74,9 @@ INTEGER                     :: iNode,iSide,i,j,k,im,jm,km   ! ?
 INTEGER                     :: counter(2,3)  ! ?
 LOGICAL                     :: found
 !===================================================================================================================================
-WRITE(UNIT_stdOut,'(A)') ' ORIENT ELEMENTS IN Z FOR 3D->2D compatibility...'
 CALL Timer(.TRUE.)
+WRITE(UNIT_stdOut,'(132("~"))')
+WRITE(UNIT_stdOut,'(A)') ' ORIENT ELEMENTS IN Z FOR 3D->2D compatibility...'
 counter=0
 Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))

@@ -49,10 +49,10 @@ END INTERFACE
 
 INTERFACE
    FUNCTION evalhilbert(disc,nbits,ndims) Result(indx)
-       INTEGER(KIND=8),INTENT(IN)  :: disc(3) ! ?
-       INTEGER(KIND=8)  :: indx ! ?
-       INTEGER(KIND=4),INTENT(IN)  :: nbits ! ?
        INTEGER(KIND=4),INTENT(IN)  :: nDims ! ?
+       INTEGER(KIND=4),INTENT(IN)  :: nbits ! ?
+       INTEGER(KIND=8),INTENT(IN)  :: disc(1:nDims) ! ?
+       INTEGER(KIND=8)  :: indx ! ?
    END FUNCTION evalhilbert
 END INTERFACE
 
@@ -66,7 +66,7 @@ SUBROUTINE SortElemsBySpaceFillingCurve(nElems,ElemBary,IDList,whichBoundBox)
 ! ?
 !===================================================================================================================================
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut
+USE MOD_Globals
 USE MOD_Basis1D,ONLY:ALMOSTEQUAL
 USE MOD_SortingTools,ONLY:Qsort1DoubleInt1Pint
 ! IMPLICIT VARIABLE HANDLING
@@ -89,6 +89,8 @@ REAL       :: upper(3)  ! ?
 INTEGER    :: iElem,i  ! ?
 INTEGER(KIND=8) :: IntList(nElems)  ! ?
 !===================================================================================================================================
+CALL Timer(.TRUE.)
+WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A,A,A)')'SORT ELEMENTS ON SPACE FILLING CURVE, TYPE ',TRIM(sfc_type),' ...'
 IF(nElems.GT.1)THEN
   ! Determine extreme verticies for bounding box
@@ -122,7 +124,7 @@ IF(nElems.GT.1)THEN
 ELSE
   IDList=1
 END IF  
-WRITE(UNIT_stdOut,'(A)')'... DONE'
+CALL Timer(.FALSE.)
 END SUBROUTINE SortElemsBySpaceFillingCurve
 
 FUNCTION COORD2INT(Box, Coord) RESULT(ind)

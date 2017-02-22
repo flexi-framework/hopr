@@ -52,7 +52,7 @@ SUBROUTINE SplitAllHexa(nFine)
 ! call routines to split all hexa mesh by a factor
 !===================================================================================================================================
 ! MODULES
-USE MOD_Globals,   ONLY:abort
+USE MOD_Globals
 USE MOD_Mesh_Vars, ONLY:tElem,FirstElem
 USE MOD_Mesh_Vars, ONLY:useCurveds
 USE MOD_Mesh_Basis,ONLY:ElemGeometry
@@ -68,6 +68,8 @@ INTEGER,INTENT(IN)            :: nFine  ! ?
 TYPE(tElem),POINTER           :: Elem  ! ?
 INTEGER                       :: maxInd,ii  ! ?
 !===================================================================================================================================
+CALL Timer(.TRUE.)
+WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A,I8,A)')' SPLIT EACH HEXA INTO nFineHexa^3=' ,nFine**3,' HEXA ...'
 IF(useCurveds) CALL abort(__STAMP__, &
           'SplitAllHex cannot be used with curved elements up to now!')
@@ -96,7 +98,7 @@ DO WHILE(ASSOCIATED(Elem))
     CALL SplitHexa8(Elem,nFine,maxInd)
   Elem=>Elem%nextElem
 END DO
-WRITE(UNIT_stdOut,*)'...DONE!'
+CALL Timer(.FALSE.)
 END SUBROUTINE SplitAllHexa
 
 SUBROUTINE SplitElementsToHex()
@@ -104,7 +106,7 @@ SUBROUTINE SplitElementsToHex()
 ! call routines to split tetra, prism and hexa to hexas. no pyramids allowed!! 
 !===================================================================================================================================
 ! MODULES
-USE MOD_Globals,   ONLY:abort
+USE MOD_Globals
 USE MOD_Mesh_Vars, ONLY:tElem,FirstElem
 USE MOD_Mesh_Vars, ONLY:useCurveds
 USE MOD_Mesh_Basis,ONLY:ElemGeometry
@@ -119,6 +121,8 @@ IMPLICIT NONE
 TYPE(tElem),POINTER           :: Elem  ! ?
 INTEGER                       :: maxInd,ii,counter(3)  ! ?
 !===================================================================================================================================
+CALL Timer(.TRUE.)
+WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')' SPLIT ELEMENTS...'
 maxInd=0
 IF(useCurveds) CALL abort(__STAMP__, &
@@ -153,7 +157,7 @@ END DO
 WRITE(UNIT_stdOut,'(I8,A,I8,A)') counter(1), ' Tetrahedra splitted to ', 4* counter(1),' hexas'
 WRITE(UNIT_stdOut,'(I8,A,I8,A)') counter(2), ' Pentas splitted to     ', 6* counter(2),' hexas'
 WRITE(UNIT_stdOut,'(I8,A,I8,A)') counter(3), ' Hexas splitted to      ', 8* counter(3),' hexas'
-WRITE(UNIT_stdOut,*)'...DONE!'
+CALL Timer(.FALSE.)
 END SUBROUTINE SplitElementsToHex
 
 SUBROUTINE SplitHexa8(Elem,M,maxInd)

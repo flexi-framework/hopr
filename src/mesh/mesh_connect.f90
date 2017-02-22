@@ -208,7 +208,7 @@ DO WHILE(ASSOCIATED(Elem))
             nPeriodic(2)=nPeriodic(2)+1
             Side%CurveIndex=SIGN(Side%BC%BCAlphaInd,-1) ! set visu marker
             DO iNode=1,Side%nNodes
-              ERRWRITE(*,*)Side%Node(iNode)%np%x
+              ERRWRITE(*,'(2(E21.11," , ")E21.11)')Side%Node(iNode)%np%x
             END DO
           END IF
         END IF
@@ -220,7 +220,7 @@ DO WHILE(ASSOCIATED(Elem))
           IF(.NOT.ASSOCIATED(Side%MortarSide))THEN
             nInner(2)=nInner(2)+1
             DO iNode=1,Side%nNodes
-              ERRWRITE(*,*)Side%Node(iNode)%np%x
+              ERRWRITE(*,'(2(E21.11," , ")E21.11)')Side%Node(iNode)%np%x
             END DO
           END IF
         END IF
@@ -231,7 +231,7 @@ DO WHILE(ASSOCIATED(Elem))
         IF(.NOT.ASSOCIATED(Side%MortarSide))THEN
           nInner(2)=nInner(2)+1
           DO iNode=1,Side%nNodes
-            ERRWRITE(*,*)Side%Node(iNode)%np%x
+            ERRWRITE(*,'(2(E21.11," , ")E21.11)')Side%Node(iNode)%np%x
           END DO
         END IF
       END IF
@@ -252,6 +252,8 @@ END IF
 WRITE(UNIT_stdOut,'(A,F0.3,A)')'Mesh Connect completed with success.  '
 CALL Timer(.FALSE.)
 END SUBROUTINE Connect
+
+
 SUBROUTINE ConnectMesh()
 !===================================================================================================================================
 ! Connect all sides which can be found by node association. Uses Quicksort 
