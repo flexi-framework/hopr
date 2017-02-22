@@ -2646,6 +2646,23 @@ Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))
   Side=>Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
+    IF(Side%MortarType.GT.0)THEN
+      DO iEdge=1,Side%nNodes
+        Edge=>Side%Edge(iEdge)%edp
+        IF(.NOT.ASSOCIATED(Edge%parentEdge).AND.ASSOCIATED(Edge%MortarEdge))THEN
+          CALL MapBigEdgeToSmall(Edge)
+        END IF
+      END DO !iEdge
+    END IF !Mortar
+    Side=>Side%nextElemSide
+  END DO
+  Elem=>Elem%nextElem
+END DO
+
+Elem=>firstElem
+DO WHILE(ASSOCIATED(Elem))
+  Side=>Elem%firstSide
+  DO WHILE(ASSOCIATED(Side))
     IF(Side%MortarType.GT.0) THEN
       IF(ASSOCIATED(Side%BC))THEN
         IF(Side%BC%BCType.EQ.1) THEN
@@ -2660,22 +2677,6 @@ DO WHILE(ASSOCIATED(Elem))
   Elem=>Elem%nextElem
 END DO
 
-Elem=>firstElem
-DO WHILE(ASSOCIATED(Elem))
-  Side=>Elem%firstSide
-  DO WHILE(ASSOCIATED(Side))
-    IF(Side%MortarType.GT.0)THEN
-      DO iEdge=1,Side%nNodes
-        Edge=>Side%Edge(iEdge)%edp
-        IF(.NOT.ASSOCIATED(Edge%parentEdge).AND.ASSOCIATED(Edge%MortarEdge))THEN
-          CALL MapBigEdgeToSmall(Edge)
-        END IF
-      END DO !iEdge
-    END IF !Mortar
-    Side=>Side%nextElemSide
-  END DO
-  Elem=>Elem%nextElem
-END DO
 IF(N.GT.1)THEN !rebuild inner nodes with a coons mapping
   Elem=>firstElem
   DO WHILE(ASSOCIATED(Elem))
