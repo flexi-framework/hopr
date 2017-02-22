@@ -27,7 +27,6 @@ MODULE MOD_Mesh_Basis
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
-USE MOD_Mesh_Vars,ONLY:tEdge
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 PRIVATE
@@ -46,6 +45,14 @@ END INTERFACE
 
 INTERFACE getNewHexa
   MODULE PROCEDURE getNewHexa
+END INTERFACE
+
+INTERFACE GetNewHexahedron
+  MODULE PROCEDURE GetNewHexahedron
+END INTERFACE
+
+INTERFACE GetNewCurvedHexahedron
+  MODULE PROCEDURE GetNewCurvedHexahedron
 END INTERFACE
 
 INTERFACE CreateSides
@@ -91,6 +98,8 @@ END INTERFACE
 
 PUBLIC::ElemGeometry
 PUBLIC::getNewHexa
+PUBLIC::getNewHexahedron
+PUBLIC::getNewCurvedHexahedron
 PUBLIC::CreateSides
 !PUBLIC::AdjustOrientedNodes
 PUBLIC::GetBoundaryIndex
@@ -399,6 +408,104 @@ TYPE(tNode),POINTER,INTENT(IN)            :: node8   ! ?
   Elem%Node(8)%np=>Node8
   CALL CreateSides(Elem,.TRUE.)
 END SUBROUTINE getNewHexa
+
+
+SUBROUTINE GetNewHexahedron(CornerNode,doCreateSides)
+!===================================================================================================================================
+! Build new hexahedron for cartesian mesh.
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars,ONLY:tNodePtr,tElem
+USE MOD_Mesh_Vars,ONLY:FirstElem
+USE MOD_Mesh_Vars,ONLY:getNewElem
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+TYPE(tNodePtr),INTENT(IN)                  :: CornerNode(8)  ! ?
+LOGICAL,INTENT(IN)                         :: doCreateSides
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+TYPE(tElem),POINTER             :: Elem   ! ?
+INTEGER                         :: i  ! ?
+!===================================================================================================================================
+CALL getNewElem(Elem)
+Elem%nNodes=8
+ALLOCATE(Elem%Node(Elem%nNodes))
+DO i=1,8
+  Elem%Node(i)%NP=>CornerNode(i)%NP
+END DO
+
+! Add elements to list
+IF(.NOT.ASSOCIATED(FirstElem))THEN
+  FirstElem=>Elem
+ELSE
+  Elem%nextElem          => FirstElem
+  Elem%nextElem%prevElem => Elem
+  FirstElem               => Elem
+END IF
+IF(doCreateSides) CALL CreateSides(Elem,.TRUE.)
+
+NULLIFY(Elem)
+END SUBROUTINE GetNewHexahedron
+
+
+SUBROUTINE GetNewCurvedHexahedron(CurvedNode,Ngeo,Zone)
+!===================================================================================================================================
+! Build new hexahedron for cartesian mesh.
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars,ONLY:tNodePtr,tElem
+USE MOD_Mesh_Vars,ONLY:FirstElem
+USE MOD_Mesh_Vars,ONLY:getNewElem
+USE MOD_Basis_Vars,ONLY:HexaMap
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+INTEGER,INTENT(IN)              :: NGeo  ! ?
+INTEGER,INTENT(IN)              :: Zone  ! ?
+TYPE(tNodePtr),INTENT(IN)                  :: CurvedNode(0:Ngeo,0:NGeo,0:Ngeo)  ! ?
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+TYPE(tElem),POINTER             :: Elem   ! ?
+INTEGER                         :: i  ! ?
+!===================================================================================================================================
+CALL getNewElem(Elem)
+Elem%zone=Zone
+Elem%nNodes=8
+ALLOCATE(Elem%Node(Elem%nNodes))
+Elem%Node(1)%NP=>CurvedNode(   0,   0,   0)%NP
+Elem%Node(2)%NP=>CurvedNode(NGeo,   0,   0)%NP
+Elem%Node(3)%NP=>CurvedNode(NGeo,NGeo,   0)%NP
+Elem%Node(4)%NP=>CurvedNode(   0,NGeo,   0)%NP
+Elem%Node(5)%NP=>CurvedNode(   0,   0,NGeo)%NP
+Elem%Node(6)%NP=>CurvedNode(NGeo,   0,NGeo)%NP
+Elem%Node(7)%NP=>CurvedNode(NGeo,NGeo,NGeo)%NP
+Elem%Node(8)%NP=>CurvedNode(   0,NGeo,NGeo)%NP
+CALL CreateSides(Elem,.TRUE.)
+IF(Ngeo.GT.1)THEN !curved
+  Elem%nCurvedNodes=(Ngeo+1)**3
+  ALLOCATE(Elem%CurvedNode(Elem%nCurvedNodes))
+  DO i=1,Elem%nCurvedNodes
+    Elem%CurvedNode(i)%NP=>CurvedNode(HexaMap(i,1),HexaMap(i,2),HexaMap(i,3))%NP
+  END DO
+END IF !curved
+
+! Add elements to list
+IF(.NOT.ASSOCIATED(FirstElem))THEN
+  FirstElem=>Elem
+ELSE
+  Elem%nextElem          => FirstElem
+  Elem%nextElem%prevElem => Elem
+  FirstElem              => Elem
+END IF
+NULLIFY(Elem)
+END SUBROUTINE GetNewCurvedHexahedron
 
 
 SUBROUTINE CreateSides(Elem,buildSides)
