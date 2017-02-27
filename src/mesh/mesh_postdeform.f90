@@ -183,7 +183,7 @@ REAL,INTENT(OUT)   :: X_out(3,nTotal)    ! contains new XYZ position
 INTEGER            :: i
 REAL               :: rr,x(3),dx(3),dx1(3),dx2(3),dx3(3)
 REAL               :: xout(3) 
-REAL               :: alpha
+REAL               :: alpha,HH,r
 REAL               :: cosa,cosb,sina,sinb 
 REAL               :: rotmat(2,2),arg
 !===================================================================================================================================
@@ -242,6 +242,55 @@ CASE(1,11,12)
       xout(2)=-(xout(1)+PostDeform_Rtorus)*SIN(2*Pi*x(3))
       xout(1)= (xout(1)+PostDeform_Rtorus)*COS(2*Pi*x(3))
     END IF
+    X_out(:,i)=xout(:)
+  END DO !i=1,nTotal
+CASE(66) 
+  DO i=1,nTotal
+    x(:)=X_in(:,i)
+    ! 2D HEXAGON, x,y in [-1,1]^2, to cylinder with radius PostDeform_R0 (with PostDeform_Rtorus>0 to a torus, with zperiodic [0,1])
+    ! all points outside [-1,1]^2 will be mapped directly to a circle (p.e. 2,2 => sqrt(0.5)*PostDeform_R0*(2,2) )
+    !
+    !              ^ y
+    !              |
+    !              |                             _
+    !        0-----------0                        ^
+    !       / \         / \                       |
+    !      /   \       /   \               _      | 
+    !     /     0-----0     \               ^     |1.0    
+    !    /     / \     \     \              |0.5  |
+    !   /     /   \     \     \             |     |
+    !  0-----0     0-----0-----0 -----> x  _v    _v
+    !   \     \   /     /     /
+    !    \     \ /     /     /
+    !     \     0-----0     /
+    !      \   /       \   /
+    !       \ /         \ /
+    !        0-----------0
+    !              |<>|           0.25
+    !              |<--->|        0.5
+    !              |<--------->|  1.
+    !  y direction is not correctly scaled, will be scaled here by sqrt(3)/2 
+    !
+    ! inside [-1,1]^2 and outside [-0.5,0.5]^2 there will be a blending from a circle to a square
+    ! the inner square [-0.5,0.5]^2 will be a linear blending of the bounding curves
+    HH = SQRT(0.75)
+
+    x(2)=HH*X_in(2,i) !scale y direction!
+
+    IF(ABS(x(2)).LT.2*HH*ABS(x(1)))THEN
+      rr=ABS(x(1))+0.5/HH*ABS(x(2))
+    ELSE !upper and lower
+      rr=ABS(x(2))/HH
+    END IF
+    alpha=MIN(1.,rr) 
+    alpha=0.5*(1.-COS(Pi*alpha)) !smooth transition at the outer boundary max(|x|,|y|)=1
+    dx=0.
+    r=SQRT(x(1)**2+x(2)**2)
+    IF(r.GT.0.)THEN
+      dx=alpha*(rr/r-1.)*x
+    END IF
+    xout(1:2)=PostDeform_R0*(x(1:2)+dx(1:2))
+    xout(3)=x(3)*PostDeform_Lz !cylinder
     X_out(:,i)=xout(:)
   END DO !i=1,nTotal
 CASE(2) ! 3D box, x,y in [-1,1]^3, to Sphere with radius PostDeform_R0 
