@@ -694,13 +694,14 @@ SUBROUTINE checkMortarWatertight()
 ! builds a 1D basis to change equidistant -> gauss points (0:N_GP) and then use tensor-product gauss 
 ! for differentiation and integration. n_GP=N should be exact, since normal vector is of degree (2*N-1 ,2*N-1)
 ! since its a dot product of two polynomials of degree (N-1,N) * (N,N-1)
+!also checks if integral of (1,0,0) / (0,1,0) / (0,0,1) flux over all element faces =0 inside each element
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
-USE MOD_Mesh_Vars ,ONLY: tElem,tSide
+USE MOD_Mesh_Vars ,ONLY: tElem,tSide,nMeshElems
 USE MOD_Mesh_Vars ,ONLY: FirstElem
 USE MOD_Mesh_Vars ,ONLY: N
-USE MOD_Mesh_Basis,ONLY: PackGeo
+USE MOD_Mesh_Basis,ONLY: isOriented
 USE MOD_Basis1D   ,ONLY: LegendreGaussNodesAndWeights
 USE MOD_Basis1D   ,ONLY: PolynomialDerivativeMatrix
 USE MOD_Basis1D   ,ONLY: BarycentricWeights
@@ -714,14 +715,13 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 TYPE(tElem),POINTER             :: Elem  ! ?
-TYPE(tSide),POINTER             :: Side  ! ?
+TYPE(tSide),POINTER             :: Side,bSide  ! ?
 INTEGER                         :: p,N_GP
 REAL                            :: xEq(0:N),wBaryEq(0:N)
 REAL,ALLOCATABLE                :: xGP(:),wGP(:),DGP(:,:),VdmEqToGP(:,:)
-REAL                            :: xGeoSide(3,0:N,0:N)
-REAL                            :: NsurfBig(3),NsurfSmall(3,4)
-REAL                            :: NsurfErr,MaxNsurfErr
-INTEGER                         :: waterTight,nMortars
+REAL                            :: elemNsurf(3),Nsurf(3),NsurfBig(3),NsurfSmall(3,4)
+REAL                            :: NsurfErr,MaxNsurfErr,ElemNsurfErr,MaxElemNsurfErr
+INTEGER                         :: NonWaterTightSides,NonWaterTightElems,nMortars
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'CHECK IF MORTARS ARE WATERTIGHT...'
@@ -742,21 +742,43 @@ CALL InitializeVandermonde(N,N_GP,wBaryEq,xEq,xGP,VdmEqtoGP)
 !IF(ABS(REAL(2*N+1)*SUM((xGP-0.1)**REAL(2*N)*wGP)-(0.9)**REAL(2*N+1)+(-1.1)**REAL(2*N+1)).GT.1.0E-12) &
 !   STOP 'PROBLEM WITH INTEGRATION OF N'
 
-WaterTight=0
+NonWaterTightSides=0
+NonWaterTightElems=0
 nMortars=0
 maxNsurfErr=0.
 Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))
+  elemNsurf=0.
   Side=>Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
+    IF(isOriented(Side))THEN
+      !use always neighbor normal vector 
+      IF(Side%MortarType.GT.0) THEN
+        Nsurf(:)=EvalNsurfFromElem(Elem,Side%locSide) !Boundary condtion, use own 
+!        Nsurf=0.
+!        DO p=1,Side%nMortars 
+!          Nsurf(:)=Nsurf(:)-EvalNsurfFromElem(Side%MortarSide(p)%sp%Elem, Side%MortarSide(p)%sp%locSide) 
+!        END DO 
+      ELSE
+        IF(ASSOCIATED(Side%connection))THEN
+          Nsurf=-EvalNsurfFromElem(Side%connection%elem,Side%connection%locSide)
+        ELSE
+          Nsurf(:)=EvalNsurfFromElem(Elem,Side%locSide) !Boundary condtion, use own 
+        END IF !associated Side connection
+      END IF !mortarType>0
+    ELSE !side is not oriented (should have no mortars!)
+      IF(Side%MortarType.GT.0) STOP ' Problem in Watertight check: non oriented sides should not have mortars...'
+      !use own normal vector
+      Nsurf(:)=EvalNsurfFromElem(Elem,Side%locSide) !always outward pointing from given element 
+    END IF
+    elemNsurf=elemNsurf+Nsurf 
+    !check mortars themselves
     IF(Side%MortarType.GT.0) THEN
       nMortars=nMortars+1
-      CALL PackGeo(N,Side,XgeoSide)
-      NsurfBig=EvalNsurf(XgeoSide)
+      NsurfBig=EvalNsurf(Side)
       NsurfSmall=0.
       DO p=1,Side%nMortars 
-        CALL PackGeo(N,Side%MortarSide(p)%sp,XgeoSide)
-        NsurfSmall(:,p)=EvalNsurf(XgeoSide)
+        NsurfSmall(:,p)=EvalNsurf(Side%MortarSide(p)%sp)
       END DO 
       NsurfErr= ABS(NsurfBig(1)-SUM(NsurfSmall(1,:))) &
                +ABS(NsurfBig(2)-SUM(NsurfSmall(2,:))) &
@@ -778,20 +800,38 @@ DO WHILE(ASSOCIATED(Elem))
           ERRWRITE(*,*)'    P3: ', Side%MortarSide(p)%sp%OrientedNode(3)%np%x
           ERRWRITE(*,*)'    P4: ', Side%MortarSide(p)%sp%OrientedNode(4)%np%x
         END DO 
-        WaterTight=WaterTight+1
+        NonWaterTightSides=NonWaterTightSides+1
         maxNsurfErr=max(maxNsurfErr,NsurfErr)
       END IF ! diffsurf>0
     END IF !MortarType>0
     Side=>Side%nextElemSide
   END DO !while Side associated
+  elemNsurfErr=SUM(ABS(elemNsurf))
+  IF(elemNsurfErr.GT.1.0E-12)THEN !element is not watertight
+    ERRWRITE(*,*) &
+             '================> Element is not watertight, ERROR=',elemNsurfErr,' >1.0E-12, element barycenter:'
+    ERRWRITE(*,*)'Nsurf: ', elemNsurf 
+    ERRWRITE(*,*)'Elem%ind: ', Elem%ind
+    DO p=1,Elem%nNodes
+      ERRWRITE(*,*)'Elem node: ', p ,' ,%x=', Elem%Node(p)%np%x
+    END DO
+    NonWaterTightElems=NonWaterTightElems+1
+    maxElemNsurfErr=max(maxElemNsurfErr,elemNsurfErr)
+  END IF  
+  
   Elem=>Elem%nextElem
 END DO !while Elem associated
 
-IF(waterTight.GT.0) THEN
-  WRITE(UNIT_stdOut,*)'  ERROR: ', waterTight,' Mortar sides of ',nMortars, &
+IF((NonWaterTightElems+NonWaterTightSides).GT.0) THEN
+  IF(NonWaterTightSides.GT.0) THEN
+    WRITE(UNIT_stdOut,*)'  ERROR: ', NonWaterTightSides,' Mortar sides of ',nMortars, &
                     ' are not watertight, MaxError= ',MaxNsurfErr
+  ELSEIF(NonWaterTightElems.GT.0) THEN
+    WRITE(UNIT_stdOut,*)'  ERROR: ', NonWaterTightElems,' Elements of ',nMeshElems, &
+                    ' are not watertight, MaxError= ',MaxElemNsurfErr
+  END IF
   CALL abort(__STAMP__, &
-         'ERROR: mortars not watertight !!!',waterTight,maxNsurfErr)
+         'ERROR: elements are not watertight !!!')
 ELSE
   WRITE(UNIT_stdOut,*)' ==> all mortars are watertight ;)'
 END IF
@@ -802,23 +842,26 @@ CALL Timer(.FALSE.)
 
 CONTAINS
 
-  FUNCTION EvalNsurf(Xgeo_in) RESULT(Nsurf)
+  FUNCTION EvalNsurf(Side_in) RESULT(Nsurf)
     USE MOD_ChangeBasis,ONLY:ChangeBasis2D
+    USE MOD_Mesh_Basis,ONLY: PackGeo
     !uses N,wGP, VdmEqToGP and DGP from main routine
     IMPLICIT NONE
     !-------------------------------------------------------------
     !INPUT/ OUTPUT VARIABLES
-    REAL,INTENT(IN)    :: Xgeo_in(3,0:N,0:N)
-    REAL               :: NSurf(3) !non-normalized normal integrated over Side
+    Type(tSide),POINTER :: Side_in
+    REAL                :: NSurf(3) !non-normalized normal integrated over Side
     !-------------------------------------------------------------
     !LOCAL VARIABLES
     REAL    :: XgeoGP  (3,0:N_GP,0:N_GP)
     REAL    :: dXdxiGP (3)
     REAL    :: dXdetaGP(3)
     REAL    :: nvec(3)
+    REAL    :: xGeoSide(3,0:N,0:N)
     INTEGER :: i,j,l
     !-------------------------------------------------------------
-    CALL ChangeBasis2D(3,N,N_GP,VdmEqToGP,XGeo_in,XGeoGP)
+    CALL PackGeo(N,Side_in,XgeoSide) !boundary face
+    CALL ChangeBasis2D(3,N,N_GP,VdmEqToGP,XGeoSide,XGeoGP)
     Nsurf=0.
     DO j=0,N_GP
       DO i=0,N_GP
@@ -834,6 +877,66 @@ CONTAINS
       END DO !i 
     END DO !j 
   END FUNCTION EvalNsurf
+
+  FUNCTION EvalNsurfFromElem(Elem_in,locSideID) RESULT(Nsurf)
+    USE MOD_ChangeBasis,ONLY:ChangeBasis2D
+    USE MOD_Mesh_Basis,ONLY: PackGeo
+    !uses N,wGP, VdmEqToGP and DGP from main routine
+    IMPLICIT NONE
+    !-------------------------------------------------------------
+    !INPUT/ OUTPUT VARIABLES
+    Type(tElem),POINTER :: Elem_in
+    INTEGER,INTENT(IN)  :: locSideID
+    REAL                :: NSurf(3) !non-normalized normal integrated over Side
+    !-------------------------------------------------------------
+    !LOCAL VARIABLES
+    REAL    :: XgeoGP  (3,0:N_GP,0:N_GP)
+    REAL    :: dXdxiGP (3)
+    REAL    :: dXdetaGP(3)
+    REAL    :: nvec(3)
+    REAL    :: xGeoElem(3,0:N,0:N,0:N)
+    REAL    :: xGeoSide(3,0:N,0:N)
+    REAL    :: NvecSign
+    INTEGER :: i,j,l
+    !-------------------------------------------------------------
+    CALL PackGeo(N,Elem_in,XgeoElem) !boundary face
+    SELECT CASE(locSideID)
+    CASE(1) !zeta minus (xi x eta => zeta)
+      NvecSign=-1
+      XgeoSide=XgeoElem(:,:,:,0)
+    CASE(2) !etaminus (xi x zeta => -eta)
+      NvecSign= 1
+      XgeoSide=XgeoElem(:,:,0,:)
+    CASE(3) !xiplus (eta x zeta => xi)
+      NvecSign= 1
+      XgeoSide=XgeoElem(:,N,:,:)
+    CASE(4) !eta plus (xi x zeta => -eta )
+      NvecSign=-1
+      XgeoSide=XgeoElem(:,:,N,:)
+    CASE(5) !ximinus (eta x zeta => xi) 
+      NvecSign=-1
+      XgeoSide=XgeoElem(:,0,:,:)
+    CASE(6) !zetaplus (xi x eta => zeta)
+      NvecSign= 1
+      XgeoSide=XgeoElem(:,:,:,N)
+    END SELECT
+    CALL ChangeBasis2D(3,N,N_GP,VdmEqToGP,XGeoSide,XGeoGP)
+    Nsurf=0.
+    DO j=0,N_GP
+      DO i=0,N_GP
+        !evaluate derivative at i,j point
+        dXdxiGP =0.
+        dXdetaGP=0.
+        DO l=0,N_GP
+          dXdxiGP (:) = dXdxiGP (:) + DGP(i,l)*XgeoGP(:,l,j)
+          dXdetaGP(:) = dXdetaGP(:) + DGP(j,l)*XgeoGP(:,i,l)
+        END DO
+        nVec=nVecSign*CROSS(dXdxiGP(:),dXdetaGP(:))
+        Nsurf(:)=Nsurf(:)+wGP(i)*wGP(j)*nVec(:)
+      END DO !i 
+    END DO !j 
+  END FUNCTION EvalNsurfFromElem
+
 
 END SUBROUTINE checkMortarWaterTight
 
