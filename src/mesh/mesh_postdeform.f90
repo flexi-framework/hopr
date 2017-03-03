@@ -285,8 +285,8 @@ CASE(66)
     dx=0.
     IF(rr.GT.0.)THEN
       IF(rr.LT.0.5)THEN !inside hexagon 1-6
+        !boundary curves are mapped with alpha from rr=0.5 below
         alpha=0.35
-        !boundary curves are mapped with alpha=0.4 
         !check if in left or right domain:
         IF(2.*HH*x(1).GT.-ABS(x(2))) THEN
           xi  = 2.*x(1)+ABS(x(2))/HH
@@ -314,7 +314,7 @@ CASE(66)
         dx(1:2)=alpha*(rr/SQRT(SUM(x(1:2)**2))-1.)*x(1:2)
       END IF !inside/outside hexagon
     END IF !rr>0
-    xout(1:2)=PostDeform_R0*(x(1:2)+dx(1:2))
+    xout(1:2)=PostDeform_R0*(1.+0.35*(1.-alpha))*(x(1:2)+dx(1:2)) !scale inner part a little
     xout(3)=x(3)*PostDeform_Lz !cylinder
     X_out(:,i)=xout(:)
   END DO !i=1,nTotal
