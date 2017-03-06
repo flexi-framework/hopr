@@ -11,3 +11,4 @@ src/libpreproc.a
 tutorials/
 *.mod
 *.o
+*~

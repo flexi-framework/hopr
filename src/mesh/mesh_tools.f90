@@ -715,7 +715,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 TYPE(tElem),POINTER             :: Elem  ! ?
-TYPE(tSide),POINTER             :: Side,bSide  ! ?
+TYPE(tSide),POINTER             :: Side  ! ?
 INTEGER                         :: p,N_GP
 REAL                            :: xEq(0:N),wBaryEq(0:N)
 REAL,ALLOCATABLE                :: xGP(:),wGP(:),DGP(:,:),VdmEqToGP(:,:)
