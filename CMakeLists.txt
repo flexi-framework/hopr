@@ -297,7 +297,7 @@ ENDIF()
 IF(HOPR_NETCDF)
   SET(NETCDF_DIR  /usr)
   INCLUDE_DIRECTORIES(${NETCDF_DIR}/include)
-  LIST(APPEND linkedlibs -Wl,-rpath,$(NETCDF_DIR)/lib -lnetcdff -lnetcdf)
+  LIST(APPEND linkedlibs -Wl,-rpath,${NETCDF_DIR}/lib -lnetcdff -lnetcdf)
   MESSAGE(STATUS "Building HOPR with NetCDF")
 ENDIF()
 
@@ -401,8 +401,3 @@ IF(CTAGS_PATH)
   ADD_DEPENDENCIES(hopr tags)
 ENDIF(CTAGS_PATH)
 
-# =========================================================================
-# generate .hopr in $HOME
-# =========================================================================
-ADD_CUSTOM_COMMAND(TARGET hopr POST_BUILD COMMAND echo \"export HOPR_DIR=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}\"        > $ENV{HOME}/.hopr)
-ADD_CUSTOM_COMMAND(TARGET hopr POST_BUILD COMMAND echo \"alias     hopr='${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/hopr'\" >> $ENV{HOME}/.hopr)
