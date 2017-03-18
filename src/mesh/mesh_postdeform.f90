@@ -183,6 +183,7 @@ SUBROUTINE PostDeformFunc(nTotal,X_in,X_out)
 USE MOD_Globals
 USE MOD_Mesh_Vars,ONLY:MeshPostDeform,PostDeform_R0,PostDeform_Rtorus 
 USE MOD_Mesh_Vars,ONLY:PostDeform_sq,PostDeform_Lz
+USE MOD_MHDEQ_Tools,ONLY:Eval1DPoly
 !MODULE OUTPUT VARIABLES
 ! MODULES
 ! IMPLICIT VARIABLE HANDLING
@@ -202,6 +203,7 @@ INTEGER            :: i
 REAL               :: rr,x(3),dx(3),dx1(3),dx2(3),dx3(3)
 REAL               :: xout(3)
 REAL               :: alpha,HH, xi,eta
+REAL               :: iota,phi 
 REAL               :: cosa,cosb,sina,sinb 
 REAL               :: rotmat(2,2),arg,asdeltay_sr,eps
 !===================================================================================================================================
@@ -336,6 +338,52 @@ CASE(66)
     END IF !rr>0
     xout(1:2)=PostDeform_R0*(1.+0.35*(1.-alpha))*(x(1:2)+dx(1:2)) !scale inner part a little
     xout(3)=x(3)*PostDeform_Lz !cylinder
+    X_out(:,i)=xout(:)
+  END DO !i=1,nTotal
+CASE(90,91,92,93,94)
+  DO i=1,nTotal
+    x(:)=X_in(:,i)
+    ! 2D box, x,y in x[-1,1] y[0,1], z[0,10] to cylinder with radius PostDeform_R0
+    ! careful, the mapping goes up to the center for y=0., x=0, y>0 becomes 
+    ! positive x axis
+    !iota profile, shear x coordinate along z (field alignement)
+    ! r=y [0,1], move points along x direction, depends on z (toroidal angle)
+    rr=x(2)
+    phi=x(3)/10.
+    SELECT CASE(MeshPostDeform)
+    CASE(90)
+      iota=Postdeform_sq !constant
+    CASE(91) !linear
+      iota=1+Postdeform_sq*rr 
+    CASE(92) !W7X
+      iota=0.85931 + rr*( 0.93972 - 0.85931 ) 
+    CASE(93) !JET
+      iota=Eval1DPoly(7, &
+                     (/0.47262,0.32392,0.49604,5.3991e-6,-3.165e-5,4.7963e-5,-2.2824e-5/) &
+                      ,rr)
+    CASE(94) !LHD
+      iota=Eval1DPoly(9, &
+                     (/ 0.91203, -1.2069, 2.2787, -4.0582, 5.5927, -5.153, 2.736, -0.62478, -1.1638e-6/) &
+                      ,rr)
+    END SELECT
+    x(1)=x(1)+2.*phi/iota !x domain lenth is 2, iota =1 and z=1 => one full shear
+     
+    IF(PostDeform_R0.GT.0.) THEN
+      xout(1)=PostDeform_R0*x(2) *COS(Pi*x(1))
+      xout(2)=PostDeform_R0*x(2) *SIN(Pi*x(1))
+      IF(PostDeform_Rtorus.LT.0.)THEN
+        xout(3)=phi*PostDeform_Lz !cylinder
+      ELSE !torus, z_in must be [0,1] and periodic  !!, torus around z axis ,x =R*cos(phi), y=-R*sin(phi)!!!
+        !xout(1)=xout(1)
+        xout(3)=xout(2)
+        !map R,Z to X,Y,Z
+        xout(2)=-(xout(1)+PostDeform_Rtorus)*SIN(-2*Pi*phi)
+        xout(1)= (xout(1)+PostDeform_Rtorus)*COS(-2*Pi*phi)
+      END IF
+    ELSE 
+      xout(:)=x(:) !keep logical box but sheared
+    END IF
+
     X_out(:,i)=xout(:)
   END DO !i=1,nTotal
 CASE(2) ! 3D box, x,y in [-1,1]^3, to Sphere with radius PostDeform_R0 
