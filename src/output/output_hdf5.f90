@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -26,7 +27,6 @@ MODULE MOD_Output_HDF5
 ! ?
 !===================================================================================================================================
 ! MODULES
-USE HDF5
 USE MOD_IO_HDF5
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -80,6 +80,7 @@ INTEGER                        :: ElemID,SideID,NodeID  ! ?
 INTEGER                        :: locnSides
 INTEGER                        :: iNode,i,iMortar
 LOGICAL                        :: found
+CHARACTER(LEN=26)              :: ElemTypeName(1:11)
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(132("~"))')
 CALL Timer(.TRUE.)
@@ -326,11 +327,30 @@ CALL WriteArrayToHDF5(File_ID,'ElemWeight',1,(/nElems/),RealArray=ElemWeight)
 DEALLOCATE(ElemWeight)
 
 CALL WriteArrayToHDF5(File_ID,'ElemCounter',2,(/2,11/),IntegerArray=ElemCounter)
-WRITE(*,*)'Mesh statistics:'
-WRITE(*,*)'Element Type | number of elements'
+!WRITE(*,'(A)')'Mesh statistics:'
+WRITE(*,'(A40)')   &
+        '    ____________________________________'
+WRITE(*,'(A40)') &
+        '    #elements  .......... of type:      '
+WRITE(*,'(A40)')   &
+        '    ------------------------------------'
+ElemTypeName(1:11)= (/' straight-edge Tetrahedra ', &
+                      '        curved Tetrahedra ', &
+                      '  planar-faced Prisms     ', &
+                      ' straight-edge Prisms     ', &
+                      '        curved Prisms     ', &
+                      '  planar-faced Pyramids   ', &
+                      ' straight-edge Pyramids   ', &
+                      '        curved Pyramids   ', &
+                      '  planar-faced Hexahedra  ', &
+                      ' straight-edge Hexahedra  ', &
+                      '        curved Hexahedra  '/)
 DO i=1,11
-  WRITE(*,'(I4,A,I8)') Elemcounter(1,i),'        | ',Elemcounter(2,i)
-END DO
+IF(ElemCounter(2,i).GT.0) &
+  WRITE(*,'(A4,I9,A26)')'    ',Elemcounter(2, i),ElemTypeName(i)
+END DO !i=1,11
+WRITE(*,'(A40)')   &
+        '    ____________________________________'
 
 IF(dosortIJK)THEN
   ! WRITE element ijk index (for postprocessing of structured/semistructured domains)
@@ -547,7 +567,7 @@ USE MOD_Mesh_Vars,ONLY:tElemPtr
 USE MOD_Mesh_Vars,ONLY:FirstElem
 USE MOD_Mesh_Vars,ONLY:MeshMode
 USE MOD_Mesh_Vars,ONLY:AdaptedMesh
-USE MOD_Output_Vars,ONLY:DebugVisu,dosortijk
+USE MOD_Output_Vars,ONLY:DebugVisu,dosortijk,sfc_boundbox
 USE MOD_SpaceFillingCurve,ONLY:SortElemsBySpaceFillingCurve
 USE MOD_sortIJK,ONLY:SortElemsByCoords
 ! IMPLICIT VARIABLE HANDLING
@@ -583,7 +603,7 @@ IF((MeshMode.EQ.11).AND. (.NOT.AdaptedMesh))THEN
   ! for Meshmode=11: if no splitting was done, this is a structured single block, elem_IJK already defined
   CALL SortElemsBySpaceFillingCurve(nElems_in,REAL(Elem_IJK),IDList,1) !use IJK for space filling curve
 ELSE
-  CALL SortElemsBySpaceFillingCurve(nElems_in,ElemBary,IDList,2)
+  CALL SortElemsBySpaceFillingCurve(nElems_in,ElemBary,IDList,sfc_boundbox)
 END IF
 
 NULLIFY(Elems(IDlist(1))%ep%prevElem)
@@ -591,6 +611,9 @@ firstElem=>Elems(IDlist(1))%ep
 DO ElemID=2,nElems_in 
   Elems(IDlist(ElemID-1))%ep%nextElem=>Elems(IDList(ElemID))%ep
   Elems(IDlist(ElemID))%ep%prevElem  =>Elems(IDList(ElemID-1))%ep
+END DO
+DO ElemID=1,nElems_in 
+  Elems(IDlist(ElemID))%ep%ind=ElemID
 END DO
 IF(DebugVisu)THEN
   WRITE(*,*)'write space filling curve to sfc.dat'

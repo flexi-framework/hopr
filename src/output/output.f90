@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -107,6 +108,7 @@ END IF
 sfc_type  =GETSTR('sfc_type','hilbert')
 dosortIJK=GETLOGICAL('doSortIJK','.FALSE.')
 useSpaceFillingCurve=GETLOGICAL('useSpaceFillingCurve','.TRUE.')
+sfc_boundbox=GETINT('sfc_boundbox','2')
 
 OutputInitDone=.TRUE.
 WRITE(UNIT_stdOut,'(A)')' INIT OUTPUT DONE!'
@@ -145,7 +147,7 @@ CHARACTER(LEN=255)             :: strOutputFile  ! ?
 SELECT CASE(OutputFormat)
 CASE(0) ! VTK Output Format
   strOutputFile=TRIM(FileName)//'.vtu'
-  CALL WriteDataToVTK(dim1,nVal,Nplot,nElems,VarNames,Coord,Values,strOutputFile)
+  CALL WriteDataToVTK(dim1,3,nVal,Nplot,nElems,VarNames,Coord,Values,strOutputFile)
 CASE(1) ! Tecplot ASCII Output
   strOutputFile=TRIM(Filename)//'.dat'
   CALL WriteDataToASCIITecplot(dim1,nVal,Nplot,nElems,VarNames,Coord,Values,strOutputFile)

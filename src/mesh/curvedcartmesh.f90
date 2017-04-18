@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -46,63 +47,6 @@ PUBLIC::CurvedCartesianMesh
 CONTAINS
 
 
-SUBROUTINE GetNewCurvedHexahedron(CurvedNode,Ngeo,Zone)
-!===================================================================================================================================
-! Build new hexahedron for cartesian mesh.
-!===================================================================================================================================
-! MODULES
-USE MOD_Mesh_Vars,ONLY:tNodePtr,tElem
-USE MOD_Mesh_Vars,ONLY:FirstElem
-USE MOD_Mesh_Vars,ONLY:getNewElem
-USE MOD_Mesh_Basis,ONLY:CreateSides
-USE MOD_Basis_Vars,ONLY:HexaMap
-! IMPLICIT VARIABLE HANDLING
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-INTEGER,INTENT(IN)              :: NGeo  ! ?
-INTEGER,INTENT(IN)              :: Zone  ! ?
-TYPE(tNodePtr),INTENT(IN)                  :: CurvedNode(0:Ngeo,0:NGeo,0:Ngeo)  ! ?
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-TYPE(tElem),POINTER             :: aElem   ! ?
-INTEGER                         :: i  ! ?
-!===================================================================================================================================
-CALL getNewElem(aElem)
-aElem%zone=Zone
-aElem%nNodes=8
-ALLOCATE(aElem%Node(aElem%nNodes))
-aElem%Node(1)%NP=>CurvedNode(   0,   0,   0)%NP
-aElem%Node(2)%NP=>CurvedNode(NGeo,   0,   0)%NP
-aElem%Node(3)%NP=>CurvedNode(NGeo,NGeo,   0)%NP
-aElem%Node(4)%NP=>CurvedNode(   0,NGeo,   0)%NP
-aElem%Node(5)%NP=>CurvedNode(   0,   0,NGeo)%NP
-aElem%Node(6)%NP=>CurvedNode(NGeo,   0,NGeo)%NP
-aElem%Node(7)%NP=>CurvedNode(NGeo,NGeo,NGeo)%NP
-aElem%Node(8)%NP=>CurvedNode(   0,NGeo,NGeo)%NP
-CALL CreateSides(aElem,.TRUE.)
-IF(Ngeo.GT.1)THEN !curved
-  aElem%nCurvedNodes=(Ngeo+1)**3
-  ALLOCATE(aElem%CurvedNode(aElem%nCurvedNodes))
-  DO i=1,aElem%nCurvedNodes
-    aElem%CurvedNode(i)%NP=>CurvedNode(HexaMap(i,1),HexaMap(i,2),HexaMap(i,3))%NP
-  END DO
-END IF !curved
-
-! Add elements to list
-IF(.NOT.ASSOCIATED(FirstElem))THEN
-  FirstElem=>aElem
-ELSE
-  aElem%nextElem          => FirstElem
-  aElem%nextElem%prevElem => aElem
-  FirstElem          => aElem
-END IF
-NULLIFY(aElem)
-END SUBROUTINE GetNewCurvedHexahedron
-
-
 SUBROUTINE CurvedCartesianMesh()
 !===================================================================================================================================
 ! Builds cartesian mesh. Called by fillMesh.
@@ -115,6 +59,7 @@ USE MOD_Mesh_Vars,ONLY:getNewSide,getNewNode,getNewBC
 USE MOD_Mesh_Vars,ONLY:deleteSide,deleteNode
 USE MOD_Mesh_Vars,ONLY:BoundaryOrder,nElems,BCIndex
 USE MOD_Mesh_Vars,ONLY:stretchType,fac,DXMaxToDXMin
+USE MOD_Mesh_Basis,ONLY:getNewCurvedHexahedron
 USE MOD_IO_HDF5  ,ONLY:Elem_IJK,nElems_IJK
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE

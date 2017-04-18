@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -184,7 +185,10 @@ LOGICAL                        :: useBinary              ! read in special binar
 LOGICAL                        :: BugFix_ANSA_CGNS       ! for ANSA unstructured CGNS Ansa Files, to set Boundary Condition
                                                          ! PointList always to an ElementList, default is false
 LOGICAL                        :: MeshInitDone=.FALSE.
-LOGICAL                        :: checkElemJacobians     ! check if Jacobians are positiv over curved Elements 
+LOGICAL                        :: checkElemJacobians     ! check if Jacobians are positiv over curved Elements,default=.TRUE.! 
+INTEGER                        :: NegativeJacobians=0    ! counter for elements with scaledJac<jacobianTolerance 
+                                                         !after checkJacobians, this might be >0! 
+REAL                           :: jacobianTolerance      ! smallest value of jacobian permitted (e.g. 1.e-16)
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GEOMETRY
@@ -198,7 +202,6 @@ REAL                           :: MeshScale              ! scaling factor applie
 REAL                           :: SpaceQuandt            ! Characteristic length in the mesh. Used as tolerance 
 REAL                           :: minDX                  ! smallest edge length
 REAL                           :: maxDX(3)               ! Used for search mesh
-REAL                           :: jacobianTolerance      ! smallest value of jacobian permitted (e.g. 1.e-16)
 INTEGER                        :: nMeshElems    =0       ! number of elements in the mesh
 INTEGER                        :: nInnerSides   =0       ! number of unique innner sides in the mesh 
 INTEGER                        :: nConformingSides=0     ! number of unique innner sides in the mesh 
@@ -213,6 +216,7 @@ INTEGER                        :: TypeIndex_surf(4)      ! typeIndex_surf(nNodes
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! MORTAR VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
+LOGICAL             :: MortarFound            ! from checking all sides in fillmesh, if they have associated mortars.
 INTEGER             :: MortarMesh             ! 0: conforming, 1: non-conforming octree based
 INTEGER             :: nNonconformingSides    ! number of small and big mortar sides
 ! MoratarMesh==1
@@ -251,6 +255,7 @@ LOGICAL                        :: useCurveds             ! switch .TRUE.= we wan
 LOGICAL                        :: rebuildCurveds         ! switch .TRUE.= if curveds are already present in the mesh, delete them
                                                          ! and rebuild them using our methods
 LOGICAL                        :: meshIsAlreadyCurved    ! flag: mesh is already curved (GMSH, HDF5, block CGNS)
+LOGICAL                        :: InnerElemStretch       ! for cartmeshes, apply stretching also to inner element nodes
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! CURVE GRID GENERATOR
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -310,12 +315,13 @@ LOGICAL                        :: OrientZ
 ! Post deformation functions deform a domain (typically [-1,1]^3) to arbirary other domain
 !-----------------------------------------------------------------------------------------------------------------------------------
 INTEGER                        :: MeshPostDeform ! Function index (off: 0) 
+LOGICAL                        :: PostDeform_useGL
 REAL                           :: PostDeform_R0  
 REAL                           :: PostDeform_Lz  
-INTEGER                        :: PostDeform_sq  
+REAL                           :: PostDeform_sq  
 REAL                           :: PostDeform_Rtorus  
-                                                      ! 2: non-conforming arbitrary
 
+TYPE(tElemPtr),POINTER         :: Elems(:)
 ! INTERFACES -----------------------------------------------------------------------------------------------------------------------
 INTERFACE getNewElem
   MODULE PROCEDURE getNewElem

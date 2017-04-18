@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -43,6 +44,10 @@ INTERFACE InitBasis
    MODULE PROCEDURE InitBasis
 END INTERFACE
 
+INTERFACE ChangeBasisHexa 
+  MODULE PROCEDURE ChangeBasisHexa
+END INTERFACE
+
 INTERFACE GetNodesAndWeights
    MODULE PROCEDURE GetNodesAndWeights
 END INTERFACE
@@ -51,8 +56,10 @@ INTERFACE GetVandermonde
    MODULE PROCEDURE GetVandermonde
 END INTERFACE
 
-
-PUBLIC:: InitBasis, GetNodesAndWeights, GetVandermonde
+PUBLIC:: InitBasis
+PUBLIC:: ChangeBasisHexa
+PUBLIC:: GetNodesAndWeights
+PUBLIC:: GetVandermonde
 !===================================================================================================================================
 
 CONTAINS
@@ -82,7 +89,7 @@ IF(.NOT.MeshInitDone)THEN
 END IF
 WRITE(tmpstr,'(I4)')N
 nVisu=GETINT('nVisu',tmpstr)
-WRITE(tmpstr,'(I4)')N+2
+WRITE(tmpstr,'(I4)')3*(N+1)
 nAnalyze=GETINT('nAnalyze',tmpstr)
 IF(nVisu.LT.1)THEN
   CALL abort(__STAMP__,'nVisu has to be >= 1')
@@ -100,7 +107,7 @@ SUBROUTINE fillBasisMapping()
 ! iAns=1: 1, iAns=2: x, iAns=3: y
 !===================================================================================================================================
 ! MODULES
-USE MOD_Basis_Vars,ONLY:nVisu,nAnalyze
+USE MOD_Basis_Vars,ONLY:nVisu
 USE MOD_Basis_Vars,ONLY:TriaMap,TriaMapInv,VisuTriaMap,VisuTriaMapInv,Vdm_visu_Tria,D_visu_Tria
 USE MOD_Basis_Vars,ONLY:QuadMap,QuadMapInv,VisuQuadMap,VisuQuadMapInv,Vdm_visu_Quad,D_visu_Quad
 USE MOD_Basis_Vars,ONLY:TetraMap,TetraMapInv !,Vdm_visu_Tetra,D_visu_Tetra
@@ -108,7 +115,6 @@ USE MOD_Basis_Vars,ONLY:PyraMap,PyraMapInv   !,Vdm_visu_Pyra,D_visu_Pyra
 USE MOD_Basis_Vars,ONLY:PrismMap,PrismMapInv !,Vdm_visu_Prism,D_visu_Prism
 USE MOD_Basis_Vars,ONLY:HexaMap,HexaMapInv,Vdm_visu_Hexa,D_visu_Hexa,VisuHexaMap,VisuHexaMapInv
 USE MOD_Basis_Vars,ONLY:MapSideToVol
-USE MOD_Basis_Vars,ONLY:Vdm_Analyze_Hexa,D_Analyze_Hexa
 USE MOD_Basis_Vars,ONLY:EdgeToTria,EdgeToQuad
 USE MOD_Mesh_Vars,ONLY:N
 USE MOD_QuadBasis
@@ -146,7 +152,6 @@ CALL getTriaBasis(N,nVisu+1,Vdm_visu_Tria,D_visu_Tria)
 CALL getQuadBasis(N,nVisu+1,Vdm_visu_Quad,D_visu_Quad)
 !CALL getTetraBasis(N,nVisu+1,Vdm_visu_Tetra,D_visu_Tetra)
 CALL getHexaBasis(N,nVisu+1,Vdm_visu_Hexa,D_visu_Hexa)
-CALL getHexaBasis(N,nAnalyze,Vdm_Analyze_Hexa,D_Analyze_Hexa)
 
 ! map edges of triangle surface counterclockwise points to BoundaBasisMappingInv(i,j)
 ALLOCATE(EdgeToTria(3,N+1))
@@ -238,6 +243,66 @@ DO q=0,N
   END DO !p
 END DO !q
 END SUBROUTINE fillBasisMapping
+
+
+SUBROUTINE ChangeBasisHexa(Dim1,N_In,N_Out,Vdm,X3D_In,X3D_Out)
+!===================================================================================================================================
+! interpolate a 3D tensor product Lagrange basis defined by (N_in+1) 1D interpolation point positions xi_In(0:N_In)
+! to another 3D tensor product node positions (number of nodes N_out+1) 
+! defined by (N_out+1) interpolation point  positions xi_Out(0:N_Out)
+!  xi is defined in the 1DrefElem xi=[-1,1]
+!===================================================================================================================================
+! MODULES
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+INTEGER,INTENT(IN)  :: Dim1,N_In,N_Out
+REAL,INTENT(IN)     :: X3D_In(1:Dim1,0:N_In,0:N_In,0:N_In)
+REAL,INTENT(IN)     :: Vdm(0:N_Out,0:N_In)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+REAL,INTENT(OUT)    :: X3D_Out(1:Dim1,0:N_Out,0:N_Out,0:N_Out)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+INTEGER             :: iN_In,jN_In,kN_In,iN_Out,jN_Out,kN_Out
+REAL                :: X3D_Buf1(1:Dim1,0:N_Out,0:N_In,0:N_In)  ! first intermediate results from 1D interpolations
+REAL                :: X3D_Buf2(1:Dim1,0:N_Out,0:N_Out,0:N_In) ! second intermediate results from 1D interpolations
+!===================================================================================================================================
+X3D_buf1=0.
+! first direction iN_In
+DO kN_In=0,N_In
+  DO jN_In=0,N_In
+    DO iN_In=0,N_In
+      DO iN_Out=0,N_Out
+        X3D_Buf1(:,iN_Out,jN_In,kN_In)=X3D_Buf1(:,iN_Out,jN_In,kN_In)+Vdm(iN_Out,iN_In)*X3D_In(:,iN_In,jN_In,kN_In)
+      END DO
+    END DO
+  END DO
+END DO
+X3D_buf2=0.
+! second direction jN_In
+DO kN_In=0,N_In
+  DO jN_In=0,N_In
+    DO jN_Out=0,N_Out
+      DO iN_Out=0,N_Out
+        X3D_Buf2(:,iN_Out,jN_Out,kN_In)=X3D_Buf2(:,iN_Out,jN_Out,kN_In)+Vdm(jN_Out,jN_In)*X3D_Buf1(:,iN_Out,jN_In,kN_In)
+      END DO
+    END DO
+  END DO
+END DO
+X3D_Out=0.
+! last direction kN_In
+DO kN_In=0,N_In
+  DO kN_Out=0,N_Out
+    DO jN_Out=0,N_Out
+      DO iN_Out=0,N_Out
+        X3D_Out(:,iN_Out,jN_Out,kN_Out)=X3D_Out(:,iN_Out,jN_Out,kN_Out)+Vdm(kN_Out,kN_In)*X3D_Buf2(:,iN_Out,jN_Out,kN_In)
+      END DO
+    END DO
+  END DO
+END DO
+END SUBROUTINE ChangeBasisHexa
 
 
 SUBROUTINE GetNodesAndWeights(N_in,NodeType_in,xIP,wIP,wIPBary)
@@ -383,6 +448,5 @@ ELSE
   END IF
 END IF
 END SUBROUTINE GetVandermonde
-
 
 END MODULE MOD_Basis

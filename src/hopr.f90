@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -29,6 +30,7 @@ PROGRAM HOPR
 USE MOD_Globals
 USE MOD_Basis,       ONLY:InitBasis
 USE MOD_Mesh,        ONLY:InitMesh,FillMesh
+USE MOD_Mesh_Vars,   ONLY:negativeJacobians,jacobianTolerance
 USE MOD_Output,      ONLY:InitOutput
 USE MOD_ReadInTools, ONLY:IgnoredStrings
 USE MOD_Search,      ONLY:InitSearch
@@ -82,6 +84,12 @@ CALL IgnoredStrings()
 ! Now build mesh!
 CALL FillMesh()
 WRITE(*,'(132("="))')
-WRITE(UNIT_stdOut,'(a,a,a)')' HOPR successfully finished: Mesh "',TRIM(ProjectName)//'_mesh.h5','" written to HDF5 file.'
+IF(negativeJacobians.GT.0) THEN
+  WRITE(UNIT_stdOut,'(A,A,A)')' HOPR finished: Mesh "',TRIM(ProjectName)//'_mesh.h5','" written to HDF5 file.'
+  WRITE(UNIT_stdOut,'(A,I8,A,E11.3,A)')' WARNING: ',negativeJacobians, &
+                                       ' ELEMENT(S) WITH SCALED JACOBIAN < ',jacobianTolerance,' FOUND!!!'
+ELSE
+  WRITE(UNIT_stdOut,'(A,A,A)')' HOPR successfully finished: Mesh "',TRIM(ProjectName)//'_mesh.h5','" written to HDF5 file.'
+END IF
 WRITE(*,'(132("="))')
 END PROGRAM HOPR
