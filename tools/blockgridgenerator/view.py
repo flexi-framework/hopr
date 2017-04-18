@@ -35,6 +35,7 @@ class MainView(QtWidgets.QMainWindow):
         self.tv_bcs.selectionModel().selectionChanged.connect(self.selectionChanged_bcs)
 
         self.l_draw.mousePressEvent = self.mousePress
+        self.l_draw.mouseMoveEvent = self.mouseMove
         self.l_draw.mouseReleaseEvent = self.mouseRelease
         self.l_draw.setMargin(1)
 
@@ -119,6 +120,17 @@ class MainView(QtWidgets.QMainWindow):
         ytotalmin = min([b.ymin for b in self.model.blocks])
         self.startx = self.startx + xtotalmin
         self.starty = self.starty + ytotalmin
+
+    def mouseMove(self, e) :
+        if self.model.blocks.rowCount() == 0 : return
+        x = e.localPos().x() / self.scale
+        h = self.l_draw.height()
+        y = (h-e.localPos().y()) / self.scale
+        xtotalmin = min([b.xmin for b in self.model.blocks])
+        ytotalmin = min([b.ymin for b in self.model.blocks])
+        x = x + xtotalmin
+        y = y + ytotalmin
+        QtWidgets.QToolTip.showText(e.globalPos(), "(%f, %f)" %(x,y))
 
     def mouseRelease(self, e) :
         if self.model.blocks.rowCount() == 0 : return
