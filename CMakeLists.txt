@@ -30,7 +30,7 @@ ELSE()
   SET(HDF5DOWNLOAD https://bitbucket.hdfgroup.org/scm/hdffv/hdf5.git )
 ENDIF()
 SET(HOPR_HDF5TAG "hdf5-1_10_0-patch1" CACHE STRING "HDF5 version tag")
-SET(HOPR_CGNSTAG "v3.2.1"             CACHE STRING "CGNS version tag")
+SET(HOPR_CGNSTAG "v3.3.0"             CACHE STRING "CGNS version tag")
 
 # =========================================================================
 # Detect machine environements
@@ -84,8 +84,6 @@ OPTION(HOPR_BUILD_YPLUSESTIMATOR "Compile and build Y+-Estimator" OFF)
 OPTION(HOPR_BUILD_HDF5 "Compile and build hdf5 library" ON)
 OPTION(HOPR_BUILD_CGNS "Compile and build CGNS library" ON)
 SET(HOPR_CGNS_INT "32" CACHE STRING "integer type in CGNS lib")
-IF(HOPR_BUILD_CGNS)
-ENDIF()
 
 # =========================================================================
 # USERBLOCK + Preproc_flags
@@ -186,13 +184,14 @@ MARK_AS_ADVANCED(HOPR_EXTERNAL_LIB_DIR)
 # =========================================================================
 
 IF(NOT HOPR_BUILD_HDF5)
-  FIND_PACKAGE(HDF5 COMPONENTS C Fortran QUIET) #if built with configure script
+  #FIND_PACKAGE(HDF5 NAMES hdf5 COMPONENTS C Fortran QUIET) #if built with configure script
+  FIND_PACKAGE(HDF5 NAMES hdf5 COMPONENTS C Fortran static NO_MODULE QUIET PATH_SUFFIXES share/cmake )
   IF (HDF5_FOUND)
-    SET(HOPR_HDF5_CMAKE FALSE)
+    SET(HOPR_HDF5_CMAKE TRUE)
   ELSE()
-    FIND_PACKAGE(HDF5 COMPONENTS C Fortran static NO_MODULE QUIET PATH_SUFFIXES share/cmake )
+    FIND_PACKAGE(HDF5 COMPONENTS C Fortran QUIET )
     IF (HDF5_FOUND)
-      SET(HOPR_HDF5_CMAKE TRUE)
+      SET(HOPR_HDF5_CMAKE FALSE)
       MESSAGE (STATUS "HDF5 C libs:${HDF5_FOUND} static:${HDF5_static_C_FOUND} and shared:${HDF5_shared_C_FOUND}")
       MESSAGE (STATUS "HDF5 Fortran libs: static:${HDF5_static_Fortran_FOUND} and shared:${HDF5_shared_Fortran_FOUND}")
     ENDIF()
@@ -222,14 +221,14 @@ ELSE()
       BUILD_COMMAND ${MAKE}
     )
     # CMake HDF5 is fast but not that reliable
-    #ExternalProject_Add(HDF5
-    #  GIT_REPOSITORY ${HDF5DOWNLOAD}
+  #    ExternalProject_Add(HDF5
+  #      GIT_REPOSITORY ${HDF5DOWNLOAD}
     #  GIT_TAG ${HDF5TAG}
-    #  PREFIX ${HOPR_HDF5_DIR}
-    #  UPDATE_COMMAND ""
+  #      PREFIX ${HOPR_HDF5_DIR}
+  #      UPDATE_COMMAND ""
     #  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${HOPR_HDF5_DIR} -DCMAKE_C_COMPILER=${HOPR_HDF5CC} -DCMAKE_Fortran_COMPILER=${HOPR_HDF5FC} -DBUILD-TESTING=OFF -DHDF5_BUILD_EXAMPLES=OFF -DHDF5_BUILD_TOOLS=OFF -DHDF5_BUILD_FORTRAN=ON -DHDF5_ENABLE_PARALLEL=ON
-    #  BUILD_COMMAND ${MAKE}
-    #)
+  #      BUILD_COMMAND ${MAKE}
+  #    )
   ENDIF()
 
   SET(HDF5_hdf5_LIBRARY_RELEASE         ${HOPR_HDF5_DIR}/lib/libhdf5.a)
@@ -249,11 +248,10 @@ IF(HOPR_HDF5_CMAKE)
   INCLUDE_DIRECTORIES (${HDF5_INCLUDE_DIR_FORTRAN} ${HDF5_INCLUDE_DIR})
   LIST(APPEND linkedlibs ${HDF5_FORTRAN_STATIC_LIBRARY} ${HDF5_LIBRARIES})
 ELSE()
+  MESSAGE(WARNING "asdasdasdFound HDF5 Libs: " ${HDF5_LIBRARIES})
   INCLUDE_DIRECTORIES (${HDF5_INCLUDE_DIR_FORTRAN} ${HDF5_INCLUDE_DIR})
-  LIST(INSERT HDF5_LIBRARIES 0 ${HDF5_hdf5_fortran_LIBRARY_RELEASE})
-  LIST(REMOVE_DUPLICATES HDF5_LIBRARIES)
   MESSAGE(STATUS "Found HDF5 Libs: " ${HDF5_LIBRARIES})
-  LIST(APPEND linkedlibs ${HDF5_LIBRARIES} )
+  LIST(APPEND linkedlibs ${HDF5_FORTRAN_STATIC_LIBRARY} ${HDF5_LIBRARIES})
 ENDIF()
 
 # =========================================================================
@@ -303,11 +301,11 @@ IF (HOPR_BUILD_CGNS)
     ExternalProject_Add(cgns
     GIT_REPOSITORY ${CGNSDOWNLOAD}
     GIT_TAG ${HOPR_CGNSTAG}
-    PATCH_COMMAND sed -i s/^c/!/g ${HOPR_CGNS_DIR}/src/cgns/src/cgnslib_f.h.in
+    #PATCH_COMMAND sed -i s/^c/!/g ${HOPR_CGNS_DIR}/src/cgns/src/cgnslib_f.h.in
     PREFIX ${HOPR_CGNS_DIR}
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${HOPR_CGNS_DIR}/build /
+    CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${HOPR_CGNS_DIR}/build /
     -DCGNS_ENABLE_FORTRAN=ON   -DCGNS_ENABLE_64BIT=${HOPR_CGNS_64BIT} -DCGNS_BUILD_SHARED=OFF -DCGNS_USE_SHARED=OFF /
-    -DCMAKE_BUILD_TYPE=Release -DCGNS_BUILD_CGNSTOOLS=OFF -DCGNS_ENABLE_TESTS=OFF -DCMAKE_SKIP_RPATH=ON
+    -DCMAKE_BUILD_TYPE=Release -DCGNS_BUILD_CGNSTOOLS=OFF -DCGNS_ENABLE_HDF5=ON -DCGNS_ENABLE_PARALLEL=OFF -DCGNS_ENABLE_TESTS=OFF -DCMAKE_SKIP_RPATH=ON
     )
   ENDIF()
   LIST(APPEND linkedlibs ${HOPR_CGNS_DIR}/build/lib/libcgns.a)
