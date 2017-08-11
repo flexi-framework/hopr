@@ -348,6 +348,7 @@ IF(meshPostDeform.GT.0) THEN
   PostDeform_sq=GETREAL('PostDeform_sq','0.')
   PostDeform_Rtorus=GETREAL('PostDeform_Rtorus','-1.') !from cyl-> torus
 END IF !PostDeform
+postConnect=GETINT('postConnect','0')
 
 ! Connect
 ConformConnect=GETLOGICAL('ConformConnect','.TRUE.') ! Fast connect for conform mesh
@@ -557,7 +558,7 @@ IF(useCurveds.AND.Logging)   CALL CountSplines()  ! In case of restart there can
 IF(OrientZ) CALL OrientElemsToZ() 
 
 IF(MeshMode .GT. 0)THEN
-  CALL Connect()                           ! Create connection between elements
+  CALL Connect(reconnect=.FALSE.,deletePeriodic=.FALSE.)                           ! Create connection between elements
   IF(useCurveds.AND.Logging) CALL CountSplines()  ! In case of restart there can be splines
 END IF
 CALL buildEdges()
@@ -658,6 +659,14 @@ IF(useSpaceFillingCurve)THEN
 END IF
 
 CALL PostDeform()
+
+SELECT CASE(postConnect)
+CASE(0) !do nothing
+CASE(1) !reconnect all sides
+  CALL Connect(reconnect=.TRUE.,deletePeriodic=.FALSE.)                           ! Create connection between elements
+CASE(2) !reconnect all sides, delete periodic connections (sides on top by postdeform)
+  CALL Connect(reconnect=.TRUE.,deletePeriodic=.TRUE.)                           ! Create connection between elements
+END SELECT !postConnect
 
 IF(mortarFound) THEN
   IF(doRebuildMortarGeometry) CALL RebuildMortarGeometry()

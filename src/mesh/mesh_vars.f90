@@ -315,6 +315,7 @@ LOGICAL                        :: OrientZ
 ! Post deformation functions deform a domain (typically [-1,1]^3) to arbirary other domain
 !-----------------------------------------------------------------------------------------------------------------------------------
 INTEGER                        :: MeshPostDeform ! Function index (off: 0) 
+INTEGER                        :: PostConnect
 LOGICAL                        :: PostDeform_useGL
 REAL                           :: PostDeform_R0  
 REAL                           :: PostDeform_Lz  
