@@ -122,13 +122,6 @@ CALL CCint_init()
 !initialize Soloviev parameters
 CALL InitSolovievEquilibrium()
 
-nRhoCoefs=GETINT("nRhoCoefs","0")
-IF(nRhoCoefs.GT.0)THEN
-  ALLOCATE(RhoCoefs(nRhoCoefs))
-  RhoCoefs=GETREALARRAY("RhoCoefs",nRhoCoefs)
-END IF
-
-
 WRITE(UNIT_stdOut,'(A)')'  ... DONE'
 END SUBROUTINE InitSolov
 
@@ -504,9 +497,10 @@ SUBROUTINE MapToSolov(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
 ! MODULES
 USE MOD_Globals
 USE MOD_MHDEQ_Vars,  ONLY:nVarMHDEQ
+USE MOD_MHDEQ_Vars,  ONLY: nRhoCoefs,RhoFluxVar,RhoCoefs
 USE MOD_MHDEQ_Tools, ONLY: Eval1DPoly
 USE MOD_Newton,      ONLY:NewtonRoot1D
-USE MOD_Solov_Vars,  ONLY:p_R0,p_kappa,p_paxis,PresEdge,nRhoCoefs,RhoCoefs
+USE MOD_Solov_Vars,  ONLY:p_R0,p_kappa,p_paxis,PresEdge
 USE MOD_Solov_Vars,  ONLY:F_axis,deltaF2,xaxis,psi_scale
 USE MOD_PsiEval,     ONLY:EvalPsi,EvaldPsi
 USE MOD_CCint,       ONLY:CCint
@@ -582,7 +576,14 @@ DO iNode=1,nTotal
   x_out(2,iNode)= R*SIN(zeta)
   x_out(3,iNode)= (p_R0*xPos(2))
 
-  Density=Eval1DPoly(nRhoCoefs,RhoCoefs,psiNorm) 
+  SELECT CASE (RhoFluxVar)
+  CASE(1) !use normalized poloidal flux (here psi!!!)
+    Density=Eval1DPoly(nRhoCoefs,RhoCoefs,psinorm) 
+  CASE(3) !use sqrt of normalized poloidal flux (here psi!!!)
+    Density=Eval1DPoly(nRhoCoefs,RhoCoefs,sqrt(psinorm))
+  CASE DEFAULT
+    STOP 'RhoFluxVar for Solov eq. can only depend poloidal flux(=1) or sqrt(norm.pol.flux) (=3)'
+  END SELECT
   !BR=-1/R*dpsiReal_dZ = -1/(x*R0)*psi_scale*dpsi_dy*dy/dZ = -psiscale/(x*R0^2)*dpsi_dy
   !BZ= 1/R*dpsiReal_dR =  1/(x*R0)*psi_scale*dpsi_dx*dx/dR =  psiscale/(x*R0^2)*dpsi_dx
   !Bphi=F/R

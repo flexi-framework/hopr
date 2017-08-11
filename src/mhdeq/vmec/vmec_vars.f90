@@ -44,10 +44,6 @@ REAL,ALLOCATABLE    :: chi_Spl(:,:)
 REAL,ALLOCATABLE    :: Rmnc_Spl(:,:,:)           ! modified spline coefficients of Rmnc
 REAL,ALLOCATABLE    :: Zmns_Spl(:,:,:)           !
 REAL,ALLOCATABLE    :: lmns_Spl(:,:,:)           !
-INTEGER             :: nRhoCoefs                 ! number of density coefficients 
-INTEGER             :: RhoFluxVar                ! =0: rho(psinorm) Normalized toroidal flux variable, =1: rho(chinorm) 
-REAL,ALLOCATABLE    :: RhoCoefs(:)               ! density coefficients of the polynomial coefficients:
-                                                 ! rho_1+rho_2*x + rho_3*x^2 ...
 !not used anymore
 !INTEGER,ALLOCATABLE :: xmAbs_nyq(:)              ! abs |xm(iMode)|
 !REAL,ALLOCATABLE    :: gmnc_nyq_Spl(:,:,:)       !

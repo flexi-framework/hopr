@@ -35,6 +35,14 @@ LOGICAL             :: useMHDEQ                        ! =(whichEquilibrium>0)
 INTEGER             :: nVarMHDEQ=10
 REAL,ALLOCATABLE    :: MHDEQoutdataGL(:,:,:,:,:)       ! MHD equilibrium data to be written to hdf5 file, on Gauss-Lobatto nodes
 REAL,ALLOCATABLE    :: MHDEQdataEq(:,:,:,:,:)          ! VMEC data on equidistant nodes (forvisualization) 
+INTEGER             :: nRhoCoefs                 ! number of density coefficients 
+INTEGER             :: RhoFluxVar                ! Dependent variable for evaluation of Density polynomial rho(x)
+                                                 ! =0: x=psinorm Normalized TOROIDAL flux
+                                                 ! =1: x=chinorm Normalized POLOIDAL flux 
+                                                 ! =2: x=sqrt(psinorm), =3: x=sqrt(chinorm)
+REAL,ALLOCATABLE    :: RhoCoefs(:)               ! density coefficients of the polynomial coefficients:
+                                                 ! rho_1+rho_2*x + rho_3*x^2 ...
+                                                
 CHARACTER(LEN=255),DIMENSION(10),PARAMETER :: MHDEQvarNames(10)=(/ CHARACTER(LEN=255) :: &
                       'MHDEQ-Density'     & ! 1 
                      ,'MHDEQ-Pressure'    & ! 2

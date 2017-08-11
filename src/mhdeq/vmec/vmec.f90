@@ -100,14 +100,6 @@ REAL,ALLOCATABLE     :: lmns_half(:,:)
   ! debug output (files/messages) (default: .FALSE.)
   debug = .FALSE.
 
-  !density coefficients of the polynomial coefficients: rho_1+rho_2*x + rho_3*x^2 ...
-  nRhoCoefs=GETINT("nRhoCoefs","0")
-  IF(nRhoCoefs.GT.0)THEN
-    RhoFluxVar=GETINT("RhoFluxVar") ! dependant variable: =0: psinorm (tor. flux), =1:chinorm (pol. flux)
-    ALLOCATE(RhoCoefs(nRhoCoefs))
-    RhoCoefs=GETREALARRAY("RhoCoefs",nRhoCoefs)
-  END IF
-
  
   !! read VMEC 2000 output (netcdf)
   CALL ReadVmecOutput(VMECdataFile)
@@ -334,6 +326,7 @@ SUBROUTINE MapToVMEC(nTotal,x_in,InputCoordSys,x_out,MHDEQdata)
 ! MODULES
 USE MOD_Globals
 USE MOD_MHDEQ_Vars,    ONLY: nVarMHDEQ
+USE MOD_MHDEQ_Vars,    ONLY: nRhoCoefs,RhoFluxVar,RhoCoefs
 USE MOD_MHDEQ_Tools,   ONLY: Eval1DPoly
 USE MOD_VMEC_Vars
 USE MOD_VMEC_Mappings, ONLY: mn_mode,xm,xn
@@ -360,8 +353,9 @@ INTEGER :: iGuess=1
 REAL    :: CosMN(mn_mode)          !=cos(m*theta-n*zeta) for all modes
 REAL    :: SinMN(mn_mode)          !=sin(m*theta-n*zeta) for all modes
 REAL    :: r_p                     ! radius in cylindrical coordinate system
-REAL    :: psinorm                 ! normalized poloidal flux (=flux coordinate s [0,1]), use map r_p ~ sqrt(psinorm)
-REAL    :: chinorm                 ! normalized toroidal flux [0,1]
+REAL    :: psinorm                 ! normalized TOROIDAL flux (=flux coordinate s [0,1]), use map r_p ~ sqrt(psinorm)
+                                   ! NOTE: psi is called PHI in VMEC
+REAL    :: chinorm                 ! normalized POLOIDAL flux [0,1]
 REAL    :: theta                   ! poloidal angle [0,2pi]
 REAL    :: zeta                    ! toroidal angle [0,2pi]
 
@@ -371,7 +365,8 @@ REAL    :: dZdrho,dZdtheta,dZdzeta !
 REAL    :: lam,dldtheta,dldzeta    !spline interpolation of lambda function and derivatives
 REAL    :: sqrtGr                  !(part of) mapping Jacobian between VMEC and cylinder coords. 
                                    ! (R,Z,phi) <->(rho,theta,zeta)
-REAL    :: psi_int,dpsi_drho_int   !toroidal flux and derivative from interpolation at rho_p
+REAL    :: psi_int,dpsi_drho_int   !toroidal flux and derivative from interpolation at rho_p 
+                                   ! NOTE: psi is called PHI in VMEC
 REAL    :: chi_int,dchi_drho_int   !poloidal flux and derivative from interpolation at rho_p
 REAL    :: iota_int                !rotational transform, >0, iota=-chi'/psi'
 REAL    :: Btheta,Bzeta            ! also called B^u, B^v, contra-variant components of the magnetic field (B^rho=0)
@@ -413,7 +408,7 @@ DO iNode=1,nTotal
     !not needed anymore (only for gmnc)
   !CosMN_nyq(:)  = COS(xm_nyq(:) * theta - xn_nyq(:) * zeta)
   
-  !psinorm ~ r_p**2 , use scaling of radius to psi evaluation variable
+  !psinorm ~ r_p**2 , use scaling of radius to psi toroidal flux evaluation variable
   !rho_p = SQRT(psinorm)=r_p
 
   rho_p=MIN(1.,MAX(r_p,1.0E-4)) ! ~ psinorm [1.0-e08,1.]
@@ -597,10 +592,23 @@ DO iNode=1,nTotal
   Acart(3)= Az
   
 
+  !NOTE: psi is the toroidal flux, called PHI in VMEC
   psinorm=(psi_int-psi_prof(1))/(psi_prof(nFluxVMEC)-psi_prof(1))
+  ! chi is the poloidal flux 
   chinorm=(chi_int-chi_prof(1))/(chi_prof(nFluxVMEC)-chi_prof(1))
 
-  Density=Eval1DPoly(nRhoCoefs,RhoCoefs,MERGE(psinorm,chinorm,RhoFluxVar.EQ.0)) 
+  SELECT CASE (RhoFluxVar)
+  CASE(0) !use normalized toroidal flux 
+    Density=Eval1DPoly(nRhoCoefs,RhoCoefs,psinorm) 
+  CASE(1) !use normalized poloidal flux 
+    Density=Eval1DPoly(nRhoCoefs,RhoCoefs,chinorm) 
+  CASE(2) !use sqrt of normalized toroidal flux 
+    Density=Eval1DPoly(nRhoCoefs,RhoCoefs,sqrt(psinorm))
+  CASE(3) !use sqrt of normalized poloidal flux 
+    Density=Eval1DPoly(nRhoCoefs,RhoCoefs,sqrt(chinorm))
+  CASE DEFAULT
+    STOP 'RhoFluxVar for vmec eq. not between 0 or 3'
+  END SELECT
 
   MHDEQdata(  1,iNode)=Density
   MHDEQdata(  2,iNode)=pressure*mu0 !pressure transformed to mu0=1

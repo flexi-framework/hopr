@@ -55,7 +55,7 @@ SUBROUTINE InitMHDEQ
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals,ONLY:UNIT_stdOut,abort
-USE MOD_ReadInTools,ONLY:GETINT
+USE MOD_ReadInTools,ONLY:GETINT,GETREALARRAY
 USE MOD_MHDEQ_Vars
 USE MOD_VMEC, ONLY:InitVMEC
 USE MOD_Solov, ONLY:InitSolov
@@ -89,6 +89,14 @@ CASE DEFAULT
   WRITE(*,*)'WARNING: No Equilibrium solution for which Equilibrium= ', whichEquilibrium
   STOP
 END SELECT
+  !density coefficients of the polynomial coefficients: rho_1+rho_2*x + rho_3*x^2 ...
+  nRhoCoefs=GETINT("nRhoCoefs","0")
+  IF(nRhoCoefs.GT.0)THEN
+    RhoFluxVar=GETINT("RhoFluxVar") ! dependant variable: =0: psinorm (tor. flux), =1:chinorm (pol. flux)
+    ALLOCATE(RhoCoefs(nRhoCoefs))
+    RhoCoefs=GETREALARRAY("RhoCoefs",nRhoCoefs)
+  END IF
+
 WRITE(UNIT_stdOut,'(A)')'... DONE'
 END SUBROUTINE InitMHDEQ
 

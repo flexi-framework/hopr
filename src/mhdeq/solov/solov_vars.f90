@@ -40,9 +40,6 @@ REAL                :: p_A         ! pA <1 (else deltap>0)
 REAL                :: p_B0        ! toroidal magnetic field strength at magn. axis
 REAL                :: p_qaxis     ! q-factor on axis
 REAL                :: p_paxis     ! pressure on axis
-INTEGER             :: nRhoCoefs   ! number of density coefficients 
-REAL,ALLOCATABLE    :: RhoCoefs(:) !density coefficients of the polynomial coefficients:
-!equilibrium related
 REAL                :: xaxis(2)    !xy-position o of magnetic axis
 REAL                :: psi_scale   !psi scaling between Soloviev and physical psiReal=psi_scale*psi
 REAL                :: psi_axis    !psi value at the magnetic axis
