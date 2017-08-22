@@ -1,10 +1,3 @@
-%Erzeuge mit pdflatex direkt pdfs statt dvi
-\pdfoutput=1\relax
-\pdfcompresslevel=9
-%\pdfpagewidth=8.26in
-%\pdfpageheight=11.69in
-
-%&latex
 % headsepline: Linie am oberen Blattrand unterhalb der Seitennummer
 % bibtotoc: Aufnahme des Literaturverzeichnisses ins Inhaltsverzeichnis
 \documentclass[a4paper,headsepline]{scrreprt}
@@ -20,9 +13,6 @@
 
 % Sprache
 \usepackage[english]{babel}
-\addto\extrasgerman{\renewcommand{\figurename}{Abb.}}
-\addto\extrasgerman{\renewcommand{\tablename}{Tab.}}
-
 
 % Bilder
 \usepackage{graphicx}
@@ -92,24 +82,28 @@
 \definecolor{redcol}{rgb}{1.,0.,0.0} 
 \definecolor{lnkcol}{rgb}{0.,0.,0.0} %black
 \definecolor{blucol}{rgb}{0.,0.,1.0} %black
-\usepackage[pdftex,pdfpagelabels=true]{hyperref}
-\hypersetup{  colorlinks=true,
-              citecolor=lnkcol,%
-              linkcolor=lnkcol,%
-              urlcolor=blucol,
+
+%-------------------------------------------------------------------------------
+% REFERENCES
+%-------------------------------------------------------------------------------
+\usepackage{hyperref}
+\usepackage{cleveref} %custom automatic references
+\hypersetup{colorlinks=true,
+            citecolor=lnkcol,%
+            linkcolor=lnkcol,%
+            urlcolor=blucol,
             pdfborder=false,
             bookmarks=true,
             bookmarksnumbered=true,
             pdftitle = {HOPR HDF5 Curved Mesh Format},
-pdfsubject = {Mesh format description},
-pdfauthor = {F. Hindenlang, T. Bolemann},
-pdfkeywords = {high order, unstructured meshes, curving, parallel, HOPR}
- }
-\pdfoptionpdfminorversion=5
+            pdfsubject = {Mesh format description},
+            pdfauthor = {F. Hindenlang, T. Bolemann},
+            pdfkeywords = {high order, unstructured meshes, curving, parallel, HOPR}
+           }
 \usepackage[all]{hypcap}  % hyperlink soll oberhalb des Bilds anhalten
 \usepackage[dvips]{thumbpdf}
-
-
+\usepackage{xspace} % newcommands ending with xpsace insert space automatically when required
+\usepackage{bold-extra}
 
 % Listenerscheinung
 \setlength{\itemsep}{0ex}
@@ -117,22 +111,22 @@ pdfkeywords = {high order, unstructured meshes, curving, parallel, HOPR}
 \setlength{\parskip}{2mm}
 \setlength{\parindent}{0pt}                   % Einrueckung 1. Zeile eines Absatzes
 
-\renewcommand{\ttdefault}{pcr}
+%\renewcommand{\ttdefault}{pcr}
 % my commands
 \newcommand\Ngeo{N_g}
 \newcommand\NgeoTree{N_{g,tree}}
-\newcommand\ttbf[1]{\textbf{\texttt{#1}}}
-\newcommand\ElemInfo{\hyperlink{ElemInfo}{\ttbf{ElemInfo}}}
-\newcommand\SideInfo{\hyperlink{SideInfo}{\ttbf{SideInfo}}}
-\newcommand\NodeCoords{\hyperlink{NodeInfo}{\ttbf{NodeCoords}}}
-\newcommand\GlobalNodeIDs{\hyperlink{NodeInfo}{\ttbf{GlobalNodeIDs}}}
-\newcommand\BCNames{\ttbf{BCNames}}
-\newcommand\BCType{\ttbf{BCType}}
-\newcommand\nElems{\ttbf{nElems}}
-\newcommand\nSides{\ttbf{nSides}}
-\newcommand\nNodes{\ttbf{nNodes}}
-\newcommand\nNodesTree{\ttbf{nNodesTree}}
-\newcommand\nBCs{\ttbf{nBCs}}
+\newcommand\ttbf[1]{\texttt{\textbf{#1}}}
+\newcommand\ElemInfo{\hyperlink{ElemInfo}{\ttbf{ElemInfo}}\xspace}
+\newcommand\SideInfo{\hyperlink{SideInfo}{\ttbf{SideInfo}}\xspace}
+\newcommand\NodeCoords{\hyperlink{NodeInfo}{\ttbf{NodeCoords}}\xspace}
+\newcommand\GlobalNodeIDs{\hyperlink{NodeInfo}{\ttbf{GlobalNodeIDs}}\xspace}
+\newcommand\BCNames{\ttbf{BCNames}\xspace}
+\newcommand\BCType{\ttbf{BCType}\xspace}
+\newcommand\nElems{\ttbf{nElems}\xspace}
+\newcommand\nSides{\ttbf{nSides}\xspace}
+\newcommand\nNodes{\ttbf{nNodes}\xspace}
+\newcommand\nNodesTree{\ttbf{nNodesTree}\xspace}
+\newcommand\nBCs{\ttbf{nBCs}\xspace}
 
 
 
@@ -186,7 +180,7 @@ pdfkeywords = {high order, unstructured meshes, curving, parallel, HOPR}
 \newpage
 \chapter{Introduction}
 
-\section{Main idea behind the Mesh Format}
+\section{Main Idea Behind the Mesh Format}
 
 The High Order Preprocessor (HOPR) is able to generate high order unstructured 3D meshes, including tetrahedra, pyramids, prisms and hexahedra.  The HDF5 library (\url{http://www.hdfgroup.org/}) allows to use parallel MPI-I/O, thus the mesh format is designed for a fast parallel read-in, using large arrays. There is also the GUI \emph{HDFView} to browse h5 files.
 
@@ -196,7 +190,7 @@ For each element,  the neighbor connectivity information of the element sides an
 
 Notes:\\
 \begin{itemize}
- \item  Indexing starts at 1! (Fortran Style)
+ \item  Array-indexing starts at 1! (Fortran/Matlab Style)
  \item  Element connectivity is based on CGNS unstructured mesh standard (CFD general notation system, \url{http://cgns.sourceforge.net}), see \rf{sec:CGNS}.
  \item  The polynomial degree $\Ngeo$ of the curved element mappings is globally defined. Straight-edged elements are found for $\Ngeo=1$.
  \item  Only the nodes for the volume element mapping and no surface mappings are stored.
@@ -231,7 +225,7 @@ nBCs          & INTEGER & Size of the Boundary Condition list \\\hline
 
 \clearpage
 \section{Data Arrays}
-The mesh information is organized in arrays. The \ElemInfo~array is the first to read, since it contains the data range of each element in the \SideInfo~ and \NodeCoords / \GlobalNodeIDs~ arrays. 
+The mesh information is organized in arrays. The \ElemInfo array is the first to read, since it contains the data range of each element in the \SideInfo and \NodeCoords / \GlobalNodeIDs arrays. 
 
 
 \begin{table}[h!]
@@ -311,15 +305,15 @@ The data is always stored elementwise, which results in storing it multiple time
 \end{tabular} \vspace{2ex}
 
 \begin{tabularx}{1.0\textwidth}{|lX|} \hline
-\emph{Element Type}: & Encoding for element type, see\rf{sec:elemtypes}. \\
+\emph{Element Type}: & Encoding for element type, see~\rf{sec:elemtypes}. \\
 %
 \emph{Zone}: & Element group number. \\
 %
-\emph{offsetIndSIDE/lastIndSIDE}: & Each element has a range of sides in the \SideInfo~ array. \\
+\emph{offsetIndSIDE/lastIndSIDE}: & Each element has a range of sides in the \SideInfo array. \\
 %
-\emph{offsetIndNODE/lastIndNODE}: & Each element has a range of node coordinates in the \NodeCoords~ array and \GlobalNodeIDs~ array for unique indices. \\\hline
+\emph{offsetIndNODE/lastIndNODE}: & Each element has a range of node coordinates in the \NodeCoords array and \GlobalNodeIDs array for unique indices. \\\hline
 \end{tabularx}
-\caption{\protect\ElemInfo~ array for example mesh \rf{fig:exmesh} with 4 elements.}
+\caption{\protect\ElemInfo array for example mesh \rf{fig:exmesh} with 4 elements.}
 \label{tab:ex_eleminfo}
 \end{table}
 
@@ -343,10 +337,10 @@ Name in file: & \SideInfo \\
 Type:         & INTEGER, Size: Array(1:6,1:\nSides$^*$) \\
 %
 Description:  & Side array, all information of one element is a set of all element sides (CGNS ordering, \rf{fig:CGNS}). \\
-              & \emph{offsetIndSIDE/lastIndSIDE} in \ElemInfo~ refers to the row index of one set of element sides. \\
+              & \emph{offsetIndSIDE/lastIndSIDE} in \ElemInfo refers to the row index of one set of element sides. \\
 \end{tabularx}
 %\end{table}
-
+\vspace*{-5pt}
 \begin{table}[h!]
 \centering
 \begin{tabular}{|l|l|l|l|l|l||l|}
@@ -376,17 +370,17 @@ Description:  & Side array, all information of one element is a set of all eleme
 % \nSides &  &  & &  & &   \\ \hline
 \end{tabular}\vspace{2ex}
 \begin{tabularx}{1.0\textwidth}{|lX|}\hline
-\emph{SideType}:        & Side type encoding, the number of corner nodes is the last digit (triangle/quadrangle), more details see \rf{sec:elemtypes}. \\
+\emph{SideType}:        & Side type encoding, the number of corner nodes is the last digit (triangle/quadrangle), more details see \rf{sec:CGNS}. \\
 %
-\emph{GlobalSideID}:    & unique global side identifier, can be directly used as MPItag, negative if side is a slave side (a master and a slave side is defined for side connections). \\
+\emph{GlobalSideID}:    & unique global side identifier, can be directly used as MPI tag: it is negative if the side is a slave side (a master and a slave side is defined for side connections). \\
 %
 \emph{nbElemID}:        & ElemID of neighbor element ($=0$ for no connection). This helps to quickly build up element connections, for local (inside local element range) as well as inter-processor element connections. \\
 \emph{10*nbLocSide+Flip}:  &  first digit : local side of the connected neighbor element$\in[1,\dots,6]$, last digit: Orientation between the sides (flip $\in [0,\dots,4]$), see\rf{sec:flip}. \\
 %
-\emph{BCID}:            & Refers to the row index of the Boundary Condition List in \BCNames~ / \BCType~ array ($\in[1,\dots\text{\texttt{nBCs}}]$). $=0$ for inner sides. \\
+\emph{BCID}:            & Refers to the row index of the Boundary Condition List in \BCNames/\BCType array ($\in[1,\dots\text{\texttt{nBCs}}]$). $=0$ for inner sides. \\
                         & Note that $\neq 0$ for periodic and inner boundary conditions, while nbElemID and nbLocSide+Flip are given, see sec.~\ref{sec:BC}.     \\\hline
 \end{tabularx}
-\caption{\protect\SideInfo~ array for example mesh \rf{fig:exmesh}.}
+\caption{\protect\SideInfo array for example mesh \rf{fig:exmesh}.}
 \end{table}
 
 
@@ -401,7 +395,7 @@ Description:  & Side array, all information of one element is a set of all eleme
 Name in  file: & \textbf{\texttt{NodeCoords}}\\
 Type:         & REAL \quad Size: Array(1:3,1:\nNodes$^*$) \\
 Description:  & The coordinates of the nodes of the element, as a set for each element.  \\
-              & \emph{offsetIndNODE/lastIndNODE} in \ElemInfo~ refers to the row index of one set of element nodes. \\
+              & \emph{offsetIndNODE/lastIndNODE} in \ElemInfo refers to the row index of one set of element nodes. \\
 \end{tabularx}
 %\end{table}
 
@@ -443,7 +437,7 @@ The node list contains the high order nodes of the element, so the number of nod
  $(x,y,z)_{ 9}$ &  &  9 &                     \\ 
  $(x,y,z)_{10}$ &  & 10 & (lastIndNODE,4)     \\ \hline
 \end{tabular}
-\caption{\protect\NodeCoords~ and \protect\GlobalNodeIDs~ array for the example mesh \rf{fig:exmesh}. The node ordering is explained in \rf{sec:elemnodes}. }
+\caption{\protect\NodeCoords and \protect\GlobalNodeIDs array for the example mesh \rf{fig:exmesh}. The node ordering is explained in \rf{sec:elemnodes}. }
 \end{table}
 
 \newpage
@@ -467,7 +461,7 @@ Description:  & User-defined array of 4 integers per boundary condition. \\
 \end{tabularx}
 %\end{table}
 
-The boundary conditions are completely defined by the user. Each BCID from the \SideInfo~ array refers to the \textbf{position} of the boundary condition in the \BCNames~ list. An additional 4 integer code in \BCType~ is available for user-defined attributes.
+The boundary conditions are completely defined by the user. Each BCID from the \SideInfo array refers to the \textbf{position} of the boundary condition in the \BCNames list. An additional 4 integer code in \BCType is available for user-defined attributes.
 
 \begin{table}[h!]
 \centering
@@ -478,21 +472,21 @@ Ind & Boundary Conditions Name: & & \BCType    \\ \hline
 3   &  OutflowRight             & & (10,0,0,0) \\
 4   &  OutflowLeft              & & (8,0,0,0)  \\ \hline
 \end{tabular}
-\caption{\BCNames~ and \BCType~ array for the example mesh, representing a list of boundary condition names.}
+\caption{\BCNames and \BCType array for the example mesh, representing a list of boundary condition names.}
 \end{table}
 
 
 \smallskip
-The \BCType~ array consists of the following entries, of which some are specific to HOPR:
+The \BCType array consists of the following entries, of which some are specific to HOPR:
 
 {
 \centering
-\BCType~ = $\big( $\emph{ BoundaryType, CurveIndex, StateIndex, PeriodicIndex} $\big)$ \\
+\BCType = $\big( $\emph{ BoundaryType, CurveIndex, StateIndex, PeriodicIndex} $\big)$ \\
 }
 \smallskip 
 
 \begin{tabularx}{1.0\textwidth}{|lX|}\hline
-\emph{BoundaryType}:   & Actual type of boundary condition (e.g. inflow, outflow, periodic). \newline {\bf Reserved values:} BoundaryType=1 is reserved for periodic boundaries and BoundaryType=100 is reserved for "inner" boundaries or "analyze sides". For these two cases the sides in the SideInfo array will have a neighbor side/element/flip specified, all other sides with BCs are not connected!  \\
+\emph{BoundaryType}:   & Actual type of boundary condition (e.g. inflow, outflow, periodic). \newline {\textbf Reserved values:} BoundaryType=1 is reserved for periodic boundaries and BoundaryType=100 is reserved for "inner" boundaries or "analyze sides". For these two cases the sides in the SideInfo array will have a neighbor side/element/flip specified, all other sides with BCs are not connected!  \\
 %
 \emph{CurveIndex}:     & Geometry tag used to distinguish between multiple BCs of the same type, e.g. to specify the original CAD surface belonging to the mesh side. Also used to control some mesh curving features, sides with CurveIndex$>$0 are curved, while sides with CurveIndex=0 are mostly (bi-) linear. \\
 %
@@ -514,7 +508,7 @@ Each parallel process (MPI rank) has to read a contiguous element range, which w
 
 Note that the \textit{offsetElem} array will have the information of all element ranges of all ranks, which is very helpful for building the inter-domain mesh connectivity to quickly find neighbor elements on other domains/ranks.
 
-Using the number of local elements and the offset, we read the non-overlapping sub-arrays of the \ElemInfo~ array in parallel (using hyperslab HDF5 commands, see \rf{alg:hdfarray}), which will assign a continuous sub-array of element informations for each rank. With the local element informations, we easily compute the offset and size of sub-arrays for the side data (\SideInfo) and node data (\NodeCoords), by computing
+Using the number of local elements and the offset, we read the non-overlapping sub-arrays of the \ElemInfo array in parallel (using hyperslab HDF5 commands, see \rf{alg:hdfarray}), which will assign a continuous sub-array of element informations for each rank. With the local element informations, we easily compute the offset and size of sub-arrays for the side data (\SideInfo) and node data (\NodeCoords), by computing
 
 \begin{tabular}{rl}
 \textit{firstElem =} & \textit{offsetElem(myDom)+1} \\
@@ -724,7 +718,7 @@ ElementType          &Index &  ElementType          &Index&  ElementType        
 
 \section{Element High Order Nodes}
 \label{sec:elemnodes}
-In the arrays \NodeCoords~ and \GlobalNodeIDs~ (\rf{sec:NodeCoords}), the element high order nodes are found as a node list, $1,\dots,\ell,\dots M_\text{elem}$. The number of nodes for each element is defined by the element type and the polynomial degree $\Ngeo$ of the mapping and is listed in \rf{tab:nElemNodes}. See \rf{sec:CGNS} if one needs only the corner nodes of the linear mesh.
+In the arrays \NodeCoords and \GlobalNodeIDs (\rf{sec:NodeCoords}), the element high order nodes are found as a node list, $1,\dots,\ell,\dots M_\text{elem}$. The number of nodes for each element is defined by the element type and the polynomial degree $\Ngeo$ of the mapping and is listed in \rf{tab:nElemNodes}. See \rf{sec:CGNS} if one needs only the corner nodes of the linear mesh.
 
 \begin{table}[h!]
 \centering
@@ -899,19 +893,17 @@ Especially, the CGNS standard defines a local coordinate system of each element 
 \label{sec:flip}
 
 
-In the \SideInfo~ array, we explicitly store the side-to-side connectivity information between elements, consisting of the neighbor element ID, the local side of the neighbor  and the orientation, encoded with the variable \emph{flip}. 
+In the \SideInfo array, we explicitly store the side-to-side connectivity information between elements, consisting of the neighbor element ID, the local side of the neighbor  and the orientation, encoded with the variable \emph{flip}. 
 Using the local side system, the orientation between elements boils down to three cases for a triangular element side and four for a quadrilateral element side. The definition is given in  \rf{fig:flip}. Also note that the flip is symmetric, having the same value if seen from the neighbor side.
-
-
-
+%
 \begin{figure}[h!]
 \centering
-\includegraphics[height=0.66\textheight]{pics/flip.pdf} \\
-\begin{tabular}{ll}
-\emph{flip}$=1$ & $1^{st}$ node of neighbor side = $1^{st}$ node of side, \\
-\emph{flip}$=2$ & $2^{nd}$ node of neighbor side = $1^{st}$ node of side, \\
-\emph{flip}$=3$ & $3^{rd}$ node of neighbor side = $1^{st}$ node of side, \\
-\emph{flip}$=4$ & $4^{th}$ node of neighbor side = $1^{st}$ node of side. \\
+\includegraphics[height=0.64\textheight]{pics/flip.pdf} \\
+\begin{tabular}{lrl}
+\emph{flip}$=1$: & $1^{st}$ & node of neighbor side = $1^{st}$ node of side \\
+\emph{flip}$=2$: & $2^{nd}$ & node of neighbor side = $1^{st}$ node of side \\
+\emph{flip}$=3$: & $3^{rd}$ & node of neighbor side = $1^{st}$ node of side \\
+\emph{flip}$=4$: & $4^{th}$ & node of neighbor side = $1^{st}$ node of side \\
 \end{tabular}
 
 \caption{Definition of the orientation of side-to-side connection (\emph{flip}) for quadrilateral and triangular element sides, the numbers are the local order of the element side nodes, as defined in \rf{sec:CGNS}. }
@@ -920,7 +912,7 @@ Using the local side system, the orientation between elements boils down to thre
 
 
 
-\chapter{Additional Extensions: Hanging node interface}
+\chapter{Additional Extensions: Hanging Node Interface}
 
 For complex geometries it is often desirable to use elements with hanging nodes to provide more geometric flexibility when meshing. As geometric restrictions are most severe for pure hexahedral meshes, the HOPR format supports a limited octree-like topology with hanging nodes for purely hexahedral meshes. The octree topology is implemented as extension to the existing mesh structure. 
 While full octrees permit an element-side to have an arbitrary number of neighbors on various octree levels, our format supports only one octree level difference between element sides with two (anisotropic) and four neighbors, the single types are depicted in Figure~\ref{fig:mortartypes}.
@@ -944,15 +936,15 @@ Thereby the big side is denoted big mortar master side, the intermediate sides a
 \end{figure}
 
 
-\section{Changes to existing data format}
+\section{Changes to Existing Data Format}
 
 The following differences are present for the ElemInfo array:
 \begin{itemize}
-\item {\bf ElemInfo:} The range of sides defined by offsetIndSide and lastIndSide now includes the small mortar master sides.
-\item {\bf SideInfo:} The field nbElemID of the big mortar master defines no connection to the neighbor element, but contains the type of the mortar interface from Figure~\ref{fig:mortartypes} with negative sign. The type of the interface defines the number of the small mortar master sides.
-\item {\bf SideInfo:} Only the small mortar masters have a valid nbElemID, defining the connection to the adjacent small elements.
-\item {\bf SideInfo:} The list of sides belonging to an element includes the small mortar master sides sorted as exemplified in table \ref{tab:mortarsorting}.
-\item {\bf SideInfo:} (Mortar) Master sides always have flip=0, thus the small element sides are always slave sides.
+\item \textbf{ElemInfo}: The range of sides defined by offsetIndSide and lastIndSide now includes the small mortar master sides.
+\item \textbf{SideInfo}: The field nbElemID of the big mortar master defines no connection to the neighbor element, but contains the type of the mortar interface from Figure~\ref{fig:mortartypes} \emph{with negative sign}, to mark that they belong to a mortar interface. The type of the interface defines the number of the small mortar master sides.
+\item \textbf{SideInfo}: Only the small mortar masters have a valid nbElemID, defining the connection to the adjacent small elements.
+\item \textbf{SideInfo}: The list of sides belonging to an element includes the small mortar master sides sorted as exemplified in table \ref{tab:mortarsorting}.
+\item \textbf{SideInfo}: (Mortar) Master sides always have flip=0, thus the small element sides are always slave sides.
 
 \end{itemize}
 
@@ -978,12 +970,12 @@ The following differences are present for the ElemInfo array:
 \end{table}
 
 \newpage
-\section{Additional information for octrees}
+\section{Additional Information for Octrees}
 
 In addition to the existing format defined above, the mortar format contains non-necessary additional information concerning the octrees. It contains the octree node coordinates and a mapping of the element to the octrees. Note that the polynomial degree of the element mapping is defined as $\Ngeo$, while the octrees may have an independent polynomial degree $\NgeoTree$. Elements and trees can be identical in case the element is on the lowest octree level and the polynomial degrees are identical.
 
 
-\subsection{Global attributes}
+\subsection{Global Attributes}
 In addition to the global attributes defined in \ref{sec:globals}, the non-conforming mesh format includes the following attributes.
 
 \begin{table}[h!]
@@ -1000,7 +992,7 @@ nNodesTree    & INTEGER & Total number of tree nodes: $(\NgeoTree+1)^3 \cdot nTr
 
 
 
-\subsection{Mapping of the global element index (ElemID) to the octree index (TreeID) }
+\subsection{Mapping of the Global Element Index (ElemID) to the Octree Index (TreeID) }
 \begin{tabularx}{1.0\textwidth}{lX}
 Name in  file: & \textbf{\texttt{ElemToTree}}\\
 Type:         & INTEGER \quad Size: Array(1:\nElems$^*$) \\
@@ -1008,7 +1000,7 @@ Description:  & The mapping from the global element index (ElemID) to its corres
 \end{tabularx}
 
 
-\subsection{Element bounds in tree reference space}
+\subsection{Element Bounds in Tree Reference Space}
 \begin{tabularx}{1.0\textwidth}{lX}
 Name in  file: & \textbf{\texttt{xiMinMax}}\\
 Type:         & REAL \quad Size: Array(1:3,1:2,1:\nElems$^*$) \\
@@ -1016,7 +1008,7 @@ Description:  & The array contains the element bounds in the tree reference spac
 \end{tabularx}
 
 
-\subsection{Node Coordinates of the octrees}
+\subsection{Node Coordinates of the Octrees}
 \begin{tabularx}{1.0\textwidth}{lX}
 Name in  file: & \textbf{\texttt{TreeCoords}}\\
 Type:         & REAL \quad Size: Array(1:3,\nNodesTree$^*$) \\
