@@ -26,7 +26,6 @@ MODULE MOD_Output_HDF5
 ! ?
 !===================================================================================================================================
 ! MODULES
-USE HDF5
 USE MOD_IO_HDF5
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -34,8 +33,6 @@ PRIVATE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
 !-----------------------------------------------------------------------------------------------------------------------------------
-! Private Part ---------------------------------------------------------------------------------------------------------------------
-! Public Part ----------------------------------------------------------------------------------------------------------------------
 
 INTERFACE WriteMeshToHDF5
   MODULE PROCEDURE WriteMeshToHDF5
@@ -64,7 +61,6 @@ USE MOD_Mesh_Vars,ONLY:N
 USE MOD_Output_Vars,ONLY:dosortIJK
 USE MOD_Mesh_Vars,ONLY:nUserDefinedBoundaries,BoundaryName,BoundaryType
 USE MOD_Mesh_Basis,ONLY:ISORIENTED
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -73,7 +69,6 @@ CHARACTER(LEN=*),INTENT(IN)    :: FileString  ! ?
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-
 TYPE(tElem),POINTER            :: Elem  ! ?
 TYPE(tSide),POINTER            :: Side  ! ?
 INTEGER                        :: ElemID,SideID,NodeID  ! ?
@@ -355,7 +350,6 @@ USE MOD_Mesh_Vars,ONLY:tElem,tSide
 USE MOD_Mesh_Vars,ONLY:FirstElem
 USE MOD_Mesh_Vars,ONLY:N
 USE MOD_Mesh_Basis,ONLY:ISORIENTED
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -547,10 +541,9 @@ USE MOD_Mesh_Vars,ONLY:tElemPtr
 USE MOD_Mesh_Vars,ONLY:FirstElem
 USE MOD_Mesh_Vars,ONLY:MeshMode
 USE MOD_Mesh_Vars,ONLY:AdaptedMesh
-USE MOD_Output_Vars,ONLY:DebugVisu,dosortijk
+USE MOD_Output_Vars,ONLY:DebugVisu,dosortijk,sfc_boundbox
 USE MOD_SpaceFillingCurve,ONLY:SortElemsBySpaceFillingCurve
 USE MOD_sortIJK,ONLY:SortElemsByCoords
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -583,7 +576,7 @@ IF((MeshMode.EQ.11).AND. (.NOT.AdaptedMesh))THEN
   ! for Meshmode=11: if no splitting was done, this is a structured single block, elem_IJK already defined
   CALL SortElemsBySpaceFillingCurve(nElems_in,REAL(Elem_IJK),IDList,1) !use IJK for space filling curve
 ELSE
-  CALL SortElemsBySpaceFillingCurve(nElems_in,ElemBary,IDList,2)
+  CALL SortElemsBySpaceFillingCurve(nElems_in,ElemBary,IDList,sfc_boundbox)
 END IF
 
 NULLIFY(Elems(IDlist(1))%ep%prevElem)
@@ -592,6 +585,7 @@ DO ElemID=2,nElems_in
   Elems(IDlist(ElemID-1))%ep%nextElem=>Elems(IDList(ElemID))%ep
   Elems(IDlist(ElemID))%ep%prevElem  =>Elems(IDList(ElemID-1))%ep
 END DO
+
 IF(DebugVisu)THEN
   WRITE(*,*)'write space filling curve to sfc.dat'
   OPEN(UNIT=200,FILE='sfc.dat',STATUS='REPLACE')
@@ -628,7 +622,6 @@ SUBROUTINE WriteArrayToHDF5(Loc_ID,ArrayName,Rank,nVal,RealArray,IntegerArray,St
 ! Subroutine to write Data to HDF5 format (ONLY FOR SINGLE USE)
 !===================================================================================================================================
 ! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
