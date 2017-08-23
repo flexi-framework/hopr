@@ -425,7 +425,6 @@ USE MOD_Readin_CGNS
 USE MOD_Readin_Gambit
 USE MOD_Readin_GMSH
 USE MOD_Readin_HDF5
-USE MOD_Readin_HDF5_OLD
 USE MOD_Readin_ICEM
 USE MOD_Output_Vars,ONLY:useSpaceFillingCurve
 USE MOD_Output_HDF5,      ONLY: SpaceFillingCurve
@@ -455,9 +454,6 @@ NULLIFY(FirstElem)
 
 ! read mesh
 SELECT CASE (MeshMode)
-  CASE(-1)
-    CALL ReadMeshFromHDF5_OLD(MeshFileName(1)) ! meshfile
-    meshIsAlreadyCurved=.TRUE.
   CASE(0)
     CALL ReadMeshFromHDF5(MeshFileName(1),.TRUE.) ! meshfile
     meshIsAlreadyCurved=.TRUE.
