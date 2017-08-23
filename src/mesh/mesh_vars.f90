@@ -184,7 +184,10 @@ LOGICAL                        :: useBinary              ! read in special binar
 LOGICAL                        :: BugFix_ANSA_CGNS       ! for ANSA unstructured CGNS Ansa Files, to set Boundary Condition
                                                          ! PointList always to an ElementList, default is false
 LOGICAL                        :: MeshInitDone=.FALSE.
-LOGICAL                        :: checkElemJacobians     ! check if Jacobians are positiv over curved Elements 
+LOGICAL                        :: checkElemJacobians     ! check if Jacobians are positiv over curved Elements,default=.TRUE.! 
+INTEGER                        :: NegativeJacobians=0    ! counter for elements with scaledJac<jacobianTolerance 
+                                                         !after checkJacobians, this might be >0! 
+REAL                           :: jacobianTolerance      ! smallest value of jacobian permitted (e.g. 1.e-16)
 
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GEOMETRY
@@ -198,7 +201,6 @@ REAL                           :: MeshScale              ! scaling factor applie
 REAL                           :: SpaceQuandt            ! Characteristic length in the mesh. Used as tolerance 
 REAL                           :: minDX                  ! smallest edge length
 REAL                           :: maxDX(3)               ! Used for search mesh
-REAL                           :: jacobianTolerance      ! smallest value of jacobian permitted (e.g. 1.e-16)
 INTEGER                        :: nMeshElems    =0       ! number of elements in the mesh
 INTEGER                        :: nInnerSides   =0       ! number of unique innner sides in the mesh 
 INTEGER                        :: nConformingSides=0     ! number of unique innner sides in the mesh 

@@ -345,7 +345,7 @@ END SELECT
 ConformConnect=GETLOGICAL('ConformConnect','.TRUE.') ! Fast connect for conform mesh
 
 ! Elem Check
-checkElemJacobians=GETLOGICAL('checkElemJacobians','.FALSE.')
+checkElemJacobians=GETLOGICAL('checkElemJacobians','.TRUE.')
 jacobianTolerance=GETREAL('jacobianTolerance','1.E-16')
 
 
@@ -639,7 +639,7 @@ IF(DebugVisu) THEN
     IF(DebugVisuLevel.GE.2) CALL chkSpl_Vol()
   END IF
 END IF
-IF(useCurveds.AND.(checkElemJacobians.AND.MeshDim.EQ.3)) CALL CheckJacobians()
+IF(checkElemJacobians) CALL CheckJacobians()
 
 WRITE(UNIT_stdOut,*)
 WRITE(UNIT_stdOut,'(40X,A,F0.2,A)')'GOT mesh (incl. rasterfahndung) '
