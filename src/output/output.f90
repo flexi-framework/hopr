@@ -146,7 +146,7 @@ CHARACTER(LEN=255)             :: strOutputFile  ! ?
 SELECT CASE(OutputFormat)
 CASE(0) ! VTK Output Format
   strOutputFile=TRIM(FileName)//'.vtu'
-  CALL WriteDataToVTK(dim1,nVal,Nplot,nElems,VarNames,Coord,Values,strOutputFile)
+  CALL WriteDataToVTK(dim1,3,nVal,Nplot,nElems,VarNames,Coord,Values,strOutputFile)
 CASE(1) ! Tecplot ASCII Output
   strOutputFile=TRIM(Filename)//'.dat'
   CALL WriteDataToASCIITecplot(dim1,nVal,Nplot,nElems,VarNames,Coord,Values,strOutputFile)
