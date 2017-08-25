@@ -258,9 +258,8 @@ IF(useCurveds) THEN
   ! 2-n: first n layers from the boundary are curved
   nCurvedBoundaryLayers=GETINT('nCurvedBoundaryLayers','-1')
 
-  ! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
-  doRebuildMortarGeometry=GETLOGICAL('doRebuildMortarGeometry','.TRUE.')
 END IF !usecurveds
+
 BoundaryOrder=N+1
 
 ! Boundaries
@@ -333,19 +332,18 @@ SplitToHex=GETLOGICAL('SplitToHex','.FALSE.')   ! split all elements to hexa
 nFineHexa=GETINT('nFineHexa','1')               ! split all hexa by a factor 
 
 
+! for mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
+! does not work for periodic mortars, will be set true by default for postdeform!
+doRebuildMortarGeometry=GETLOGICAL('doRebuildMortarGeometry','.TRUE.')
+
 meshPostDeform=GETINT('MeshPostDeform','0')
-SELECT CASE(MeshPostDeform)
-CASE(0) !do nothing
-CASE(1,2) 
+IF(meshPostDeform.GT.0) THEN
+  PostDeform_useGL=GETLOGICAL('PostDeform_useGL','.TRUE.')
   PostDeform_R0=GETREAL('PostDeform_R0','1.')
   PostDeform_Lz=GETREAL('PostDeform_Lz','1.')
-  PostDeform_sq=GETINT('PostDeform_sq','0')
+  PostDeform_sq=GETREAL('PostDeform_sq','0.')
   PostDeform_Rtorus=GETREAL('PostDeform_Rtorus','-1.')
-CASE(30,31,32) ! cartbox [-1,1]^3 sin innercurved  
-CASE DEFAULT
-  CALL abort(__STAMP__,&
-             'This MeshPostDeform case is not implemented.',MeshPostDeform)
-END SELECT
+END IF !PostDeform
 
 ! Connect
 ConformConnect=GETLOGICAL('ConformConnect','.TRUE.') ! Fast connect for conform mesh
@@ -423,6 +421,7 @@ USE MOD_GlobalUniqueNodes,ONLY: GlobalUniqueNodes
 USE MOD_CartMesh,         ONLY: CartesianMesh
 USE MOD_CurvedCartMesh,   ONLY: CurvedCartesianMesh
 USE MOD_Mesh_Tools,       ONLY: CountSplines,Netvisu,BCvisu,chkspl_surf,chkspl_vol
+USE MOD_Mesh_Tools,       ONLY: CheckMortarWaterTight
 USE MOD_Mesh_PostDeform,  ONLY: PostDeform
 USE MOD_Output_HDF5,      ONLY: WriteMeshToHDF5
 USE MOD_Mesh_Jacobians,   ONLY: CheckJacobians
@@ -447,6 +446,7 @@ IMPLICIT NONE
 TYPE(tElem),POINTER :: Elem  ! ?
 TYPE(tSide),POINTER :: Side    ! ?
 LOGICAL             :: curvedFound  ! ?
+INTEGER             :: iElem  ! ?
 !===================================================================================================================================
 CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("="))')
@@ -505,11 +505,28 @@ IF(nFineHexa.GT.1) THEN
   AdaptedMesh=.TRUE.
 END IF
 
-! Set local and global mesh maxDX (will be used in ALL following searchmeshes unless redefined)
-maxDX=0.
+! Count elements 
+nMeshElems=0
 Elem=>FirstElem
 DO WHILE (ASSOCIATED(Elem))
-  Side=>Elem%firstSide
+  nMeshElems=nMeshElems+1
+  Elem=>Elem%nextElem
+END DO
+WRITE(UNIT_stdOut,*)'Number of Elements: ',nMeshElems
+ALLOCATE(Elems(nMeshElems))
+iElem=0
+Elem=>FirstElem
+DO WHILE(ASSOCIATED(Elem))
+  iElem=iElem+1
+  Elems(iElem)%ep=>Elem
+  Elem%ind=iElem
+  Elem=>Elem%nextElem
+END DO
+
+! Set local and global mesh maxDX (will be used in ALL following searchmeshes unless redefined)
+maxDX=0.
+DO iElem=1,nMeshElems
+  Side=>Elems(iElem)%ep%firstSide
   DO WHILE(ASSOCIATED(Side))
     !determine local max dx
     maxDX=MAX(maxDX,ABS(Side%Node(2)%np%x-Side%Node(1)%np%x))
@@ -518,19 +535,7 @@ DO WHILE (ASSOCIATED(Elem))
     IF(Side%nNodes.EQ.4) maxDX=MAX(maxDX,ABS(Side%Node(4)%np%x-Side%Node(3)%np%x))
     Side=>Side%nextElemSide
   END DO
-  Elem=>Elem%nextElem
-END DO
-
-! Count elements 
-nMeshElems=0
-Elem=>FirstElem
-DO WHILE(ASSOCIATED(Elem))
-  nMeshElems=nMeshElems+1
-  Elem%ind=nMeshElems
-  Elem=>Elem%nextElem
-END DO
-WRITE(UNIT_stdOut,*)'Number of Elements: ',nMeshElems
-
+END DO !iElem
 
 ! WRITE some visualization, build connectivity and build edge data structure
 IF(DebugVisu)THEN
@@ -549,15 +554,13 @@ CALL buildEdges()
 
 ! check if sides to be curved exist
 curvedFound=.FALSE.
-Elem=>FirstElem
-DO WHILE(ASSOCIATED(Elem))
-  Side=>Elem%firstSide
+DO iElem=1,nMeshElems
+  Side=>Elems(iElem)%ep%firstSide
   DO WHILE(ASSOCIATED(Side))
     IF(Side%curveIndex.GT.0) curvedFound=.TRUE.
     Side=>Side%nextElemSide
   END DO
-  Elem=>Elem%nextElem
-END DO
+END DO !iElem
 IF(.NOT.curvedFound) curvingMethod=-1
 
 IF(useCurveds)THEN
@@ -616,6 +619,16 @@ END IF ! useCurveds
 ! make all nodes unique
 CALL GlobalUniqueNodes(.TRUE.)
 
+! check if sides with mortars exist
+mortarFound=.FALSE.
+DO iElem=1,nMeshElems
+  Side=>Elems(iElem)%ep%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    IF(Side%MortarType.GT.0) mortarFound=.TRUE.
+    Side=>Side%nextElemSide
+  END DO
+END DO !iElem
+
 IF(doExactSurfProjection) CALL ProjectToExactSurfaces()
 ! get element types
 CALL FindElemTypes()
@@ -632,8 +645,11 @@ END IF
 
 CALL PostDeform()
 
-IF(useCurveds.AND.doRebuildMortarGeometry) CALL RebuildMortarGeometry()
-
+IF(mortarFound) THEN
+  IF(doRebuildMortarGeometry) CALL RebuildMortarGeometry()
+  !after rebuild , mortars should be fine, but checking is better:
+  CALL CheckMortarWaterTight()
+END IF !mortarFound
 
 ! apply meshscale before output (default)
 IF(doScale.AND.postScale) CALL ApplyMeshScale(FirstElem)

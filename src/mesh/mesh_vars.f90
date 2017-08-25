@@ -215,6 +215,7 @@ INTEGER                        :: TypeIndex_surf(4)      ! typeIndex_surf(nNodes
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! MORTAR VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
+LOGICAL             :: MortarFound            ! from checking all sides in fillmesh, if they have associated mortars.
 INTEGER             :: MortarMesh             ! 0: conforming, 1: non-conforming octree based
 INTEGER             :: nNonconformingSides    ! number of small and big mortar sides
 ! MoratarMesh==1
@@ -313,12 +314,13 @@ LOGICAL                        :: OrientZ
 ! Post deformation functions deform a domain (typically [-1,1]^3) to arbirary other domain
 !-----------------------------------------------------------------------------------------------------------------------------------
 INTEGER                        :: MeshPostDeform ! Function index (off: 0) 
+LOGICAL                        :: PostDeform_useGL
 REAL                           :: PostDeform_R0  
 REAL                           :: PostDeform_Lz  
-INTEGER                        :: PostDeform_sq  
+REAL                           :: PostDeform_sq  
 REAL                           :: PostDeform_Rtorus  
-                                                      ! 2: non-conforming arbitrary
 
+TYPE(tElemPtr),POINTER         :: Elems(:)
 ! INTERFACES -----------------------------------------------------------------------------------------------------------------------
 INTERFACE getNewElem
   MODULE PROCEDURE getNewElem
