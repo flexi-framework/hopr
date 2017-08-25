@@ -74,6 +74,10 @@ INTERFACE isOriented
    MODULE PROCEDURE isOriented
 END INTERFACE
 
+INTERFACE getFlip
+   MODULE PROCEDURE getFlip
+END INTERFACE
+
 INTERFACE PACKGEO
    MODULE PROCEDURE PACK1D
    MODULE PROCEDURE PACK2D
@@ -96,6 +100,7 @@ PUBLIC::BuildEdges
 PUBLIC::FlushMesh
 PUBLIC::assignBC
 PUBLIC::isOriented
+PUBLIC::getFlip
 PUBLIC::FindElemTypes
 PUBLIC::PackGeo
 PUBLIC::UnpackGeo
@@ -735,9 +740,19 @@ DO WHILE(ASSOCIATED(aElem))
         CYCLE
       END IF
     END IF
+
+    ! check all edges of a side
     DO iEdge=1,aSide%nNodes
       aEdge=>aSide%Edge(iEdge)%edp
-      IF(ASSOCIATED(aEdge%MortarEdge)) CYCLE
+      IF(ASSOCIATED(aEdge%MortarEdge)) CYCLE ! already built
+
+      ! search for all small edges that share at least one node with big edge
+      ! 0-2 edges found: this should NEVER happen
+      ! 3   edges found: the conforming case, occurring for the non-mortar edges of 2 -> 1 side mortars: ignore
+      ! 4   edges found: the one we search for and the only case which should occur, if we're using 4 -> mortars.
+      !                Two of these small edges belong to the mortar.
+      ! >4  edges found: this should NEVER happen
+
       indA(1)=aEdge%Node(1)%np%ind
       indA(2)=aEdge%Node(2)%np%ind
       edgeCount=0
@@ -754,11 +769,13 @@ DO WHILE(ASSOCIATED(aElem))
           END IF
         END DO
       END DO
+
       IF(edgeCount.EQ.3) CYCLE
       IF(edgeCount.NE.4) THEN
         STOP 'Mismatch of neighbour edge count of non-conforming edges.'
       END IF
 
+      ! now select the 2 edges of the found 4 edges, sharing a common node
       DO jEdge=1,3
         DO kEdge=jEdge+1,4
           IF(ANY(indB(1,jEdge).EQ.indB(:,kEdge)).OR.ANY(indB(2,jEdge).EQ.indB(:,kEdge)))THEN
@@ -863,6 +880,38 @@ IF ((ASSOCIATED(Side%Node(1)%np, Side%orientedNode(1)%np)) .AND. &
       isOriented=.TRUE.
 END IF
 END FUNCTION isOriented
+
+
+FUNCTION getFlip(Side)
+!===================================================================================================================================
+! Get flip of side
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars,ONLY:tSide
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+TYPE(tSide),POINTER,INTENT(IN) :: Side         ! ? 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+INTEGER                        :: getFlip   ! ? 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+INTEGER                        :: i
+!===================================================================================================================================
+getFlip=-1
+IF(isOriented(Side))THEN !oriented side
+  getFlip=0
+ELSE !not oriented
+  DO i=1,Side%nNodes
+    IF(ASSOCIATED(Side%Node(i)%np,Side%OrientedNode(1)%np))THEN
+      getFlip=i 
+      EXIT
+    END IF
+  END DO
+END IF
+END FUNCTION getFlip
+
 
 SUBROUTINE Pack1D(Ngeo,edge,data_out) 
 !===================================================================================================================================
