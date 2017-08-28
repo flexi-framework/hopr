@@ -727,6 +727,7 @@ REAL                            :: xGeoSide(3,0:N,0:N),xGeoSide2(3,0:N,0:N),XChe
 REAL                            :: NsurfBig(3),NsurfSmall(3,4)
 REAL                            :: NsurfErr,MaxNsurfErr
 INTEGER                         :: waterTight,nMortars
+LOGICAL                         :: fail
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'CHECK IF MORTARS ARE WATERTIGHT...'
@@ -813,12 +814,13 @@ DO WHILE(ASSOCIATED(Elem))
           ELSE
             master=>Side%connection; slave=>Side
           END IF
-          flip=getFlip(slave)
+          flip=getFlip(master)
 
           CALL PackGeo(N,master,XgeoSide)
           CALL PackGeo(N,slave ,XgeoSide2)
           ! In case of periodic BCs always add displacement vector. Pay attention to direction!
           dir=1.*SIGN(1,master%BC%BCalphaInd)
+          fail=.FALSE.
           DO q=0,N; DO p=0,N
             XCheck=XGeoSide(:,p,q) + dir*VV(:,ABS(Side%BC%BCalphaInd))
             SELECT CASE(flip)
@@ -834,16 +836,20 @@ DO WHILE(ASSOCIATED(Elem))
               pf=p; qf=N-q;
             END SELECT  
 
-            IF ( .NOT.SAMEPOINT(XCheck,XGeoSide(:,pf,qf)) ) THEN
-              ERRWRITE(*,*) &
-                       '================> Periodic connection is not watertight! Error: ',ABS(XGeoSide(:,p,q)-XGeoSide2(:,p,q))
-              ERRWRITE(*,*)'   P1: ', Side%OrientedNode(1)%np%x
-              ERRWRITE(*,*)'   P2: ', Side%OrientedNode(2)%np%x
-              ERRWRITE(*,*)'   P3: ', Side%OrientedNode(3)%np%x
-              ERRWRITE(*,*)'   P4: ', Side%OrientedNode(4)%np%x
-              WaterTight=WaterTight+1
+            IF ( .NOT.SAMEPOINT(XCheck,XGeoSide2(:,pf,qf)) )THEN
+              fail=.TRUE.
+              EXIT
             END IF
           END DO; END DO
+          IF(fail)THEN
+            ERRWRITE(*,*) &
+                     '================> Periodic connection is not watertight! Error: ',ABS(XCheck-XGeoSide2(:,pf,qf))
+            ERRWRITE(*,*)'   P1: ', Side%OrientedNode(1)%np%x
+            ERRWRITE(*,*)'   P2: ', Side%OrientedNode(2)%np%x
+            ERRWRITE(*,*)'   P3: ', Side%OrientedNode(3)%np%x
+            ERRWRITE(*,*)'   P4: ', Side%OrientedNode(4)%np%x
+            WaterTight=WaterTight+1
+          END IF
         END IF
       END IF
 
