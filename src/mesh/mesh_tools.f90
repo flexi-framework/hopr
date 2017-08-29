@@ -723,7 +723,7 @@ INTEGER                         :: p,q,N_GP
 INTEGER                         :: flip,pf,qf
 REAL                            :: xEq(0:N),wBaryEq(0:N),dir
 REAL,ALLOCATABLE                :: xGP(:),wGP(:),DGP(:,:),VdmEqToGP(:,:)
-REAL                            :: xGeoSide(3,0:N,0:N),xGeoSide2(3,0:N,0:N),XCheck(3)
+REAL                            :: xGeoSide(3,0:N,0:N),xGeoSide2(3,0:N,0:N),XCheck(3),vec(3)
 REAL                            :: NsurfBig(3),NsurfSmall(3,4)
 REAL                            :: NsurfErr,MaxNsurfErr
 INTEGER                         :: waterTight,nMortars
@@ -818,11 +818,18 @@ DO WHILE(ASSOCIATED(Elem))
 
           CALL PackGeo(N,master,XgeoSide)
           CALL PackGeo(N,slave ,XgeoSide2)
-          ! In case of periodic BCs always add displacement vector. Pay attention to direction!
-          dir=1.*SIGN(1,master%BC%BCalphaInd)
+
+          ! Compute periodic displacement of barycenters (cannot rely on VV, in case postdeform is used)
+          DO p=1,3
+            vec(p) = SUM(XgeoSide2(p,:,:)-XGeoSide(p,:,:))/(N+1)**2
+          END DO
+
+          !! In case of periodic BCs always add displacement vector. Pay attention to direction!
+          !dir=1.*SIGN(1,master%BC%BCalphaInd)
+          !vec=dir*VV(:,ABS(Side%BC%BCalphaInd))
+
           fail=.FALSE.
           DO q=0,N; DO p=0,N
-            XCheck=XGeoSide(:,p,q) + dir*VV(:,ABS(Side%BC%BCalphaInd))
             SELECT CASE(flip)
             CASE(0)
               pf=p; qf=q;
@@ -836,7 +843,14 @@ DO WHILE(ASSOCIATED(Elem))
               pf=p; qf=N-q;
             END SELECT  
 
+            XCheck=XGeoSide(:,p,q) + vec
+
+
             IF ( .NOT.SAMEPOINT(XCheck,XGeoSide2(:,pf,qf)) )THEN
+              print*,'---------------'
+              print*,Xcheck
+              print*,XGeoSide(:,pf,qf)
+              print*,XGeoSide2(:,pf,qf)
               fail=.TRUE.
               EXIT
             END IF
