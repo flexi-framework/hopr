@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -302,6 +303,8 @@ LOGICAL                        :: zPeriodic
 LOGICAL                        :: AdaptedMesh=.FALSE.    ! set to true if using splitToHex, nFineHexa  
 LOGICAL                        :: SplitToHex             ! split all elements to hexas (works only for tetra,prism and hex) 
 INTEGER                        :: nFineHexa              ! split all hexa mesh. nFineHexa=2-> 8 Elems nFineHexa=3 -> 27 Elems...
+INTEGER                        :: nSplitBoxes
+REAL,ALLOCATABLE               :: SplitBoxes(:,:,:)      ! (1:3,1,i) xmin, (1:3,2,i) xmax, i split boxes
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! exact surface projection 
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -314,12 +317,12 @@ LOGICAL                        :: OrientZ
 ! Post deformation functions deform a domain (typically [-1,1]^3) to arbirary other domain
 !-----------------------------------------------------------------------------------------------------------------------------------
 INTEGER                        :: MeshPostDeform ! Function index (off: 0) 
+INTEGER                        :: PostConnect
 LOGICAL                        :: PostDeform_useGL
 REAL                           :: PostDeform_R0  
 REAL                           :: PostDeform_Lz  
 REAL                           :: PostDeform_sq  
 REAL                           :: PostDeform_Rtorus  
-
 TYPE(tElemPtr),POINTER         :: Elems(:)
 ! INTERFACES -----------------------------------------------------------------------------------------------------------------------
 INTERFACE getNewElem

@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -75,6 +76,7 @@ INTEGER                        :: ElemID,SideID,NodeID  ! ?
 INTEGER                        :: locnSides
 INTEGER                        :: iNode,i,iMortar
 LOGICAL                        :: found
+CHARACTER(LEN=26)              :: ElemTypeName(1:11)
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(132("~"))')
 CALL Timer(.TRUE.)
@@ -321,11 +323,30 @@ CALL WriteArrayToHDF5(File_ID,'ElemWeight',1,(/nElems/),RealArray=ElemWeight)
 DEALLOCATE(ElemWeight)
 
 CALL WriteArrayToHDF5(File_ID,'ElemCounter',2,(/2,11/),IntegerArray=ElemCounter)
-WRITE(*,*)'Mesh statistics:'
-WRITE(*,*)'Element Type | number of elements'
+!WRITE(*,'(A)')'Mesh statistics:'
+WRITE(*,'(A40)')   &
+        '    ____________________________________'
+WRITE(*,'(A40)') &
+        '    #elements  .......... of type:      '
+WRITE(*,'(A40)')   &
+        '    ------------------------------------'
+ElemTypeName(1:11)= (/' straight-edge Tetrahedra ', &
+                      '        curved Tetrahedra ', &
+                      '  planar-faced Prisms     ', &
+                      ' straight-edge Prisms     ', &
+                      '        curved Prisms     ', &
+                      '  planar-faced Pyramids   ', &
+                      ' straight-edge Pyramids   ', &
+                      '        curved Pyramids   ', &
+                      '  planar-faced Hexahedra  ', &
+                      ' straight-edge Hexahedra  ', &
+                      '        curved Hexahedra  '/)
 DO i=1,11
-  WRITE(*,'(I4,A,I8)') Elemcounter(1,i),'        | ',Elemcounter(2,i)
-END DO
+IF(ElemCounter(2,i).GT.0) &
+  WRITE(*,'(A4,I9,A26)')'    ',Elemcounter(2, i),ElemTypeName(i)
+END DO !i=1,11
+WRITE(*,'(A40)')   &
+        '    ____________________________________'
 
 IF(dosortIJK)THEN
   ! WRITE element ijk index (for postprocessing of structured/semistructured domains)
@@ -585,7 +606,9 @@ DO ElemID=2,nElems_in
   Elems(IDlist(ElemID-1))%ep%nextElem=>Elems(IDList(ElemID))%ep
   Elems(IDlist(ElemID))%ep%prevElem  =>Elems(IDList(ElemID-1))%ep
 END DO
-
+DO ElemID=1,nElems_in 
+  Elems(IDlist(ElemID))%ep%ind=ElemID
+END DO
 IF(DebugVisu)THEN
   WRITE(*,*)'write space filling curve to sfc.dat'
   OPEN(UNIT=200,FILE='sfc.dat',STATUS='REPLACE')

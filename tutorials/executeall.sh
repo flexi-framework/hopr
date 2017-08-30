@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ -z "$1" ]; then
-  HOPREXEC=$(readlink -f ../bin/hopr)
+  HOPREXEC=$(readlink -f ../build/bin/hopr)
 else
   HOPREXEC=$(readlink -f "$1")
 fi
@@ -27,7 +27,7 @@ do
     if [ $tmp != 0 ]; then
       success=$tmp
     fi
-    tail -n 4  $outfile
+    tail -n 10  $outfile
   done
   cd ..
 done

@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -65,7 +66,7 @@ SUBROUTINE SortElemsBySpaceFillingCurve(nElems,ElemBary,IDList,whichBoundBox)
 ! ?
 !===================================================================================================================================
 ! MODULES
-USE MOD_Globals,ONLY:UNIT_stdOut
+USE MOD_Globals,ONLY:UNIT_stdOut,Timer
 USE MOD_Basis1D,ONLY:ALMOSTEQUAL
 USE MOD_SortingTools,ONLY:Qsort1DoubleInt1Pint
 IMPLICIT NONE
@@ -87,6 +88,8 @@ REAL       :: upper(3)  ! ?
 INTEGER    :: iElem,i  ! ?
 INTEGER(KIND=8) :: IntList(nElems)  ! ?
 !===================================================================================================================================
+CALL Timer(.TRUE.)
+WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A,A,A)')'SORT ELEMENTS ON SPACE FILLING CURVE, TYPE ',TRIM(sfc_type),' ...'
 IF(nElems.GT.1)THEN
   ! Determine extreme verticies for bounding box
@@ -119,7 +122,7 @@ IF(nElems.GT.1)THEN
 ELSE
   IDList=1
 END IF  
-WRITE(UNIT_stdOut,'(A)')'... DONE'
+CALL Timer(.FALSE.)
 END SUBROUTINE SortElemsBySpaceFillingCurve
 
 

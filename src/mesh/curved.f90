@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -552,7 +553,6 @@ CALL deleteSearchMesh(searchMesh)
 DEALLOCATE(mergedFaces,sameFaces,faceConnectivity,aNormals)
 LOGWRITE(UNIT_stdOut,*)'All normals have been assigned successfully!'
 CALL Timer(.FALSE.)
-WRITE(UNIT_stdOut,'(132("~"))')
 END SUBROUTINE readNormals
 
 SUBROUTINE checkNormals()
@@ -653,6 +653,7 @@ INTEGER                   :: iNode,nn  ! ?
 INTEGER                   :: prev1(4,3:4),next1(4,3:4)
 REAL                      :: v1(3),v2(3)  ! ?
 !===================================================================================================================================
+CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'RECONSTRUCT NORMALS ... '
 
@@ -729,7 +730,7 @@ DO WHILE(ASSOCIATED(aElem))
   aElem=>aElem%nextElem
 END DO
 
-WRITE(UNIT_stdOut,'(132("~"))')
+CALL Timer(.FALSE.)
 END SUBROUTINE reconstructNormals
 
 
@@ -1435,7 +1436,6 @@ END DO
 maxDist=SQRT(maxDist)
 WRITE(UNIT_stdOut,'(A,E11.4)')'maximum distance of projection points: ',maxDist
 CALL Timer(.FALSE.)
-WRITE(UNIT_stdOut,'(132("~"))')
 END SUBROUTINE ProjectToExactSurfaces
 
 SUBROUTINE exactSurfaceFunction(xold,exactFunction,xnew)
@@ -1530,6 +1530,7 @@ INTEGER                   :: i  ! ?
 REAL                      :: v(3,2)  ! ?
 INTEGER                   :: normalCaseCount(2)  ! ?
 !===================================================================================================================================
+CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'CREATE CURVED EDGES FROM NORMALS ... '
 
@@ -1571,6 +1572,7 @@ IF (SUM(normalCaseCount) .GT. 0)  THEN
   ERRWRITE(UNIT_stdOut,*)'Tangent calculation by cross product:',normalCaseCount(2)
 END IF
 
+CALL Timer(.FALSE.)
 END SUBROUTINE create3DSplines
 
 
@@ -2062,7 +2064,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 TYPE(tElem),POINTER       :: Elem  ! ?
-!-----------------------------------------------------------------------------------------------------------------------------------
+!===================================================================================================================================
 !RETURN !DEBUG
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,*)'CREATING CURVED ELEMENTS FROM CURVED SURFACES ...'
