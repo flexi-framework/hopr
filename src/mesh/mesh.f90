@@ -335,6 +335,12 @@ END IF
 SplitToHex=GETLOGICAL('SplitToHex','.FALSE.')   ! split all elements to hexa
 nFineHexa=GETINT('nFineHexa','1')               ! split all hexa by a factor 
 
+nSplitBoxes=CNTSTR('SplitBox','0')
+ALLOCATE(SplitBoxes(3,2,nSplitBoxes))
+DO i=1,nSplitBoxes
+  SplitBoxes(:,:,i)=RESHAPE(GETREALARRAY('SplitBox',6),(/3,2/))
+END DO !nSplitBoxes
+
 
 ! for mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
 ! does not work for periodic mortars, will be set true by default for postdeform!
@@ -418,7 +424,7 @@ USE MOD_Readin_ICEM
 USE MOD_Readin_SpecMesh2D
 USE MOD_zcorrection,      ONLY: zcorrection
 USE MOD_zcorrection,      ONLY: OrientElemsToZ
-USE MOD_SplitToHex,       ONLY: SplitElementsToHex,SplitAllHexa
+USE MOD_SplitToHex,       ONLY: SplitElementsToHex,SplitAllHexa,SplitHexaByBoxes
 USE MOD_Output_Vars,      ONLY: DebugVisu,DebugVisuLevel
 USE MOD_Curved,           ONLY: SplitToSpline,ReconstructNormals,getExactNormals,deleteDuplicateNormals,readNormals
 USE MOD_Curved,           ONLY: create3dSplines,curvedEdgesToSurf,curvedSurfacesToElem
@@ -510,6 +516,10 @@ IF(SplitToHex)     THEN
 END IF
 IF(nFineHexa.GT.1) THEN
   CALL SplitAllHexa(nFineHexa)
+  AdaptedMesh=.TRUE.
+END IF
+IF(nSplitBoxes.GT.0) THEN
+  CALL SplitHexaByBoxes()
   AdaptedMesh=.TRUE.
 END IF
 

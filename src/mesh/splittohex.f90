@@ -44,7 +44,11 @@ INTERFACE SplitAllHexa
   MODULE PROCEDURE SplitAllHexa
 END INTERFACE
 
-PUBLIC:: SplitElementsToHex,SplitAllHexa
+INTERFACE SplitHexaByBoxes
+  MODULE PROCEDURE SplitHexaByBoxes
+END INTERFACE
+
+PUBLIC:: SplitElementsToHex,SplitAllHexa,SplitHexaByBoxes
 !===================================================================================================================================
 
 CONTAINS
@@ -101,6 +105,74 @@ DO WHILE(ASSOCIATED(Elem))
 END DO
 CALL Timer(.FALSE.)
 END SUBROUTINE SplitAllHexa
+
+SUBROUTINE SplitHexaByBoxes()
+!===================================================================================================================================
+! call routines to split only hexas with its barycenter within a splitbox. next splitbox is applied on top
+!===================================================================================================================================
+! MODULES
+USE MOD_Globals
+USE MOD_Mesh_Vars, ONLY:tElem,FirstElem
+USE MOD_Mesh_Vars, ONLY:useCurveds
+USE MOD_Mesh_Vars, ONLY:nSplitBoxes,SplitBoxes
+USE MOD_Mesh_Basis,ONLY:ElemGeometry
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+TYPE(tElem),POINTER           :: Elem  
+INTEGER                       :: maxInd,ii,iBox 
+REAL                          :: xBary(3)
+!===================================================================================================================================
+CALL Timer(.TRUE.)
+WRITE(UNIT_stdOut,'(132("~"))')
+WRITE(UNIT_stdOut,'(A,I8,A)')' SPLIT HEXA BY SPLITBOXES ...'
+IF(useCurveds) CALL abort(__STAMP__, &
+          'SplitAllHex cannot be used with curved elements up to now!')
+
+!check first if all elements are hexa
+Elem=>firstElem      !get maxInd of nodes
+DO WHILE(ASSOCIATED(Elem))
+  IF(Elem%nNodes .NE. 8) THEN
+     WRITE(*,*)'non-hexaheral element found, nNodes= ',Elem%nNodes
+     WRITE(*,*)' ===>> NO SPLITBOX APPLIED!!!'
+     WRITE(UNIT_stdOut,*)'...DONE!'
+     RETURN
+  END IF
+  Elem=>Elem%nextElem
+ENDDO
+DO iBox=1,nSplitBoxes
+  ASSOCIATE(xmin=>SplitBoxes(:,1,iBox),xmax=>SplitBoxes(:,2,iBox))
+  maxInd=0
+  Elem=>firstElem      !get maxInd of nodes
+  DO WHILE(ASSOCIATED(Elem))
+    DO ii=1,Elem%nNodes
+      IF(Elem%node(ii)%np%ind.GT.maxInd) maxInd=Elem%node(ii)%np%ind 
+    END DO
+    Elem=>Elem%nextElem
+  ENDDO
+  Elem=>firstElem
+  DO WHILE(ASSOCIATED(Elem))
+    xBary=0.
+    DO ii=1,Elem%nNodes
+      xBary=xBary+Elem%Node(ii)%np%x
+    END DO
+    xBary=xBary/REAL(Elem%nNodes)
+    IF(     ((xBary(1).GT.xmin(1)).AND.(xBary(1).LT.xmax(1))) &
+       .AND.((xBary(2).GT.xmin(2)).AND.(xBary(2).LT.xmax(2))) &
+       .AND.((xBary(3).GT.xmin(3)).AND.(xBary(3).LT.xmax(3))) )THEN
+      CALL SplitHexa8(Elem,2,maxInd)
+    END IF
+    Elem=>Elem%nextElem
+  END DO
+  END ASSOCIATE !xmin,xmax
+END DO !iBox
+CALL Timer(.FALSE.)
+END SUBROUTINE SplitHexaByBoxes
 
 SUBROUTINE SplitElementsToHex()
 !===================================================================================================================================

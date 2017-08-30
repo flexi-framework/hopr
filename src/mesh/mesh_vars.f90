@@ -303,6 +303,8 @@ LOGICAL                        :: zPeriodic
 LOGICAL                        :: AdaptedMesh=.FALSE.    ! set to true if using splitToHex, nFineHexa  
 LOGICAL                        :: SplitToHex             ! split all elements to hexas (works only for tetra,prism and hex) 
 INTEGER                        :: nFineHexa              ! split all hexa mesh. nFineHexa=2-> 8 Elems nFineHexa=3 -> 27 Elems...
+INTEGER                        :: nSplitBoxes
+REAL,ALLOCATABLE               :: SplitBoxes(:,:,:)      ! (1:3,1,i) xmin, (1:3,2,i) xmax, i split boxes
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! exact surface projection 
 !-----------------------------------------------------------------------------------------------------------------------------------
