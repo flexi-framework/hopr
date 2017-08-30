@@ -59,7 +59,7 @@ SUBROUTINE SortElemsByCoords(nElems,ElemBary,nElems_IJK,Elem_IJK)
 ! and 2.5D unstructured mesh for example (1:nElems/nz,1,1:nz) and fully structured domains have (1:nElems/ny/nz,1:ny,1:nz) 
 !===================================================================================================================================
 ! MODULES
-USE MOD_globals
+USE MOD_globals,ONLY:UNIT_stdOut,Timer
 USE MOD_Output_Vars,ONLY:DebugVisu
 USE MOD_Mesh_Vars,ONLY:SpaceQuandt
 USE MOD_SortingTools,ONLY:Qsort1DoubleInt1Pint

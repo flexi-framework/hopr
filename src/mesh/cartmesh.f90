@@ -59,7 +59,11 @@ INTERFACE CartesianMesh
   MODULE PROCEDURE CartesianMesh
 END INTERFACE
 
-PUBLIC::CartesianMesh
+INTERFACE GetNewHexahedron
+  MODULE PROCEDURE GetNewHexahedron
+END INTERFACE
+
+PUBLIC::CartesianMesh, GetNewHexahedron
 !===================================================================================================================================
 
 CONTAINS
@@ -428,6 +432,45 @@ NULLIFY(aElem)
 END SUBROUTINE GetNewPrism
 
 
+SUBROUTINE GetNewHexahedron(CornerNode)
+!===================================================================================================================================
+! Build new hexahedron for cartesian mesh.
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars,ONLY:tNodePtr,tElem
+USE MOD_Mesh_Vars,ONLY:FirstElem
+USE MOD_Mesh_Vars,ONLY:getNewElem
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+TYPE(tNodePtr),INTENT(IN)                  :: CornerNode(8)  ! ?
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+TYPE(tElem),POINTER             :: aElem   ! ?
+INTEGER                         :: i  ! ?
+!===================================================================================================================================
+CALL getNewElem(aElem)
+aElem%nNodes=8
+ALLOCATE(aElem%Node(aElem%nNodes))
+DO i=1,8
+  aElem%Node(i)%NP=>CornerNode(i)%NP
+END DO
+
+! Add elements to list
+IF(.NOT.ASSOCIATED(FirstElem))THEN
+  FirstElem=>aElem
+ELSE
+  aElem%nextElem          => FirstElem
+  aElem%nextElem%prevElem => aElem
+  FirstElem          => aElem
+END IF
+NULLIFY(aElem)
+END SUBROUTINE GetNewHexahedron
+
+
 SUBROUTINE CartesianMesh()
 !===================================================================================================================================
 ! Builds cartesian mesh. Called by fillMesh.
@@ -438,10 +481,9 @@ USE MOD_Mesh_Vars,ONLY:FirstElem
 USE MOD_Mesh_Vars,ONLY:nZones,BoundaryType
 USE MOD_Mesh_Vars,ONLY:getNewSide,getNewNode,getNewBC
 USE MOD_Mesh_Vars,ONLY:deleteSide,deleteNode
-USE MOD_Mesh_Vars,ONLY:BoundaryOrder,InnerElemStretch
-USE MOD_Mesh_Basis,ONLY:getNewHexahedron,GetNewCurvedHexahedron
+USE MOD_Mesh_Vars,ONLY:InnerElemStretch,BoundaryOrder
 USE MOD_Mesh_Basis,ONLY:CreateSides
-! IMPLICIT VARIABLE HANDLING
+USE MOD_CurvedCartMesh,ONLY:GetNewCurvedHexahedron
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -455,7 +497,6 @@ IMPLICIT NONE
 ! CartMesh%BCalphaInd            : Boundary vector index for periodic zone boundaries
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-!   
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 TYPE(tCartesianMesh),POINTER :: CartMesh  ! ?
@@ -558,18 +599,18 @@ DO iZone=1,nZones
     WRITE(UNIT_stdOut,formatstr) '      -factor(:) : ', fac(:)
   END IF
 
-  IF(InnerElemStretch)THEN 
+  IF(InnerElemStretch.AND.CartMesh%ElemType.EQ.108)THEN
     Ngeo=BoundaryOrder-1
     ALLOCATE(CurvedNode(0:Ngeo,0:Ngeo,0:Ngeo))
   ELSE
     Ngeo=1
   END IF
-  ! The low / up stuff is a remainder of the mpi version and could be replaced...
-  ne(:) =CartMesh%nElems*Ngeo
+
+  ne=CartMesh%nElems*Ngeo
   ALLOCATE(Mnodes(0:ne(1),0:ne(2),0:ne(3)))
   Co=CartMesh%Corner
   !recompute factor for high order mesh
-  fac(:)=fac(:)**(1./REAL(Ngeo))
+  IF(Ngeo.NE.1) fac=fac**(1./REAL(Ngeo))
   DO i_dim=1,3
     IF(fac(i_dim).NE.1.)THEN
       dx(i_dim)=dx(i_dim)*(1.-fac(i_dim))/(1.-fac(i_dim)**Ngeo)
@@ -608,6 +649,7 @@ DO iZone=1,nZones
     dx(1)=dx(1)*fac(1)
     x1(1)=x1(1)+dx(1)
   END DO
+
   DO l=0,ne(1)-1,Ngeo
     DO m=0,ne(2)-1,Ngeo
       DO n=0,ne(3)-1,Ngeo
@@ -621,7 +663,7 @@ DO iZone=1,nZones
         CornerNode(8)%np=>Mnodes(l     ,m+Ngeo,n+Ngeo)%np
         SELECT CASE(CartMesh%ElemType)
         CASE(104) ! Tetrahedron
-          CALL GetNewTetrahedron(CornerNode,CartMesh,l,m,n,ind=NodeInd)
+          CALL GetNewTetrahedron(CornerNode,CartMesh,l+1,m+1,n+1,ind=NodeInd)
         CASE(105) ! Pyramid
           CALL GetNewPyramid(CornerNode)
         CASE(106) ! Dreiecks-prismon
@@ -633,7 +675,7 @@ DO iZone=1,nZones
             END DO; END DO; END DO; 
             CALL GetNewCurvedHexahedron(CurvedNode,Ngeo,iZone)
           ELSE 
-            CALL GetNewHexahedron(CornerNode,doCreateSides=.FALSE.)
+            CALL GetNewHexahedron(CornerNode)
           END IF
         CASE DEFAULT
           CALL abort(__STAMP__,&

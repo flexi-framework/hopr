@@ -28,14 +28,13 @@ MODULE MOD_Mesh_Basis
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
-! IMPLICIT VARIABLE HANDLING
+USE MOD_Mesh_Vars,ONLY:tEdge
 IMPLICIT NONE
 PRIVATE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
 !-----------------------------------------------------------------------------------------------------------------------------------
-! Private Part ---------------------------------------------------------------------------------------------------------------------
-! Public Part ----------------------------------------------------------------------------------------------------------------------
+
 INTERFACE ElemGeometry
   MODULE PROCEDURE ElemGeometry
 END INTERFACE
@@ -46,14 +45,6 @@ END INTERFACE
 
 INTERFACE getNewHexa
   MODULE PROCEDURE getNewHexa
-END INTERFACE
-
-INTERFACE GetNewHexahedron
-  MODULE PROCEDURE GetNewHexahedron
-END INTERFACE
-
-INTERFACE GetNewCurvedHexahedron
-  MODULE PROCEDURE GetNewCurvedHexahedron
 END INTERFACE
 
 INTERFACE CreateSides
@@ -84,6 +75,10 @@ INTERFACE isOriented
    MODULE PROCEDURE isOriented
 END INTERFACE
 
+INTERFACE getFlip
+   MODULE PROCEDURE getFlip
+END INTERFACE
+
 INTERFACE PACKGEO
    MODULE PROCEDURE PACK1D
    MODULE PROCEDURE PACK2D
@@ -99,8 +94,6 @@ END INTERFACE
 
 PUBLIC::ElemGeometry
 PUBLIC::getNewHexa
-PUBLIC::getNewHexahedron
-PUBLIC::getNewCurvedHexahedron
 PUBLIC::CreateSides
 !PUBLIC::AdjustOrientedNodes
 PUBLIC::GetBoundaryIndex
@@ -108,6 +101,7 @@ PUBLIC::BuildEdges
 PUBLIC::FlushMesh
 PUBLIC::assignBC
 PUBLIC::isOriented
+PUBLIC::getFlip
 PUBLIC::FindElemTypes
 PUBLIC::PackGeo
 PUBLIC::UnpackGeo
@@ -124,7 +118,6 @@ SUBROUTINE ElemGeometry(Elem,TrafoOpt,TrafoInvOpt)
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:tElem,tSide,tSidePtr,tBC,tNode,N,jacobianTolerance
 USE MOD_Basis_Vars,ONLY:TetraMapInv,PrismMapInv,PyraMapInv,HexaMapInv
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -248,7 +241,6 @@ SUBROUTINE INV33(M,MInv,detM)
 ! Computes the inverse of a 3x3 matrix
 !===================================================================================================================================
 ! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -299,7 +291,6 @@ SUBROUTINE FindElemTypes()
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:tElem,tSide,FirstElem
 USE MOD_Mesh_Tolerances,ONLY:SAMEPOINT
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -376,7 +367,6 @@ SUBROUTINE getNewHexa(Elem,zone,node1,node2,node3,node4,node5,node6,node7,node8)
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:getNewElem
 USE MOD_Mesh_Vars,ONLY:tElem,tNode
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -411,104 +401,6 @@ TYPE(tNode),POINTER,INTENT(IN)            :: node8   ! ?
 END SUBROUTINE getNewHexa
 
 
-SUBROUTINE GetNewHexahedron(CornerNode,doCreateSides)
-!===================================================================================================================================
-! Build new hexahedron for cartesian mesh.
-!===================================================================================================================================
-! MODULES
-USE MOD_Mesh_Vars,ONLY:tNodePtr,tElem
-USE MOD_Mesh_Vars,ONLY:FirstElem
-USE MOD_Mesh_Vars,ONLY:getNewElem
-! IMPLICIT VARIABLE HANDLING
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-TYPE(tNodePtr),INTENT(IN)                  :: CornerNode(8)  ! ?
-LOGICAL,INTENT(IN)                         :: doCreateSides
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-TYPE(tElem),POINTER             :: Elem   ! ?
-INTEGER                         :: i  ! ?
-!===================================================================================================================================
-CALL getNewElem(Elem)
-Elem%nNodes=8
-ALLOCATE(Elem%Node(Elem%nNodes))
-DO i=1,8
-  Elem%Node(i)%NP=>CornerNode(i)%NP
-END DO
-
-! Add elements to list
-IF(.NOT.ASSOCIATED(FirstElem))THEN
-  FirstElem=>Elem
-ELSE
-  Elem%nextElem          => FirstElem
-  Elem%nextElem%prevElem => Elem
-  FirstElem               => Elem
-END IF
-IF(doCreateSides) CALL CreateSides(Elem,.TRUE.)
-
-NULLIFY(Elem)
-END SUBROUTINE GetNewHexahedron
-
-
-SUBROUTINE GetNewCurvedHexahedron(CurvedNode,Ngeo,Zone)
-!===================================================================================================================================
-! Build new hexahedron for cartesian mesh.
-!===================================================================================================================================
-! MODULES
-USE MOD_Mesh_Vars,ONLY:tNodePtr,tElem
-USE MOD_Mesh_Vars,ONLY:FirstElem
-USE MOD_Mesh_Vars,ONLY:getNewElem
-USE MOD_Basis_Vars,ONLY:HexaMap
-! IMPLICIT VARIABLE HANDLING
-IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-INTEGER,INTENT(IN)              :: NGeo  ! ?
-INTEGER,INTENT(IN)              :: Zone  ! ?
-TYPE(tNodePtr),INTENT(IN)                  :: CurvedNode(0:Ngeo,0:NGeo,0:Ngeo)  ! ?
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-TYPE(tElem),POINTER             :: Elem   ! ?
-INTEGER                         :: i  ! ?
-!===================================================================================================================================
-CALL getNewElem(Elem)
-Elem%zone=Zone
-Elem%nNodes=8
-ALLOCATE(Elem%Node(Elem%nNodes))
-Elem%Node(1)%NP=>CurvedNode(   0,   0,   0)%NP
-Elem%Node(2)%NP=>CurvedNode(NGeo,   0,   0)%NP
-Elem%Node(3)%NP=>CurvedNode(NGeo,NGeo,   0)%NP
-Elem%Node(4)%NP=>CurvedNode(   0,NGeo,   0)%NP
-Elem%Node(5)%NP=>CurvedNode(   0,   0,NGeo)%NP
-Elem%Node(6)%NP=>CurvedNode(NGeo,   0,NGeo)%NP
-Elem%Node(7)%NP=>CurvedNode(NGeo,NGeo,NGeo)%NP
-Elem%Node(8)%NP=>CurvedNode(   0,NGeo,NGeo)%NP
-CALL CreateSides(Elem,.TRUE.)
-IF(Ngeo.GT.1)THEN !curved
-  Elem%nCurvedNodes=(Ngeo+1)**3
-  ALLOCATE(Elem%CurvedNode(Elem%nCurvedNodes))
-  DO i=1,Elem%nCurvedNodes
-    Elem%CurvedNode(i)%NP=>CurvedNode(HexaMap(i,1),HexaMap(i,2),HexaMap(i,3))%NP
-  END DO
-END IF !curved
-
-! Add elements to list
-IF(.NOT.ASSOCIATED(FirstElem))THEN
-  FirstElem=>Elem
-ELSE
-  Elem%nextElem          => FirstElem
-  Elem%nextElem%prevElem => Elem
-  FirstElem              => Elem
-END IF
-NULLIFY(Elem)
-END SUBROUTINE GetNewCurvedHexahedron
-
-
 SUBROUTINE CreateSides(Elem,buildSides)
 !===================================================================================================================================
 ! Creates the pointer Structure of the Element Sides, with respect to number of Side points in CGNS standard
@@ -519,7 +411,6 @@ USE MOD_Mesh_Vars,ONLY:MeshDim
 USE MOD_Mesh_Vars,ONLY:DZ
 USE MOD_Mesh_Vars,ONLY:nNodesElemSideMapping,ElemSideMapping
 USE MOD_Mesh_Vars,ONLY:getNewSide,getNewNode
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -690,7 +581,6 @@ FUNCTION GetBoundaryIndex(BCString)
 !===================================================================================================================================
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:nUserDefinedBoundaries,BoundaryName
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
@@ -726,7 +616,6 @@ SUBROUTINE buildEdges()
 USE MOD_Mesh_Vars,ONLY:tElem,tSide,tEdge,tNode,tEdgePtr
 USE MOD_Mesh_Vars,ONLY:firstElem
 USE MOD_Mesh_Vars,ONLY:GetNewEdge
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -852,9 +741,19 @@ DO WHILE(ASSOCIATED(aElem))
         CYCLE
       END IF
     END IF
+
+    ! check all edges of a side
     DO iEdge=1,aSide%nNodes
       aEdge=>aSide%Edge(iEdge)%edp
-      IF(ASSOCIATED(aEdge%MortarEdge)) CYCLE
+      IF(ASSOCIATED(aEdge%MortarEdge)) CYCLE ! already built
+
+      ! search for all small edges that share at least one node with big edge
+      ! 0-2 edges found: this should NEVER happen
+      ! 3   edges found: the conforming case, occurring for the non-mortar edges of 2 -> 1 side mortars: ignore
+      ! 4   edges found: the one we search for and the only case which should occur, if we're using 4 -> mortars.
+      !                Two of these small edges belong to the mortar.
+      ! >4  edges found: this should NEVER happen
+
       indA(1)=aEdge%Node(1)%np%ind
       indA(2)=aEdge%Node(2)%np%ind
       edgeCount=0
@@ -871,11 +770,13 @@ DO WHILE(ASSOCIATED(aElem))
           END IF
         END DO
       END DO
+
       IF(edgeCount.EQ.3) CYCLE
       IF(edgeCount.NE.4) THEN
         STOP 'Mismatch of neighbour edge count of non-conforming edges.'
       END IF
 
+      ! now select the 2 edges of the found 4 edges, sharing a common node
       DO jEdge=1,3
         DO kEdge=jEdge+1,4
           IF(ANY(indB(1,jEdge).EQ.indB(:,kEdge)).OR.ANY(indB(2,jEdge).EQ.indB(:,kEdge)))THEN
@@ -913,7 +814,6 @@ SUBROUTINE FlushMesh()
 USE MOD_Mesh_Vars,ONLY:tElem
 USE MOD_Mesh_Vars,ONLY:firstElem
 USE MOD_Mesh_Vars,ONLY:DeleteElem
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -936,7 +836,6 @@ SUBROUTINE assignBC(BCcopy,BCorig)
 !===================================================================================================================================
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:tBC
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -966,7 +865,6 @@ FUNCTION isOriented(Side)
 !===================================================================================================================================
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:tSide
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -984,16 +882,46 @@ IF ((ASSOCIATED(Side%Node(1)%np, Side%orientedNode(1)%np)) .AND. &
 END IF
 END FUNCTION isOriented
 
+
+FUNCTION getFlip(Side)
+!===================================================================================================================================
+! Get flip of side
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars,ONLY:tSide
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+TYPE(tSide),POINTER,INTENT(IN) :: Side         ! ? 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+INTEGER                        :: getFlip   ! ? 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+INTEGER                        :: i
+!===================================================================================================================================
+getFlip=-1
+IF(isOriented(Side))THEN !oriented side
+  getFlip=0
+ELSE !not oriented
+  DO i=1,Side%nNodes
+    IF(ASSOCIATED(Side%Node(i)%np,Side%OrientedNode(1)%np))THEN
+      getFlip=i 
+      EXIT
+    END IF
+  END DO
+END IF
+END FUNCTION getFlip
+
+
 SUBROUTINE Pack1D(Ngeo,edge,data_out) 
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! description
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! MODULES  
 USE MOD_Mesh_Vars,ONLY:tEdge
-!----------------------------------------------------------------------------------------------------------------------------------!
-! insert modules here
-!----------------------------------------------------------------------------------------------------------------------------------!
 IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)             :: Ngeo
 TYPE(tEdge),POINTER,INTENT(IN) :: edge
@@ -1013,16 +941,14 @@ END IF
 END SUBROUTINE Pack1D
 
 SUBROUTINE Pack2D(Ngeo,side,data_out) 
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! description
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! MODULES                                                                                                                          !
 USE MOD_Mesh_Vars,ONLY:tSide
 USE MOD_Basis_Vars ,ONLY:QuadMapInv
-!----------------------------------------------------------------------------------------------------------------------------------!
-! insert modules here
-!----------------------------------------------------------------------------------------------------------------------------------!
 IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------!
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)  :: Ngeo
 TYPE(tSide),POINTER,INTENT(IN) :: side
@@ -1047,16 +973,14 @@ END IF
 END SUBROUTINE Pack2D
 
 SUBROUTINE Pack3D(Ngeo,elem,data_out) 
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! description
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! MODULES                                                                                                                          !
 USE MOD_Mesh_Vars,ONLY:tElem
 USE MOD_Basis_Vars ,ONLY:HexaMapInv
-!----------------------------------------------------------------------------------------------------------------------------------!
-! insert modules here
-!----------------------------------------------------------------------------------------------------------------------------------!
 IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------!
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)  :: Ngeo
 TYPE(tElem),POINTER,INTENT(IN) :: elem
@@ -1087,15 +1011,13 @@ END IF
 END SUBROUTINE Pack3D
 
 SUBROUTINE Unpack1D(Ngeo,data_in,edge) 
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! description
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! MODULES                                                                                                                          !
 USE MOD_Mesh_Vars,ONLY:tEdge
-!----------------------------------------------------------------------------------------------------------------------------------!
-! insert modules here
-!----------------------------------------------------------------------------------------------------------------------------------!
 IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------!
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)  :: Ngeo
 REAL,INTENT(IN)     :: data_in(3,0:Ngeo)
@@ -1115,16 +1037,14 @@ END IF
 END SUBROUTINE Unpack1D
 
 SUBROUTINE Unpack2D(Ngeo,data_in,side) 
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! description
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! MODULES                                                                                                                          !
 USE MOD_Mesh_Vars,ONLY:tSide
 USE MOD_Basis_Vars ,ONLY:QuadMapInv
-!----------------------------------------------------------------------------------------------------------------------------------!
-! insert modules here
-!----------------------------------------------------------------------------------------------------------------------------------!
 IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------!
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)  :: Ngeo
 REAL,INTENT(IN)     :: data_in(3,0:Ngeo,0:Ngeo)
@@ -1149,16 +1069,14 @@ END IF
 END SUBROUTINE Unpack2D
 
 SUBROUTINE Unpack3D(Ngeo,data_in,elem) 
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! description
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! MODULES                                                                                                                          !
 USE MOD_Mesh_Vars,ONLY:tElem
 USE MOD_Basis_Vars ,ONLY:HexaMapInv
-!----------------------------------------------------------------------------------------------------------------------------------!
-! insert modules here
-!----------------------------------------------------------------------------------------------------------------------------------!
 IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------!
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)  :: Ngeo
 REAL,INTENT(IN)     :: data_in(3,0:Ngeo,0:Ngeo,0:Ngeo)

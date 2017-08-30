@@ -27,6 +27,7 @@ MODULE MOD_Output_CGNS
 ! Module for generic data output in CGNS format
 !===================================================================================================================================
 ! MODULES
+USE CGNS
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 PRIVATE
@@ -34,7 +35,6 @@ PRIVATE
 ! GLOBAL VARIABLES 
 !-----------------------------------------------------------------------------------------------------------------------------------
 CHARACTER(LEN=5)::ProgramName='HOPR'
-#include "cgnslib_f.h"
 
 INTERFACE WriteDataToCGNS
   MODULE PROCEDURE WriteDataToCGNS

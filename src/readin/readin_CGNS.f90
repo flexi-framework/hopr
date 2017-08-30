@@ -30,17 +30,13 @@ MODULE MOD_Readin_CGNS
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
-!USE CGNS_header
+USE CGNS
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 PRIVATE
-  ! CGNS header file
-  INCLUDE 'cgnslib_f.h'
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
 !-----------------------------------------------------------------------------------------------------------------------------------
-! Private Part ---------------------------------------------------------------------------------------------------------------------
-! Public Part ----------------------------------------------------------------------------------------------------------------------
 INTERFACE ReadCGNSmesh
   MODULE PROCEDURE ReadCGNSmesh
 END INTERFACE
@@ -107,7 +103,6 @@ nZonesGlob = 0
 DO iFile=1,nMeshFiles
   ! Open CGNS file
   CALL OpenBase(TRIM(MeshFileName(iFile)),MODE_READ,md,md,CGNSFile,CGNSBase,.TRUE.)
-  !CALL CG_OPEN_F(TRIM(MeshFileName(iFile)), CG_MODE_READ, CGNSFile, iError)
   CALL CG_VERSION_F(CGNSFile, version, iError)
   WRITE(UNIT_stdOut,*)'CGNS version:',version
   CALL CG_IS_CGNS_F(TRIM(MeshFileName(iFile)), file_type, iError)
@@ -137,7 +132,7 @@ DO iFile=1,nMeshFiles
 
     ! Check structured / unstructured
     CALL cg_zone_type_f(CGNSFile, CGNSBase, iZone, ZoneType, iError)
-    IF (iError .NE. CG_OK) CALL cg_error_exit_f(__STAMP__,CGNSFile)
+    IF (iError .NE. CG_OK) CALL cg_error_exit_f()
     IF (ZoneType.EQ.Structured)THEN
       CALL ReadCGNSMeshStruct(FirstElem,CGNSFile,CGNSBase,iZone,nZonesGlob,nNodesGlob)
     ELSEIF(ZoneType.EQ.Unstructured)THEN
@@ -205,8 +200,9 @@ PP_CGNS_INT_TYPE             :: SizeZone(3)                         ! CGNS datas
 PP_CGNS_INT_TYPE             :: SectionElemType                     ! Type of elements in CGNS file
 PP_CGNS_INT_TYPE             :: ParentDataFlag                      ! 0=no parent data for elems available, 1=parent data available
 PP_CGNS_INT_TYPE             :: PntSetType                          ! BC data format (points or surface elemnents)
-PP_CGNS_INT_TYPE             :: NormalListFlag,DataType             ! CGNS datastructure variables
-INTEGER                      ::                         nDataSet    ! CGNS datastructure variables
+PP_CGNS_INT_TYPE             :: NormalListFlag,NormalIndex(3)          ! CGNS datastructure variables
+PP_CGNS_INT_TYPE             :: DataType                            ! CGNS datastructure variables
+PP_CGNS_INT_TYPE             ::                         nDataSet    ! CGNS datastructure variables
 PP_CGNS_INT_TYPE             :: CellDim, PhysDim                    ! Dimesnion of elements,physical dimension
 PP_CGNS_INT_TYPE             :: iError                              ! Error flag
 PP_CGNS_INT_TYPE             :: FirstElemInd  ! ?
@@ -403,7 +399,7 @@ ALLOCATE(NodeIsBCNode(nNodes))
 
 DO iBC=1,nCGNSBC
   NodeIsBCNode(:)=.FALSE.    ! Reset
-  CALL CG_BOCO_INFO_F(CGNSfile,CGNSBase,iZone,iBC,CGname,BCTypeIndex,PntSetType,nBCElems,NorVec,NormalListFlag, &
+  CALL CG_BOCO_INFO_F(CGNSfile,CGNSBase,iZone,iBC,CGname,BCTypeIndex,PntSetType,nBCElems,NormalIndex,NormalListFlag, &
                                                                                          DataType,nDataSet,iError)
   IF (iError .NE. CG_OK) CALL  abortCGNS(__STAMP__,CGNSFile)
   IF (NormalListFlag .NE. 0)THEN
@@ -568,15 +564,15 @@ SUBROUTINE ReadCGNSMeshStruct(FirstElem_in,CGNSFile,CGNSBase,iZone,nZonesGlob,nN
 ! This subroutine reads structured 2D and 3D meshes from the CGNS file and prepares the element list.
 !===================================================================================================================================
 ! MODULES
+USE MOD_CartMesh ,ONLY:GetNewHexahedron
 USE MOD_Mesh_Vars,ONLY:tElem,tElemPtr,tSide,tNodePtr
 USE MOD_Mesh_Vars,ONLY:DZ,nMeshElems,meshDim
 USE MOD_Mesh_Vars,ONLY:BoundaryType,useCurveds,N,NBlock,MeshIsAlreadyCurved
 USE MOD_Mesh_Vars,ONLY:nSkip,nSkipZ
 USE MOD_Mesh_Vars,ONLY:getNewElem,getNewNode,getNewBC,GETNEWQUAD,deleteNode
 USE MOD_Mesh_Basis,ONLY:createSides,GetBoundaryIndex
-USE MOD_Mesh_Basis,ONLY:GetNewHexahedron
-USE MOD_Basis     ,ONLY:GetVandermonde
 USE MOD_Basis_Vars,ONLY:HexaMapInv
+USE MOD_Basis     ,ONLY:GetVandermonde
 USE MOD_ChangeBasis,ONLY:ChangeBasis2D,ChangeBasis3D
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -792,7 +788,8 @@ DO k=1,irmax(1)-N,N
       CornerNode(7)%np=>Mnodes(k+N,l+N,m+N)%np
       CornerNode(8)%np=>Mnodes(k  ,l+N,m+N)%np
       IF(meshdim.EQ.3)THEN
-        CALL GetNewHexahedron(CornerNode,doCreateSides=.TRUE.)
+        CALL GetNewHexahedron(CornerNode)
+        CALL CreateSides(FirstElem_in,.TRUE.)
       ELSE
         CALL GetNewQuad(FirstElem_in,CornerNode(1:4))
         CALL CreateSides(FirstElem_in,.TRUE.) ! Transforms 2D element to hexahedron using DZ
@@ -821,7 +818,7 @@ DEALLOCATE(Mnodes)
 !------------------ READ BCs ------------------------------------!
 ! Check for number of Boundary Conditions nCGNSBC 
 CALL CG_NBOCOS_F(CGNSFile,CGNSBase,iZone,nCGNSBC,iError) !Number of Boundary conditions nCGNSBC
-IF (iError .NE. CG_OK) CALL cg_error_exit_f(__STAMP__,CGNSFile)
+IF (iError .NE. CG_OK) CALL cg_error_exit_f()
 
 IF (nCGNSBC.LT.1) RETURN ! exit if there are no boundary conditions
 
@@ -1074,7 +1071,7 @@ DO iZone=1,nCGNSZones
   nZonesGlob=nZonesGlob+1
   ! Check structured / unstructured
   CALL cg_zone_type_f(CGNSFile, CGNSBase, iZone, ZoneType, iError)
-  IF (iError .NE. CG_OK) CALL cg_error_exit_f(__STAMP__,CGNSFile)
+  IF (iError .NE. CG_OK) CALL cg_error_exit_f()
   IF (ZoneType.EQ.Structured)THEN
     STOP 'no structured readin for surface data'
   END IF

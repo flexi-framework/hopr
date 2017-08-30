@@ -28,21 +28,19 @@ MODULE MOD_SpaceFillingCurve
 !===================================================================================================================================
 ! MODULES
 USE MOD_Output_Vars,ONLY:sfc_type
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 PRIVATE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
 !-----------------------------------------------------------------------------------------------------------------------------------
-! Private Part ---------------------------------------------------------------------------------------------------------------------
+
 TYPE tBox
-  REAL(KIND=8) :: mini(3)        !smallest x,y,z values of bounding box
-  INTEGER      :: nbits          !number of bits for each direction
-  REAL(KIND=8) :: spacing(3)     ! dx,dy,dz size of boxes
-  INTEGER(KIND=8)   :: intfact   ! number of boxes in each direction
-  INTEGER(KIND=8)   :: intfact2  ! intfact^2
+  REAL(KIND=8)    :: mini(3)    ! smallest x,y,z values of bounding box
+  INTEGER         :: nbits      ! number of bits for each direction
+  REAL(KIND=8)    :: spacing(3) ! dx,dy,dz size of boxes
+  INTEGER(KIND=8) :: intfact    ! number of boxes in each direction
+  INTEGER(KIND=8) :: intfact2   ! intfact^2
 END TYPE tBox
-! Public Part ----------------------------------------------------------------------------------------------------------------------
 
 INTERFACE SortElemsBySpaceFillingCurve
   MODULE PROCEDURE SortElemsBySpaceFillingCurve
@@ -62,15 +60,15 @@ PUBLIC::EVAL_MORTON,EVAL_MORTON_ARR
 !===================================================================================================================================
 
 CONTAINS
+
 SUBROUTINE SortElemsBySpaceFillingCurve(nElems,ElemBary,IDList,whichBoundBox)
 !===================================================================================================================================
 ! ?
 !===================================================================================================================================
 ! MODULES
-USE MOD_Globals
+USE MOD_Globals,ONLY:UNIT_stdOut,Timer
 USE MOD_Basis1D,ONLY:ALMOSTEQUAL
 USE MOD_SortingTools,ONLY:Qsort1DoubleInt1Pint
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -104,8 +102,8 @@ IF(nElems.GT.1)THEN
     upper(2) = MAXVAL(ElemBary(:,2))
     upper(3) = MAXVAL(ElemBary(:,3))
   CASE(2)
-  lower=MINVAL(ElemBary)
-  upper=MAXVAL(ElemBary)
+    lower=MINVAL(ElemBary)
+    upper=MAXVAL(ElemBary)
   END SELECT
   DO i=1,3
     IF(ALMOSTEQUAL(lower(i),upper(i)))THEN
@@ -119,8 +117,7 @@ IF(nElems.GT.1)THEN
     IntList(iElem) = COORD2INT(SCBox, ElemBary(iElem,:))
   END DO
   
-  ! Now sort the elements according to their index
-  ! on the space filling curve.
+  ! Now sort the elements according to their index on the space filling curve.
   CALL Qsort1DoubleInt1Pint(IntList, IDList)
 ELSE
   IDList=1
@@ -128,12 +125,12 @@ END IF
 CALL Timer(.FALSE.)
 END SUBROUTINE SortElemsBySpaceFillingCurve
 
+
 FUNCTION COORD2INT(Box, Coord) RESULT(ind)
 !===================================================================================================================================
 ! ?
 !===================================================================================================================================
 ! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -148,12 +145,10 @@ INTEGER(KIND=8)             :: ind  ! ?
 ! LOCAL VARIABLES
 INTEGER(KIND=8)             :: disc(3)  ! ?
 !===================================================================================================================================
-! compute the integer discretization in each
-! direction
+! Compute the integer discretization in each direction
 disc = NINT((coord-box%mini)*box%spacing)
 
-! Map the three coordinates on a single integer
-! value.
+! Map the three coordinates to a single integer value.
 SELECT CASE(sfc_type)
 CASE ('hilbert') !DEFAULT SETTING
   ind = evalhilbert(disc(1:3),box%nbits,3)
@@ -168,12 +163,12 @@ CASE('hilbertZ')
 END SELECT
 END FUNCTION COORD2INT 
 
+
 FUNCTION EVAL_MORTON(intcoords,nBits,nDim) RESULT(ind)
 !===================================================================================================================================
 ! ?
 !===================================================================================================================================
 ! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -187,22 +182,21 @@ INTEGER(KIND=8)             :: ind  ! ?
 ! LOCAL VARIABLES
 INTEGER         :: dir,i
 !===================================================================================================================================
-  ind = 0
-  DO dir=1,nDim
-    DO i=0,nbits-1
-      ! Interleave the three directions, start
-      ! from position 0 with counting the bits.
-      IF(BTEST(intcoords(dir),i))  ind = IBSET(ind,nDim*i-dir+nDim)
-    END DO
+ind = 0
+DO dir=1,nDim
+  DO i=0,nbits-1
+    ! Interleave the three directions, start from position 0 with counting the bits.
+    IF(BTEST(intcoords(dir),i))  ind = IBSET(ind,nDim*i-dir+nDim)
   END DO
+END DO
 END FUNCTION EVAL_MORTON
+
 
 SUBROUTINE EVAL_MORTON_ARR(ind,intcoords,nP,nBits)
 !===================================================================================================================================
 ! ?
 !===================================================================================================================================
 ! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -218,19 +212,18 @@ INTEGER         :: dir,i
 ind = 0
 DO dir=1,3
   DO i=0,nbits-1
-    ! Interleave the three directions, start
-    ! from position 0 with counting the bits.
+    ! Interleave the three directions, start from position 0 with counting the bits.
     ind = MERGE(IBSET(ind,3*i-dir+3),ind,BTEST(intcoords(dir,:),i))
   END DO
 END DO
 END SUBROUTINE EVAL_MORTON_ARR
+
 
 SUBROUTINE setBoundingBox(box,mini,maxi)
 !===================================================================================================================================
 ! ?
 !===================================================================================================================================
 ! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES

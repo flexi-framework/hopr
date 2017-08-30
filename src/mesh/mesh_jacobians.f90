@@ -180,6 +180,8 @@ WRITE(Unit_StdOut,'(A1)')' '
  
 
 CALL Timer(.FALSE.)
+WRITE(UNIT_StdOut,'(132("="))')
+WRITE(UNIT_StdOut,*)
 
 CONTAINS
 

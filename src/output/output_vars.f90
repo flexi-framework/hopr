@@ -38,7 +38,7 @@ LOGICAL                     :: DebugVisu                  ! set .TRUE. for debug
 INTEGER                     :: DebugVisuLevel             !=0, only linear mesh, =1 + surfspline (default), =2  +volspline
 REAL                        :: Visu_sJ_limit              ! limit to visualize only curved elements with sJ<=Visu_sJ_limit
 INTEGER                     :: outputFormat               !=0: VTK, =1 tecplot ascii, =2 CGNS 
-CHARACTER(LEN=100)          :: sfc_type                   ! morton or hilbert
+CHARACTER(LEN=255)          :: sfc_type                   ! morton or hilbert
 INTEGER                     :: sfc_boundbox               ! Type of bounding box =1: tight for each direction (anisotrop cart. boxes)
                                                           ! =2 bound. box is the max. cube (for isotropic elem size / unstr. meshes)
 LOGICAL                     :: doSortIJK

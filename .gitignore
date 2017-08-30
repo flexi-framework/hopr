@@ -1,14 +1,7 @@
-share/GNU/
-share/INTEL/
-share/hdf5-1.8.14.tar.bz2
-share/v3.2.1.tar.gz
-src/deplist.mk
-src/srcfiles_pp.mk
-bin/h5diff
-bin/hopr
-bin/preproctool
-src/libpreproc.a
+share
 tutorials/
+build
+ctags.txt
 *.mod
 *.o
 *~

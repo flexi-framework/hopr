@@ -27,7 +27,7 @@ do
     if [ $tmp != 0 ]; then
       success=$tmp
     fi
-    tail -n 4  $outfile
+    tail -n 10  $outfile
   done
   cd ..
 done

@@ -415,13 +415,6 @@ SUBROUTINE fillMesh()
 !===================================================================================================================================
 ! MODULES
 USE MOD_Mesh_Vars
-USE MOD_Readin_ANSA
-USE MOD_Readin_CGNS
-USE MOD_Readin_Gambit
-USE MOD_Readin_GMSH
-USE MOD_Readin_HDF5
-USE MOD_Readin_ICEM
-USE MOD_Readin_SpecMesh2D
 USE MOD_zcorrection,      ONLY: zcorrection
 USE MOD_zcorrection,      ONLY: OrientElemsToZ
 USE MOD_SplitToHex,       ONLY: SplitElementsToHex,SplitAllHexa,SplitHexaByBoxes
@@ -443,7 +436,14 @@ USE MOD_Mesh_Tools,       ONLY: CheckMortarWaterTight
 USE MOD_Mesh_PostDeform,  ONLY: PostDeform
 USE MOD_Output_HDF5,      ONLY: WriteMeshToHDF5
 USE MOD_Mesh_Jacobians,   ONLY: CheckJacobians
-USE MOD_Output_Vars,      ONLY: useSpaceFillingCurve
+USE MOD_Readin_ANSA
+USE MOD_Readin_CGNS
+USE MOD_Readin_Gambit
+USE MOD_Readin_GMSH
+USE MOD_Readin_HDF5
+USE MOD_Readin_ICEM
+USE MOD_Readin_SpecMesh2D
+USE MOD_Output_Vars,ONLY:useSpaceFillingCurve
 USE MOD_Output_HDF5,      ONLY: SpaceFillingCurve
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -554,9 +554,6 @@ DO iElem=1,nMeshElems
     Side=>Side%nextElemSide
   END DO
 END DO !iElem
-
-  
-
 
 ! WRITE some visualization, build connectivity and build edge data structure
 IF(DebugVisu)THEN

@@ -23,14 +23,12 @@
 ! cgnslib_f.h defines a parameter NULL which confilcts with the Fortran 95
 ! function NULL(). Use CGNS_header only for IO routines.
 MODULE CGNS_header
+  USE CGNS
   IMPLICIT NONE
   PUBLIC
   PRIVATE  :: Null
   SAVE
   
-  ! CGNS header file
-  INCLUDE 'cgnslib_f.h'
-
 #  ifdef BLUEGENE
   ! Explicit interface for JUGENE
   interface cg_goto_f

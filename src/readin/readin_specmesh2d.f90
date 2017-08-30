@@ -59,8 +59,8 @@ USE MOD_Mesh_Vars     ,ONLY:nUserDefinedBoundaries,BoundaryName,BoundaryType
 USE MOD_Mesh_Vars     ,ONLY:N,DZ,useCurveds
 USE MOD_Mesh_Vars     ,ONLY:getNewNode,getNewBC
 USE MOD_ChangeBasis   ,ONLY:ChangeBasis2D
-USE MOD_Mesh_Basis    ,ONLY:getNewCurvedHexahedron
-USE MOD_Mesh_Basis    ,ONLY:getNewHexahedron
+USE MOD_CurvedCartMesh,ONLY:getNewCurvedHexahedron
+USE MOD_CartMesh      ,ONLY:getNewHexahedron
 USE MOD_Mesh_Basis    ,ONLY:createSides
 USE MOD_Basis1D       ,ONLY:ChebyGaussLobNodesAndWeights
 USE MOD_Basis1D       ,ONLY:BarycentricWeights
@@ -315,7 +315,8 @@ DO iFile=1,nMeshFiles
         Node%x(3)  =DZ
         CornerNode(iNode)%np=>Node
       END DO !iNode=5,8
-      CALL GetNewHexahedron(CornerNode,doCreateSides=.TRUE.)
+      CALL GetNewHexahedron(CornerNode)
+      CALL CreateSides(FirstElem,.TRUE.)
     END IF !useCurveds
     !new element added always as the firstElem
     Elem=>FirstElem
