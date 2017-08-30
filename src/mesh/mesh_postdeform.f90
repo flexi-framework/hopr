@@ -240,6 +240,7 @@ CASE(1,11,12)
       xout(3)=x(3)*PostDeform_Lz !cylinder
     ELSE !torus, z_in must be [0,1] and periodic  !!, torus around z axis ,x =R*cos(phi), y=-R*sin(phi)!!!
       xout(3)=xout(2)
+      !map R,Z to X,Y,Z
       xout(2)=-(xout(1)+PostDeform_Rtorus)*SIN(2*Pi*x(3))
       xout(1)= (xout(1)+PostDeform_Rtorus)*COS(2*Pi*x(3))
     END IF
@@ -619,18 +620,26 @@ CASE(21)!Laval nozzle
     xout(3)=x(3)
     X_out(:,i)=xout(:)
   END DO !i=1,nTotal
-CASE(30) ! sin
+CASE(30) ! sin [-1;1]^3
   x_out(1,:) = x_in(1,:)+ 0.1*SIN(Pi*x_in(1,:))*SIN(Pi*x_in(2,:))
   x_out(2,:) = x_in(2,:)+ 0.1*SIN(Pi*x_in(1,:))*SIN(Pi*x_in(2,:))
   x_out(3,:) = x_in(3,:)+ 0.1*SIN(Pi*x_in(1,:))*SIN(Pi*x_in(2,:))
-CASE(31) ! sin
+CASE(31) ! sin [-1;1]^3
   x_out(1,:) = x_in(1,:)+ 0.1*SIN(Pi*x_in(1,:))*SIN(Pi*x_in(2,:))*SIN(Pi*x_in(3,:))
   x_out(2,:) = x_in(2,:)+ 0.1*SIN(Pi*x_in(1,:))*SIN(Pi*x_in(2,:))*SIN(Pi*x_in(3,:))
   x_out(3,:) = x_in(3,:)+ 0.1*SIN(Pi*x_in(1,:))*SIN(Pi*x_in(2,:))*SIN(Pi*x_in(3,:))
-CASE(32) ! sin
+CASE(32) ! sin [-1;1]^3
   x_out(1,:) = x_in(1,:)+ 0.1*SIN(Pi*x_in(1,:))
   x_out(2,:) = x_in(2,:)+ 0.1*SIN(Pi*x_in(1,:))
   x_out(3,:) = x_in(3,:)+ 0.1*SIN(Pi*x_in(1,:))
+CASE(33) ! sin 2D [-1;1]^2
+  x_out(1,:) = x_in(1,:)+ 0.1*SIN(Pi*x_in(1,:))*SIN(Pi*x_in(2,:))
+  x_out(2,:) = x_in(2,:)+ 0.1*SIN(Pi*x_in(1,:))*SIN(Pi*x_in(2,:))
+  x_out(3,:) = x_in(3,:)
+CASE(34) ! cos3D (1.5Pi) [-1;1]^3
+  x_out(1,:) = x_in(1,:)+ 0.1*COS(1.5*Pi*x_in(1,:))*COS(1.5*Pi*x_in(2,:))*COS(1.5*Pi*x_in(3,:))
+  x_out(2,:) = x_in(2,:)+ 0.1*COS(1.5*Pi*x_in(1,:))*COS(1.5*Pi*x_in(2,:))*COS(1.5*Pi*x_in(3,:))
+  x_out(3,:) = x_in(3,:)+ 0.1*COS(1.5*Pi*x_in(1,:))*COS(1.5*Pi*x_in(2,:))*COS(1.5*Pi*x_in(3,:))
 END SELECT
 
 END SUBROUTINE PostDeformFunc

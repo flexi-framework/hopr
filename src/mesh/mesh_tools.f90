@@ -393,9 +393,9 @@ nVal=5
 ALLOCATE(VarNames(nVal))
 VarNames(1)='CurveIndex'
 VarNames(2)='elemind'
-VarNames(3)='nx'
-VarNames(4)='ny'
-VarNames(5)='nz'
+VarNames(3)='nvecX'
+VarNames(4)='nvecY'
+VarNames(5)='nvecZ'
 
 ALLOCATE(Coord(    3,Nplot_p1_2,nCurveds))
 ALLOCATE(Values(nVal,Nplot_p1_2,nCurveds))

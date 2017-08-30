@@ -335,6 +335,12 @@ END IF
 SplitToHex=GETLOGICAL('SplitToHex','.FALSE.')   ! split all elements to hexa
 nFineHexa=GETINT('nFineHexa','1')               ! split all hexa by a factor 
 
+nSplitBoxes=CNTSTR('SplitBox','0')
+ALLOCATE(SplitBoxes(3,2,nSplitBoxes))
+DO i=1,nSplitBoxes
+  SplitBoxes(:,:,i)=RESHAPE(GETREALARRAY('SplitBox',6),(/3,2/))
+END DO !nSplitBoxes
+
 
 ! for mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
 ! does not work for periodic mortars, will be set true by default for postdeform!
@@ -346,8 +352,9 @@ IF(meshPostDeform.GT.0) THEN
   PostDeform_R0=GETREAL('PostDeform_R0','1.')
   PostDeform_Lz=GETREAL('PostDeform_Lz','1.')
   PostDeform_sq=GETREAL('PostDeform_sq','0.')
-  PostDeform_Rtorus=GETREAL('PostDeform_Rtorus','-1.')
+  PostDeform_Rtorus=GETREAL('PostDeform_Rtorus','-1.') !from cyl-> torus
 END IF !PostDeform
+postConnect=GETINT('postConnect','0')
 
 ! Connect
 ConformConnect=GETLOGICAL('ConformConnect','.TRUE.') ! Fast connect for conform mesh
@@ -417,7 +424,7 @@ USE MOD_Readin_ICEM
 USE MOD_Readin_SpecMesh2D
 USE MOD_zcorrection,      ONLY: zcorrection
 USE MOD_zcorrection,      ONLY: OrientElemsToZ
-USE MOD_SplitToHex,       ONLY: SplitElementsToHex,SplitAllHexa
+USE MOD_SplitToHex,       ONLY: SplitElementsToHex,SplitAllHexa,SplitHexaByBoxes
 USE MOD_Output_Vars,      ONLY: DebugVisu,DebugVisuLevel
 USE MOD_Curved,           ONLY: SplitToSpline,ReconstructNormals,getExactNormals,deleteDuplicateNormals,readNormals
 USE MOD_Curved,           ONLY: create3dSplines,curvedEdgesToSurf,curvedSurfacesToElem
@@ -511,6 +518,10 @@ IF(nFineHexa.GT.1) THEN
   CALL SplitAllHexa(nFineHexa)
   AdaptedMesh=.TRUE.
 END IF
+IF(nSplitBoxes.GT.0) THEN
+  CALL SplitHexaByBoxes()
+  AdaptedMesh=.TRUE.
+END IF
 
 ! Count elements 
 nMeshElems=0
@@ -557,7 +568,7 @@ IF(useCurveds.AND.Logging)   CALL CountSplines()  ! In case of restart there can
 IF(OrientZ) CALL OrientElemsToZ() 
 
 IF(MeshMode .GT. 0)THEN
-  CALL Connect()                           ! Create connection between elements
+  CALL Connect(reconnect=.FALSE.,deletePeriodic=.FALSE.)                           ! Create connection between elements
   IF(useCurveds.AND.Logging) CALL CountSplines()  ! In case of restart there can be splines
 END IF
 CALL buildEdges()
@@ -658,6 +669,14 @@ IF(useSpaceFillingCurve)THEN
 END IF
 
 CALL PostDeform()
+
+SELECT CASE(postConnect)
+CASE(0) !do nothing
+CASE(1) !reconnect all sides
+  CALL Connect(reconnect=.TRUE.,deletePeriodic=.FALSE.)                           ! Create connection between elements
+CASE(2) !reconnect all sides, delete periodic connections (sides on top by postdeform)
+  CALL Connect(reconnect=.TRUE.,deletePeriodic=.TRUE.)                           ! Create connection between elements
+END SELECT !postConnect
 
 IF(mortarFound) THEN
   IF(doRebuildMortarGeometry) CALL RebuildMortarGeometry()
