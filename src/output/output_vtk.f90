@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -53,7 +54,7 @@ PUBLIC::WriteDataToVTK
 
 CONTAINS
 
-SUBROUTINE WriteDataToVTK(dim1,nVal,NPlot,nElems,VarNames,Coord,Values,FileString)
+SUBROUTINE WriteDataToVTK(dim1,vecDim,nVal,NPlot,nElems,VarNames,Coord,Values,FileString)
 !===================================================================================================================================
 ! Subroutine to write 3D point data to VTK format
 !===================================================================================================================================
@@ -63,11 +64,12 @@ USE MOD_Globals
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-INTEGER,INTENT(IN)            :: dim1                    ! dimension of the data (either 2 or 3)
+INTEGER,INTENT(IN)            :: dim1                    ! dimension of the data (either 2=quads or 3=hexas)
+INTEGER,INTENT(IN)            :: vecdim                  ! dimension of coordinates 
 INTEGER,INTENT(IN)            :: nVal                    ! Number of nodal output variables
 INTEGER,INTENT(IN)            :: NPlot                   ! Number of output points .EQ. NAnalyze
 INTEGER,INTENT(IN)            :: nElems               ! Number of output elements
-REAL,INTENT(IN)               :: Coord(3,1:(Nplot+1)**dim1,nElems)      ! CoordsVector 
+REAL,INTENT(IN)               :: Coord(vecdim,1:(Nplot+1)**dim1,nElems)      ! CoordsVector still 2D!! 
 CHARACTER(LEN=*),INTENT(IN)   :: VarNames(nVal)          ! Names of all variables that will be written out
 REAL,INTENT(IN)               :: Values(nVal,1:(Nplot+1)**dim1,nElems)   ! Statevector 
 CHARACTER(LEN=*),INTENT(IN)   :: FileString              ! Output file name
@@ -75,23 +77,31 @@ CHARACTER(LEN=*),INTENT(IN)   :: FileString              ! Output file name
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER            :: i,j,k,iVal,iElem,Offset,nBytes,nVTKElems,nVTKCells,ivtk=44  ! ?
-INTEGER            :: INT  ! ?
+INTEGER            :: i,j,k,iVal,iElem,Offset,nBytes,nVTKElems,nVTKCells,ivtk=44
+INTEGER            :: INT
 INTEGER            :: Vertex(2**dim1,(NPlot+1)**dim1*nElems)  ! ?
 INTEGER            :: NPlot_p1_3,NPlot_p1_2,NPlot_p1,NodeID,NodeIDElem,ElemType  ! ?
 CHARACTER(LEN=35)  :: StrOffset,TempStr1,TempStr2  ! ?
-CHARACTER(LEN=200) :: Buffer  ! ?
-CHARACTER(LEN=1)   :: lf  ! ?
-REAL(KIND=4)       :: Float  ! ?
+CHARACTER(LEN=300) :: Buffer
+CHARACTER(LEN=255) :: tmpVarName,tmpVarNameY,tmpVarNameZ
+INTEGER            :: StrLen,iValVec,nValVec,VecOffset(0:nVal)
+LOGICAL            :: isVector,maybeVector
+CHARACTER(LEN=1)   :: strvecdim
+CHARACTER(LEN=1)   :: lf
+REAL(KIND=4)       :: Float
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(A)',ADVANCE='NO')"   WRITE DATA TO VTX XML BINARY (VTU) FILE... "//TRIM(FileString)
-
 NPlot_p1  =(Nplot+1)
 NPlot_p1_2=Nplot_p1*Nplot_p1
 NPlot_p1_3=NPlot_p1_2*Nplot_p1
 
+IF(vecdim.LT.dim1) THEN
+  WRITE(*,*)'WARNING:dim1 should be > vecdim! dim1= ',dim1,' vecdim= ',vecdim
+  STOP
+END IF
 ! Line feed character
 lf = char(10)
+WRITE(strvecdim,'(I1)') vecdim
 
 ! Write file
 OPEN(UNIT=ivtk,FILE=TRIM(FileString),ACCESS='STREAM')
@@ -110,20 +120,62 @@ Buffer='    <Piece NumberOfPoints="'//TRIM(ADJUSTL(TempStr1))//'" &
 Buffer='      <PointData>'//lf;WRITE(ivtk) TRIM(Buffer)
 Offset=0
 WRITE(StrOffset,'(I16)')Offset
-DO iVal=1,nVal
-  Buffer='        <DataArray type="Float32" Name="'//TRIM(VarNames(iVal))//'" &
-         &format="appended" offset="'//TRIM(ADJUSTL(StrOffset))//'"/>'//lf;WRITE(ivtk) TRIM(Buffer)
-  Offset=Offset+SIZEOF_F(INT)+nVTKElems*SIZEOF_F(FLOAT)
-  WRITE(StrOffset,'(I16)')Offset
-END DO
+!accout for vectors: 
+! if Variable Name ends with an X and the following have the same name with Y and Z 
+! then it forms a vector variable (X is omitted for the name) 
+
+iVal=0 !scalars
+iValVec=0 !scalars & vectors
+VecOffset(0)=0
+DO WHILE(iVal.LT.nVal)
+  iVal=iVal+1
+  iValVec=iValVec+1
+  tmpVarName=TRIM(VarNames(iVal)) 
+  StrLen=LEN(TRIM(tmpVarName))
+  maybeVector=(iVal+vecdim-1.LE.nVal)
+  isVector=.FALSE.
+  IF(maybeVector)THEN
+    SELECT CASE(vecdim)
+    CASE(2)
+      tmpVarNameY=TRIM(VarNames(iVal+1))
+      isVector=((iVal+2.LE.nVal).AND.(INDEX(tmpVarName( StrLen:StrLen),"X").NE.0) &
+                                .AND.(INDEX(tmpVarNameY(:StrLen),TRIM(tmpVarName(:StrLen-1))//"Y").NE.0))
+    CASE(3)
+      tmpVarNameY=TRIM(VarNames(iVal+1))
+      tmpVarNameZ=TRIM(VarNames(iVal+2)) 
+      isVector=((iVal+2.LE.nVal).AND.(INDEX(tmpVarName( StrLen:StrLen),"X").NE.0) &
+                                .AND.(INDEX(tmpVarNameY(:StrLen),TRIM(tmpVarName(:StrLen-1))//"Y").NE.0) &
+                                .AND.(INDEX(tmpVarNameZ(:StrLen),TRIM(tmpVarName(:StrLen-1))//"Z").NE.0))
+
+    END SELECT
+  END IF !maybevector
+
+  IF(isvector)THEN !variable is a vector!
+    tmpVarName=tmpVarName(:StrLen-1)
+    Buffer='        <DataArray type="Float32" Name="'//TRIM(tmpVarName)//'" NumberOfComponents="'//strvecdim// &
+           &'" format="appended" offset="'//TRIM(ADJUSTL(StrOffset))//'"/>'//lf;WRITE(ivtk) TRIM(Buffer)
+    Offset=Offset+SIZEOF_F(INT)+vecdim*nVTKElems*SIZEOF_F(FLOAT)
+    WRITE(StrOffset,'(I16)')Offset
+    VecOffset(iValVec)=VecOffset(iValVec-1)+vecdim
+    iVal=iVal+vecdim-1 !skip the Y (& Z) components
+  ELSE
+    Buffer='        <DataArray type="Float32" Name="'//TRIM(tmpVarName)// &
+           &'" format="appended" offset="'//TRIM(ADJUSTL(StrOffset))//'"/>'//lf;WRITE(ivtk) TRIM(Buffer)
+    Offset=Offset+SIZEOF_F(INT)+nVTKElems*SIZEOF_F(FLOAT)
+    WRITE(StrOffset,'(I16)')Offset
+    VecOffset(iValVec)=VecOffset(iValVec-1)+1
+  END IF !isvector
+END DO !iVal <=nVal
+nValVec=iValVec
+
 Buffer='      </PointData>'//lf;WRITE(ivtk) TRIM(Buffer)
 ! Specify cell data
 Buffer='      <CellData> </CellData>'//lf;WRITE(ivtk) TRIM(Buffer)
 ! Specify coordinate data
 Buffer='      <Points>'//lf;WRITE(ivtk) TRIM(Buffer)
-Buffer='        <DataArray type="Float32" Name="Coordinates" NumberOfComponents="3" format="appended" &
-         &offset="'//TRIM(ADJUSTL(StrOffset))//'"/>'//lf;WRITE(ivtk) TRIM(Buffer)
-Offset=Offset+SIZEOF_F(INT)+3*nVTKElems*SIZEOF_F(FLOAT)
+Buffer='        <DataArray type="Float32" Name="Coordinates" NumberOfComponents="'//strvecdim// &
+'" format="appended" offset="'//TRIM(ADJUSTL(StrOffset))//'"/>'//lf;WRITE(ivtk) TRIM(Buffer)
+Offset=Offset+SIZEOF_F(INT)+vecdim*nVTKElems*SIZEOF_F(FLOAT)
 WRITE(StrOffset,'(I16)')Offset
 Buffer='      </Points>'//lf;WRITE(ivtk) TRIM(Buffer)
 ! Specify necessary cell data
@@ -152,11 +204,12 @@ Buffer='_';WRITE(ivtk) TRIM(Buffer)
 ! Write binary raw data into append section
 ! Point data
 nBytes = nVTKElems*SIZEOF_F(FLOAT)
-DO iVal=1,nVal
-  WRITE(ivtk) nBytes,REAL(Values(iVal,:,:),4)
-END DO
+DO iValVec=1,nValVec
+  WRITE(ivtk) (vecOffset(iValVec)-vecOffset(iValVec-1))*nBytes, &
+              REAL(Values(VecOffSet(iValVec-1)+1:VecOffset(iValVec),:,:),4)
+END DO !iValVec
 ! Points
-nBytes = nBytes * 3
+nBytes = nBytes * vecdim
 WRITE(ivtk) nBytes
 WRITE(ivtk) REAL(Coord(:,:,:),4)
 ! Connectivity

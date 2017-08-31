@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -92,6 +93,12 @@ nZones  =GETINT('nZones')
 meshIsAlreadyCurved=.FALSE.
 IF (MeshMode .EQ. 1) THEN
   ! ---------- INTERNAL CARTESIAN MESH ---------------------------------------------------------------------------------------------
+  IF(useCurveds) THEN
+    InnerElemStretch = GETLOGICAL('InnerElemStretch','.TRUE.')
+  ELSE
+    InnerElemStretch = .FALSE.
+  END IF
+  IF(InnerElemStretch) MeshIsAlreadyCurved=.TRUE.
   ALLOCATE(CartMeshes(nZones))
   DO i=1,nZones
     ALLOCATE(CartMeshes(i)%CM)
@@ -252,9 +259,8 @@ IF(useCurveds) THEN
   ! 2-n: first n layers from the boundary are curved
   nCurvedBoundaryLayers=GETINT('nCurvedBoundaryLayers','-1')
 
-  ! for curved mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
-  doRebuildMortarGeometry=GETLOGICAL('doRebuildMortarGeometry','.TRUE.')
 END IF !usecurveds
+
 BoundaryOrder=N+1
 
 ! Boundaries
@@ -286,6 +292,9 @@ IF((MeshMode .EQ. 2) .OR. (MeshMode .EQ. 3))THEN
  ! 2.5D mesh: convert 2D mesh to 3D mesh (gambit and cgns mesh only)
   MeshDim=GETINT('MeshDim','3') 
 END IF
+!for SpecMesh only 2D available
+IF((MeshMode .EQ. 6)) MeshDim=2
+
 IF(MeshDim .EQ. 2)THEN
   zLength=GETREAL('zLength')
   nElemsZ=GETINT('nElemsZ')
@@ -326,26 +335,32 @@ END IF
 SplitToHex=GETLOGICAL('SplitToHex','.FALSE.')   ! split all elements to hexa
 nFineHexa=GETINT('nFineHexa','1')               ! split all hexa by a factor 
 
+nSplitBoxes=CNTSTR('SplitBox','0')
+ALLOCATE(SplitBoxes(3,2,nSplitBoxes))
+DO i=1,nSplitBoxes
+  SplitBoxes(:,:,i)=RESHAPE(GETREALARRAY('SplitBox',6),(/3,2/))
+END DO !nSplitBoxes
+
+
+! for mortarmeshes ensure that small mortar geometry is identical to big mortar geometry
+! does not work for periodic mortars, will be set true by default for postdeform!
+doRebuildMortarGeometry=GETLOGICAL('doRebuildMortarGeometry','.TRUE.')
 
 meshPostDeform=GETINT('MeshPostDeform','0')
-SELECT CASE(MeshPostDeform)
-CASE(0) !do nothing
-CASE(1,2) 
+IF(meshPostDeform.GT.0) THEN
+  PostDeform_useGL=GETLOGICAL('PostDeform_useGL','.TRUE.')
   PostDeform_R0=GETREAL('PostDeform_R0','1.')
   PostDeform_Lz=GETREAL('PostDeform_Lz','1.')
-  PostDeform_sq=GETINT('PostDeform_sq','0')
-  PostDeform_Rtorus=GETREAL('PostDeform_Rtorus','-1.')
-CASE(30,31,32) ! cartbox [-1,1]^3 sin innercurved  
-CASE DEFAULT
-  CALL abort(__STAMP__,&
-             'This MeshPostDeform case is not implemented.',MeshPostDeform)
-END SELECT
+  PostDeform_sq=GETREAL('PostDeform_sq','0.')
+  PostDeform_Rtorus=GETREAL('PostDeform_Rtorus','-1.') !from cyl-> torus
+END IF !PostDeform
+postConnect=GETINT('postConnect','0')
 
 ! Connect
 ConformConnect=GETLOGICAL('ConformConnect','.TRUE.') ! Fast connect for conform mesh
 
 ! Elem Check
-checkElemJacobians=GETLOGICAL('checkElemJacobians','.FALSE.')
+checkElemJacobians=GETLOGICAL('checkElemJacobians','.TRUE.')
 jacobianTolerance=GETREAL('jacobianTolerance','1.E-16')
 
 
@@ -402,7 +417,7 @@ SUBROUTINE fillMesh()
 USE MOD_Mesh_Vars
 USE MOD_zcorrection,      ONLY: zcorrection
 USE MOD_zcorrection,      ONLY: OrientElemsToZ
-USE MOD_SplitToHex,       ONLY: SplitElementsToHex,SplitAllHexa
+USE MOD_SplitToHex,       ONLY: SplitElementsToHex,SplitAllHexa,SplitHexaByBoxes
 USE MOD_Output_Vars,      ONLY: DebugVisu,DebugVisuLevel
 USE MOD_Curved,           ONLY: SplitToSpline,ReconstructNormals,getExactNormals,deleteDuplicateNormals,readNormals
 USE MOD_Curved,           ONLY: create3dSplines,curvedEdgesToSurf,curvedSurfacesToElem
@@ -417,6 +432,7 @@ USE MOD_GlobalUniqueNodes,ONLY: GlobalUniqueNodes
 USE MOD_CartMesh,         ONLY: CartesianMesh
 USE MOD_CurvedCartMesh,   ONLY: CurvedCartesianMesh
 USE MOD_Mesh_Tools,       ONLY: CountSplines,Netvisu,BCvisu,chkspl_surf,chkspl_vol
+USE MOD_Mesh_Tools,       ONLY: CheckMortarWaterTight
 USE MOD_Mesh_PostDeform,  ONLY: PostDeform
 USE MOD_Output_HDF5,      ONLY: WriteMeshToHDF5
 USE MOD_Mesh_Jacobians,   ONLY: CheckJacobians
@@ -425,8 +441,8 @@ USE MOD_Readin_CGNS
 USE MOD_Readin_Gambit
 USE MOD_Readin_GMSH
 USE MOD_Readin_HDF5
-USE MOD_Readin_HDF5_OLD
 USE MOD_Readin_ICEM
+USE MOD_Readin_SpecMesh2D
 USE MOD_Output_Vars,ONLY:useSpaceFillingCurve
 USE MOD_Output_HDF5,      ONLY: SpaceFillingCurve
 ! IMPLICIT VARIABLE HANDLING
@@ -442,12 +458,10 @@ IMPLICIT NONE
 TYPE(tElem),POINTER :: Elem  ! ?
 TYPE(tSide),POINTER :: Side    ! ?
 LOGICAL             :: curvedFound  ! ?
+INTEGER             :: iElem  ! ?
 !===================================================================================================================================
 CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("="))')
-WRITE(UNIT_stdOut,*)
-WRITE(UNIT_stdOut,'(45X,A)')' Entering fillMesh '
-WRITE(UNIT_stdOut,*)
 
 IF(.NOT.useCurveds) curvingMethod = -1
 nMeshElems=0
@@ -455,9 +469,6 @@ NULLIFY(FirstElem)
 
 ! read mesh
 SELECT CASE (MeshMode)
-  CASE(-1)
-    CALL ReadMeshFromHDF5_OLD(MeshFileName(1)) ! meshfile
-    meshIsAlreadyCurved=.TRUE.
   CASE(0)
     CALL ReadMeshFromHDF5(MeshFileName(1),.TRUE.) ! meshfile
     meshIsAlreadyCurved=.TRUE.
@@ -479,6 +490,11 @@ SELECT CASE (MeshMode)
     CALL readStar()       ! Read Star file (ANSA)
   CASE(5)
     CALL readGMSH()       ! Read .MSH file (GMSH)
+  CASE(6)
+    MeshDim=3 !overwrite, build first 3D element layer in readin
+    CALL readSpecMesh2D()   
+    meshIsAlreadyCurved=.TRUE.
+    CALL fill25DMesh() 
   CASE DEFAULT
     CALL abort(__STAMP__, &
       'Not known how to construct mesh')
@@ -502,12 +518,33 @@ IF(nFineHexa.GT.1) THEN
   CALL SplitAllHexa(nFineHexa)
   AdaptedMesh=.TRUE.
 END IF
+IF(nSplitBoxes.GT.0) THEN
+  CALL SplitHexaByBoxes()
+  AdaptedMesh=.TRUE.
+END IF
+
+! Count elements 
+nMeshElems=0
+Elem=>FirstElem
+DO WHILE(ASSOCIATED(Elem))
+  nMeshElems=nMeshElems+1
+  Elem=>Elem%nextElem
+END DO
+WRITE(UNIT_stdOut,*)'Number of Elements: ',nMeshElems
+ALLOCATE(Elems(nMeshElems))
+iElem=0
+Elem=>FirstElem
+DO WHILE(ASSOCIATED(Elem))
+  iElem=iElem+1
+  Elems(iElem)%ep=>Elem
+  Elem%ind=iElem
+  Elem=>Elem%nextElem
+END DO
 
 ! Set local and global mesh maxDX (will be used in ALL following searchmeshes unless redefined)
 maxDX=0.
-Elem=>FirstElem
-DO WHILE (ASSOCIATED(Elem))
-  Side=>Elem%firstSide
+DO iElem=1,nMeshElems
+  Side=>Elems(iElem)%ep%firstSide
   DO WHILE(ASSOCIATED(Side))
     !determine local max dx
     maxDX=MAX(maxDX,ABS(Side%Node(2)%np%x-Side%Node(1)%np%x))
@@ -516,19 +553,7 @@ DO WHILE (ASSOCIATED(Elem))
     IF(Side%nNodes.EQ.4) maxDX=MAX(maxDX,ABS(Side%Node(4)%np%x-Side%Node(3)%np%x))
     Side=>Side%nextElemSide
   END DO
-  Elem=>Elem%nextElem
-END DO
-
-! Count elements 
-nMeshElems=0
-Elem=>FirstElem
-DO WHILE(ASSOCIATED(Elem))
-  nMeshElems=nMeshElems+1
-  Elem%ind=nMeshElems
-  Elem=>Elem%nextElem
-END DO
-WRITE(UNIT_stdOut,*)'Number of Elements: ',nMeshElems
-
+END DO !iElem
 
 ! WRITE some visualization, build connectivity and build edge data structure
 IF(DebugVisu)THEN
@@ -540,22 +565,20 @@ IF(useCurveds.AND.Logging)   CALL CountSplines()  ! In case of restart there can
 IF(OrientZ) CALL OrientElemsToZ() 
 
 IF(MeshMode .GT. 0)THEN
-  CALL Connect()                           ! Create connection between elements
+  CALL Connect(reconnect=.FALSE.,deletePeriodic=.FALSE.)                           ! Create connection between elements
   IF(useCurveds.AND.Logging) CALL CountSplines()  ! In case of restart there can be splines
 END IF
 CALL buildEdges()
 
 ! check if sides to be curved exist
 curvedFound=.FALSE.
-Elem=>FirstElem
-DO WHILE(ASSOCIATED(Elem))
-  Side=>Elem%firstSide
+DO iElem=1,nMeshElems
+  Side=>Elems(iElem)%ep%firstSide
   DO WHILE(ASSOCIATED(Side))
     IF(Side%curveIndex.GT.0) curvedFound=.TRUE.
     Side=>Side%nextElemSide
   END DO
-  Elem=>Elem%nextElem
-END DO
+END DO !iElem
 IF(.NOT.curvedFound) curvingMethod=-1
 
 IF(useCurveds)THEN
@@ -614,6 +637,20 @@ END IF ! useCurveds
 ! make all nodes unique
 CALL GlobalUniqueNodes(.TRUE.)
 
+! check if sides with mortars exist
+mortarFound=.FALSE.
+DO iElem=1,nMeshElems
+  Side=>Elems(iElem)%ep%firstSide
+  DO WHILE(ASSOCIATED(Side))
+    IF(Side%MortarType.GT.0) THEN
+      mortarFound=.TRUE.
+      EXIT !do loop
+    END IF
+    Side=>Side%nextElemSide
+  END DO
+  IF(mortarFound) EXIT !do loop
+END DO !iElem
+
 IF(doExactSurfProjection) CALL ProjectToExactSurfaces()
 ! get element types
 CALL FindElemTypes()
@@ -630,8 +667,19 @@ END IF
 
 CALL PostDeform()
 
-IF(useCurveds.AND.doRebuildMortarGeometry) CALL RebuildMortarGeometry()
+SELECT CASE(postConnect)
+CASE(0) !do nothing
+CASE(1) !reconnect all sides
+  CALL Connect(reconnect=.TRUE.,deletePeriodic=.FALSE.)                           ! Create connection between elements
+CASE(2) !reconnect all sides, delete periodic connections (sides on top by postdeform)
+  CALL Connect(reconnect=.TRUE.,deletePeriodic=.TRUE.)                           ! Create connection between elements
+END SELECT !postConnect
 
+IF(mortarFound) THEN
+  IF(doRebuildMortarGeometry) CALL RebuildMortarGeometry()
+  !after rebuild , mortars should be fine, but checking is better:
+  CALL CheckMortarWaterTight()
+END IF !mortarFound
 
 ! apply meshscale before output (default)
 IF(doScale.AND.postScale) CALL ApplyMeshScale(FirstElem)
@@ -643,13 +691,11 @@ IF(DebugVisu) THEN
     IF(DebugVisuLevel.GE.2) CALL chkSpl_Vol()
   END IF
 END IF
-IF(useCurveds.AND.(checkElemJacobians.AND.MeshDim.EQ.3)) CALL CheckJacobians()
+IF(checkElemJacobians) CALL CheckJacobians()
 
-WRITE(UNIT_stdOut,*)
-WRITE(UNIT_stdOut,'(40X,A,F0.2,A)')'GOT mesh (incl. rasterfahndung) '
 IF(useCurveds .AND. Logging) CALL CountSplines()   ! In case of restart there can be splines
 CALL WriteMeshToHDF5(TRIM(ProjectName)//'_mesh.h5')
-
+WRITE(UNIT_stdOut,'(132("~"))')
 CALL Timer(.FALSE.)
 END SUBROUTINE fillMesh
 

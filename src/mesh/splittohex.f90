@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -43,7 +44,11 @@ INTERFACE SplitAllHexa
   MODULE PROCEDURE SplitAllHexa
 END INTERFACE
 
-PUBLIC:: SplitElementsToHex,SplitAllHexa
+INTERFACE SplitHexaByBoxes
+  MODULE PROCEDURE SplitHexaByBoxes
+END INTERFACE
+
+PUBLIC:: SplitElementsToHex,SplitAllHexa,SplitHexaByBoxes
 !===================================================================================================================================
 
 CONTAINS
@@ -52,7 +57,7 @@ SUBROUTINE SplitAllHexa(nFine)
 ! call routines to split all hexa mesh by a factor
 !===================================================================================================================================
 ! MODULES
-USE MOD_Globals,   ONLY:abort
+USE MOD_Globals
 USE MOD_Mesh_Vars, ONLY:tElem,FirstElem
 USE MOD_Mesh_Vars, ONLY:useCurveds
 USE MOD_Mesh_Basis,ONLY:ElemGeometry
@@ -68,6 +73,8 @@ INTEGER,INTENT(IN)            :: nFine  ! ?
 TYPE(tElem),POINTER           :: Elem  ! ?
 INTEGER                       :: maxInd,ii  ! ?
 !===================================================================================================================================
+CALL Timer(.TRUE.)
+WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A,I8,A)')' SPLIT EACH HEXA INTO nFineHexa^3=' ,nFine**3,' HEXA ...'
 IF(useCurveds) CALL abort(__STAMP__, &
           'SplitAllHex cannot be used with curved elements up to now!')
@@ -96,15 +103,83 @@ DO WHILE(ASSOCIATED(Elem))
     CALL SplitHexa8(Elem,nFine,maxInd)
   Elem=>Elem%nextElem
 END DO
-WRITE(UNIT_stdOut,*)'...DONE!'
+CALL Timer(.FALSE.)
 END SUBROUTINE SplitAllHexa
+
+SUBROUTINE SplitHexaByBoxes()
+!===================================================================================================================================
+! call routines to split only hexas with its barycenter within a splitbox. next splitbox is applied on top
+!===================================================================================================================================
+! MODULES
+USE MOD_Globals
+USE MOD_Mesh_Vars, ONLY:tElem,FirstElem
+USE MOD_Mesh_Vars, ONLY:useCurveds
+USE MOD_Mesh_Vars, ONLY:nSplitBoxes,SplitBoxes
+USE MOD_Mesh_Basis,ONLY:ElemGeometry
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+TYPE(tElem),POINTER           :: Elem  
+INTEGER                       :: maxInd,ii,iBox 
+REAL                          :: xBary(3)
+!===================================================================================================================================
+CALL Timer(.TRUE.)
+WRITE(UNIT_stdOut,'(132("~"))')
+WRITE(UNIT_stdOut,'(A,I8,A)')' SPLIT HEXA BY SPLITBOXES ...'
+IF(useCurveds) CALL abort(__STAMP__, &
+          'SplitAllHex cannot be used with curved elements up to now!')
+
+!check first if all elements are hexa
+Elem=>firstElem      !get maxInd of nodes
+DO WHILE(ASSOCIATED(Elem))
+  IF(Elem%nNodes .NE. 8) THEN
+     WRITE(*,*)'non-hexaheral element found, nNodes= ',Elem%nNodes
+     WRITE(*,*)' ===>> NO SPLITBOX APPLIED!!!'
+     WRITE(UNIT_stdOut,*)'...DONE!'
+     RETURN
+  END IF
+  Elem=>Elem%nextElem
+ENDDO
+DO iBox=1,nSplitBoxes
+  ASSOCIATE(xmin=>SplitBoxes(:,1,iBox),xmax=>SplitBoxes(:,2,iBox))
+  maxInd=0
+  Elem=>firstElem      !get maxInd of nodes
+  DO WHILE(ASSOCIATED(Elem))
+    DO ii=1,Elem%nNodes
+      IF(Elem%node(ii)%np%ind.GT.maxInd) maxInd=Elem%node(ii)%np%ind 
+    END DO
+    Elem=>Elem%nextElem
+  ENDDO
+  Elem=>firstElem
+  DO WHILE(ASSOCIATED(Elem))
+    xBary=0.
+    DO ii=1,Elem%nNodes
+      xBary=xBary+Elem%Node(ii)%np%x
+    END DO
+    xBary=xBary/REAL(Elem%nNodes)
+    IF(     ((xBary(1).GT.xmin(1)).AND.(xBary(1).LT.xmax(1))) &
+       .AND.((xBary(2).GT.xmin(2)).AND.(xBary(2).LT.xmax(2))) &
+       .AND.((xBary(3).GT.xmin(3)).AND.(xBary(3).LT.xmax(3))) )THEN
+      CALL SplitHexa8(Elem,2,maxInd)
+    END IF
+    Elem=>Elem%nextElem
+  END DO
+  END ASSOCIATE !xmin,xmax
+END DO !iBox
+CALL Timer(.FALSE.)
+END SUBROUTINE SplitHexaByBoxes
 
 SUBROUTINE SplitElementsToHex()
 !===================================================================================================================================
 ! call routines to split tetra, prism and hexa to hexas. no pyramids allowed!! 
 !===================================================================================================================================
 ! MODULES
-USE MOD_Globals,   ONLY:abort
+USE MOD_Globals
 USE MOD_Mesh_Vars, ONLY:tElem,FirstElem
 USE MOD_Mesh_Vars, ONLY:useCurveds
 USE MOD_Mesh_Basis,ONLY:ElemGeometry
@@ -119,6 +194,8 @@ IMPLICIT NONE
 TYPE(tElem),POINTER           :: Elem  ! ?
 INTEGER                       :: maxInd,ii,counter(3)  ! ?
 !===================================================================================================================================
+CALL Timer(.TRUE.)
+WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')' SPLIT ELEMENTS...'
 maxInd=0
 IF(useCurveds) CALL abort(__STAMP__, &
@@ -153,7 +230,7 @@ END DO
 WRITE(UNIT_stdOut,'(I8,A,I8,A)') counter(1), ' Tetrahedra splitted to ', 4* counter(1),' hexas'
 WRITE(UNIT_stdOut,'(I8,A,I8,A)') counter(2), ' Pentas splitted to     ', 6* counter(2),' hexas'
 WRITE(UNIT_stdOut,'(I8,A,I8,A)') counter(3), ' Hexas splitted to      ', 8* counter(3),' hexas'
-WRITE(UNIT_stdOut,*)'...DONE!'
+CALL Timer(.FALSE.)
 END SUBROUTINE SplitElementsToHex
 
 SUBROUTINE SplitHexa8(Elem,M,maxInd)
