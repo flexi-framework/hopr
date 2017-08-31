@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -246,6 +247,7 @@ INTEGER                              :: GetInt  ! Integer read from setup file o
 ! LOCAL VARIABLES 
 CHARACTER(LEN=255)                   :: HelpStr  ! ?
 CHARACTER(LEN=8)                     :: DefMsg  ! ?
+INTEGER                              :: ioerr
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
@@ -255,7 +257,12 @@ IF (PRESENT(Proposal)) THEN
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
-READ(HelpStr,*)GetInt
+READ(HelpStr,*,IOSTAT=ioerr)GetInt
+IF(ioerr.NE.0)THEN
+  WRITE(*,*)'PROBLEM IN READIN OF LINE (integer):'
+  WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
+  STOP     
+END IF
 SWRITE(UNIT_StdOut,'(a3,a30,a3,i33,a3,a7,a3)')' | ',TRIM(Key),' | ', GetInt,' | ',TRIM(DefMsg),' | '
 END FUNCTION GETINT
 
@@ -280,6 +287,7 @@ REAL                                 :: GetReal  ! Real read from setup file or 
 ! LOCAL VARIABLES 
 CHARACTER(LEN=500)                   :: HelpStr  ! ?
 CHARACTER(LEN=8)                     :: DefMsg  ! ?
+INTEGER                              :: ioerr
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
@@ -291,7 +299,12 @@ ELSE
 END IF
 ! Find values of pi in the string
 CALL getPImultiplies(helpstr)
-READ(HelpStr,*)GetReal
+READ(HelpStr,*,IOSTAT=ioerr)GetReal
+IF(ioerr.NE.0)THEN
+  WRITE(*,*)'PROBLEM IN READIN OF LINE (real):'
+  WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
+  STOP     
+END IF
 SWRITE(UNIT_StdOut,'(a3,a30,a3,e33.5,a3,a7,a3)')' | ',TRIM(Key),' | ', GetReal,' | ',TRIM(DefMsg),' | '
 END FUNCTION GETREAL
 
@@ -316,6 +329,7 @@ LOGICAL                              :: GetLogical ! Logical read from setup fil
 ! LOCAL VARIABLES 
 CHARACTER(LEN=255)                   :: HelpStr  ! ?
 CHARACTER(LEN=8)                     :: DefMsg  ! ?
+INTEGER                              :: ioerr
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
@@ -325,7 +339,12 @@ IF (PRESENT(Proposal)) THEN
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
-READ(HelpStr,*)GetLogical
+READ(HelpStr,*,IOSTAT=ioerr)GetLogical
+IF(ioerr.NE.0)THEN
+  WRITE(*,*)'PROBLEM IN READIN OF LINE (logical):'
+  WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
+  STOP     
+END IF
 SWRITE(UNIT_StdOut,'(a3,a30,a3,l33,a3,a7,a3)')' | ',TRIM(Key),' | ', GetLogical,' | ',TRIM(DefMsg),' | '
 END FUNCTION GETLOGICAL
 
@@ -352,6 +371,7 @@ INTEGER                   :: GetIntArray(nIntegers)      ! Integer array read fr
 CHARACTER(LEN=255)        :: HelpStr  ! ?
 CHARACTER(LEN=8)          :: DefMsg  ! ?
 INTEGER                   :: iInteger  ! ?
+INTEGER                   :: ioerr
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
@@ -361,7 +381,12 @@ IF (PRESENT(Proposal)) THEN
 ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
-READ(HelpStr,*)GetIntArray
+READ(HelpStr,*,IOSTAT=ioerr)GetIntArray
+IF(ioerr.NE.0)THEN
+  WRITE(*,*)'PROBLEM IN READIN OF LINE (integer array):'
+  WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
+  STOP     
+END IF
 SWRITE(UNIT_stdOut,'(a3,a30,a3,a28,i4,a4,a7,a3)',ADVANCE='NO') ' | ',TRIM(Key),' | ',&
                                                                'Integer array of size (',nIntegers,') | ',TRIM(DefMsg),' | '
 DO iInteger=0,nIntegers-1
@@ -397,6 +422,7 @@ REAL                      :: GetRealArray(nReals)        ! Real array read from 
 CHARACTER(LEN=255+nReals*50) :: HelpStr  ! ?
 CHARACTER(LEN=8)          :: DefMsg  ! ?
 INTEGER                   :: iReal  ! ?
+INTEGER                   :: ioerr  ! ?
 !===================================================================================================================================
 ! Read-in ini file if not done already
 CALL FillStrings
@@ -407,7 +433,12 @@ ELSE
   CALL FindStr(Key,HelpStr,DefMsg)
 END IF
 CALL getPImultiplies(helpstr)
-READ(HelpStr,*)GetRealArray
+READ(HelpStr,*,IOSTAT=ioerr)GetRealArray
+IF(ioerr.NE.0)THEN
+  WRITE(*,*)'PROBLEM IN READIN OF LINE (RealArray):'
+  WRITE(*,*) TRIM(key),' = ',TRIM(helpStr)
+  STOP     
+END IF
 SWRITE(UNIT_stdOut,'(a3,a30,a3,a28,i4,a4,a7,a3)',ADVANCE='NO') ' | ',TRIM(Key),' | ',&
                                                                'Real array of size (',nReals,') | ',TRIM(DefMsg),' | '
 DO iReal=0,nReals-1
@@ -573,27 +604,25 @@ DO i=1,nDefVars
          'DEFVAR: do not reuse same strings for variable names! Code stopped during inifile parsing!')
     END IF
   END DO
-END DO !i=1,nDefVars
-Str1=>FirstString
-DO WHILE(ASSOCIATED(Str1))
-  vStr=Str1%Str
-  CALL Split(vStr,vStr1,"=",back=.FALSE.) 
-  CALL Split(vStr,vStr2,"=",back=.TRUE.) 
-  found=.FALSE.
-  DO i=1,nDefVars
+  Str1=>FirstString
+  DO WHILE(ASSOCIATED(Str1))
+    vStr=Str1%Str
+    vStr2=Str1%Str
+    CALL Split(vStr2,vStr1,"=",back=.FALSE.) 
+    found=.FALSE.
     IF (INDEX(TRIM(CHAR(vStr2)),TRIM(CHAR(DefVar(1,i)))).NE.0) THEN
       found=.TRUE.
       vStr2=replace(vStr2,TRIM(CHAR(DefVar(1,i))),TRIM(CHAR(DefVar(2,i))),Every=.TRUE.)
     END IF
-  END DO !i=1,nDefVars
-  IF(Found)THEN
-    !SWRITE(UNIT_StdOut,*)'DEBUG, ',TRIM(CHAR(Str1%str))
-    Str1%Str=CHAR(vStr1)//'='//CHAR(vStr2)
-    !SWRITE(UNIT_StdOut,*)' >>>>>>',TRIM(CHAR(Str1%str))
-  END IF !found
-  ! Next string in list
-  Str1=>Str1%NextStr
-END DO !WHILE Str1 associated
+    IF(Found)THEN
+      !SWRITE(UNIT_StdOut,*)'DEBUG, ',TRIM(CHAR(Str1%str))
+      Str1%Str=CHAR(vStr1)//'='//CHAR(vStr2)
+      !SWRITE(UNIT_StdOut,*)' >>>>>>',TRIM(CHAR(Str1%str))
+    END IF !found
+    ! Next string in list
+    Str1=>Str1%NextStr
+  END DO !WHILE Str1 associated
+END DO !i=1,nDefVars
 
 END SUBROUTINE UserDefinedVars 
 
@@ -616,35 +645,75 @@ TYPE(Varying_String):: DefVar(2)   !Name, Value
 CHARACTER(LEN=255)  :: HelpStr  ! ?
 CHARACTER(LEN=255)  :: aStr  ! ?
 CHARACTER(LEN=8)    :: DefMsg  ! ?
-TYPE(Varying_String):: vStr,vStr1,vStr2
-REAL                :: DefVarVal
+TYPE(Varying_String):: vStr,vStr1,vStr2,vStrTmp,vStr_narr
+INTEGER             :: DefVarInt
+REAL                :: DefVarReal
+INTEGER,ALLOCATABLE :: DefVarIntArr(:)
+REAL,ALLOCATABLE    :: DefVarRealArr(:)
+INTEGER             :: nArr
 LOGICAL             :: DefVarIsInt
+LOGICAL             :: DefVarIsIntarray
+LOGICAL             :: DefVarIsReal
+LOGICAL             :: DefVarIsRealarray
 !===================================================================================================================================
 CALL FindStr('DEFVAR',HelpStr,DefMsg)
 CALL LowCase(HelpStr,aStr)
 vStr=aStr
 
-CALL Split(vStr,vStr1,":",back=.FALSE.) 
-CALL Split(vStr,vStr2,":",back=.TRUE.) 
+CALL Split(vStr,vStr1,":",back=.FALSE.) !split after first occurence in vStr, and put first part in vStr1, second part in vStr
+CALL Split(vStr,vStr2,":",back=.TRUE.)  !split after last occurence in Vstr and put second part in vStr1 and first part in Vstr
 
-DefVarIsInt=(CHAR(vStr1).EQ.'(int)') 
+vStrTmp=vStr1
+CALL Split(vStrtmp,vStr1,"~",back=.FALSE.) !first part in vStr1, second part in VStrtmp
+CALL Split(vStrtmp,vStr_narr,"~",back=.TRUE.) !second part in VStr_narr, first part in VStrtmp
+CALL Split(vStr_narr,vStrTmp,")",back=.TRUE.) !first part VStr_narr
 
-IF((.NOT.DefVarIsInt).AND.(.NOT.(CHAR(vStr1).EQ.'(real)')))THEN
+DefVarIsInt      =(CHAR(vStr1).EQ.'(int)') 
+DefVarIsIntarray =(CHAR(vStr1).EQ.'(int') !array  must be of format (int~n)
+DefVarIsReal     =(CHAR(vStr1).EQ.'(real)') 
+DefVarIsRealarray=(CHAR(vStr1).EQ.'(real') 
+
+
+IF(.NOT.((DefVarIsInt).OR.(DefVarIsIntArray).OR.(DefVarIsReal).OR.(defVarIsRealarray) ))THEN
   SWRITE(UNIT_StdOut,*) 'DEFVAR not correctly defined: ',TRIM(HelpStr)
     CALL abort(__STAMP__, &
          'Code stopped during inifile parsing!')
 END IF
+
+IF(DefVarIsIntArray.OR.DefVarIsRealArray)THEN
+  aStr=CHAR(vstr_narr)
+  READ(aStr,*) nArr
+END IF
+
+!now take the second part of the definition ( nvar = xxx)
 vStr=VStr2
 CALL Split(vStr,vStr1,"=",back=.FALSE.) 
 CALL Split(vStr,vStr2,"=",back=.TRUE.) 
 DefVar(1)=vStr1
 DefVar(2)=vStr2
 aStr=CHAR(DefVar(2))
-READ(aStr,*)DefVarVal
 IF(DefVarIsInt) THEN
-  SWRITE(UNIT_StdOut,'(A3,A30,A3,I33,A3,A7,A3)')' | ',TRIM(CHAR(DefVar(1))),' | ', INT(DefVarVal),' | ','=>INT  ',' | '
-ELSE
-  SWRITE(UNIT_StdOut,'(A3,A30,A3,E33.5,A3,A7,A3)')' | ',TRIM(CHAR(DefVar(1))),' | ', DefVarVal,' | ','=>REAL ',' | '
+  READ(aStr,*)DefVarInt
+  SWRITE(UNIT_StdOut,'(A3,A30,A3,I33,A3,A7,A3)')  ' | ',TRIM(CHAR(DefVar(1))),' | ', DefVarInt      ,' | ','=>INT  ',' | '
+ELSE IF(DefVarIsReal)THEN
+  READ(aStr,*)DefVarReal
+  SWRITE(UNIT_StdOut,'(A3,A30,A3,E33.5,A3,A7,A3)')' | ',TRIM(CHAR(DefVar(1))),' | ', DefVarReal     ,' | ','=>REAL ',' | '
+ELSE IF(DefVarIsIntArray)THEN
+  ALLOCATE(DefVarIntArr(nArr))
+  READ(aStr,*)DefVarIntArr(:)
+  SWRITE(UNIT_StdOut,'(A3,A30,A31,I4,A4,A7,A3,'//TRIM(CHAR(vStr_narr))//'(X,I4))')' | ',TRIM(CHAR(DefVar(1))), &
+        ' |      Integer array of size (', nArr,') | ','=>INT  ',' | ',DefVarIntArr(1:narr)
+  WRITE(aStr,'('//TRIM(CHAR(vStr_narr))//'(X,I8))') DefVarIntArr !overwrite
+  DEALLOCATE(DefVarIntArr)
+  DefVar(2)=aStr
+ELSE IF(DefVarIsRealArray)THEN
+  ALLOCATE(DefVarRealArr(nArr))
+  READ(aStr,*)DefVarRealArr(:)
+  SWRITE(UNIT_StdOut,'(A3,A30,A31,I4,A4,A7,A3,'//TRIM(CHAR(vStr_narr))//'(X,E8.1))')' | ',TRIM(CHAR(DefVar(1))), &
+        ' |         Real array of size (', nArr,') | ','=>REAL ',' | ',DefVarRealArr(1:narr)
+  WRITE(aStr,'('//TRIM(CHAR(vStr_narr))//'(X,E23.15))') DefVarRealArr !overwrite
+  DEALLOCATE(DefVarRealArr)
+  DefVar(2)=aStr
 END IF
 
 END SUBROUTINE GetDefVar 

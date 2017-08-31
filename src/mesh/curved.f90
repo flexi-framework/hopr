@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -552,7 +553,6 @@ CALL deleteSearchMesh(searchMesh)
 DEALLOCATE(mergedFaces,sameFaces,faceConnectivity,aNormals)
 LOGWRITE(UNIT_stdOut,*)'All normals have been assigned successfully!'
 CALL Timer(.FALSE.)
-WRITE(UNIT_stdOut,'(132("~"))')
 END SUBROUTINE readNormals
 
 SUBROUTINE checkNormals()
@@ -653,6 +653,7 @@ INTEGER                   :: iNode,nn  ! ?
 INTEGER                   :: prev1(4,3:4),next1(4,3:4)
 REAL                      :: v1(3),v2(3)  ! ?
 !===================================================================================================================================
+CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'RECONSTRUCT NORMALS ... '
 
@@ -729,7 +730,7 @@ DO WHILE(ASSOCIATED(aElem))
   aElem=>aElem%nextElem
 END DO
 
-WRITE(UNIT_stdOut,'(132("~"))')
+CALL Timer(.FALSE.)
 END SUBROUTINE reconstructNormals
 
 
@@ -1063,19 +1064,20 @@ END DO !iSide
 DEALLOCATE(refSide)
 END SUBROUTINE curvedVolToSurf
 
-SUBROUTINE referenceSideToFlipped(refSide,aSide)
+
+SUBROUTINE referenceSideToFlipped(refSide,Side)
 !===================================================================================================================================
 ! set surface curvednode pointers from existing curved volume 
 !===================================================================================================================================
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:tSide,tNodePtr,N
-USE MOD_Mesh_Basis,ONLY:isOriented
+USE MOD_Mesh_Basis,ONLY:getFlip
 USE MOD_Basis_Vars,ONLY:TriaMapInv,QuadMapInv
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-TYPE(tSide),POINTER,INTENT(INOUT) :: aSide  ! ?
+TYPE(tSide),POINTER,INTENT(INOUT) :: Side  ! ?
 TYPE(tNodePtr),POINTER,INTENT(IN) :: refSide(:,:)  ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -1083,58 +1085,53 @@ TYPE(tNodePtr),POINTER,INTENT(IN) :: refSide(:,:)  ! ?
 ! LOCAL VARIABLES
 INTEGER                           :: flip,p,q  ! ?
 !===================================================================================================================================
-IF(isOriented(aSide))THEN !oriented side
-  flip=0
-ELSE !not oriented
-  DO flip=1,aSide%nNodes
-    IF(ASSOCIATED(aSide%Node(flip)%np,aSide%OrientedNode(1)%np)) EXIT
-  END DO
-END IF
+flip=getFlip(Side)
 
 ! Reference side to real side
-SELECT CASE (aSide%nNodes)
+SELECT CASE (Side%nNodes)
 CASE(3)
-  aSide%nCurvedNodes=((N+1)*(N+2))/2
-  ALLOCATE(aSide%curvedNode(aSide%nCurvedNodes))
+  Side%nCurvedNodes=((N+1)*(N+2))/2
+  ALLOCATE(Side%curvedNode(Side%nCurvedNodes))
   DO q=0,N 
     DO p=0,N-q
       SELECT CASE(flip)
       CASE(0)
-        aSide%curvedNode(TriaMapInv(p,q))%np => refSide(p,q)%np
+        Side%curvedNode(TriaMapInv(p,q))%np => refSide(p,q)%np
       CASE(1)
-        aSide%curvedNode(TriaMapInv(p,q))%np => refSide(q,p)%np
+        Side%curvedNode(TriaMapInv(p,q))%np => refSide(q,p)%np
       CASE(2)
-        aSide%curvedNode(TriaMapInv(p,q))%np => refSide(N-q-p,q)%np
+        Side%curvedNode(TriaMapInv(p,q))%np => refSide(N-q-p,q)%np
       CASE(3)
-        aSide%curvedNode(TriaMapInv(p,q))%np => refSide(p,N-q-p)%np
+        Side%curvedNode(TriaMapInv(p,q))%np => refSide(p,N-q-p)%np
       END SELECT  
-      aSide%curvedNode(TriaMapInv(p,q))%np%refCount=aSide%curvedNode(TriaMapInv(p,q))%np%refCount+1
+      Side%curvedNode(TriaMapInv(p,q))%np%refCount=Side%curvedNode(TriaMapInv(p,q))%np%refCount+1
     END DO !p
   END DO !q
 CASE(4)
-  aSide%nCurvedNodes=((N+1)**2)
-  ALLOCATE(aSide%curvedNode(aSide%nCurvedNodes))
+  Side%nCurvedNodes=((N+1)**2)
+  ALLOCATE(Side%curvedNode(Side%nCurvedNodes))
   DO q=0,N 
     DO p=0,N
       SELECT CASE(flip)
       CASE(0)
-        aSide%curvedNode(QuadMapInv(p,q))%np => refSide(p,q)%np
+        Side%curvedNode(QuadMapInv(p,q))%np => refSide(p,q)%np
       CASE(1)
-        aSide%curvedNode(QuadMapInv(p,q))%np => refSide(q,p)%np
+        Side%curvedNode(QuadMapInv(p,q))%np => refSide(q,p)%np
       CASE(2)
-        aSide%curvedNode(QuadMapInv(p,q))%np => refSide(N-p,q)%np
+        Side%curvedNode(QuadMapInv(p,q))%np => refSide(N-p,q)%np
       CASE(3)
-        aSide%curvedNode(QuadMapInv(p,q))%np => refSide(N-q,N-p)%np
+        Side%curvedNode(QuadMapInv(p,q))%np => refSide(N-q,N-p)%np
       CASE(4)
-        aSide%curvedNode(QuadMapInv(p,q))%np => refSide(p,N-q)%np
+        Side%curvedNode(QuadMapInv(p,q))%np => refSide(p,N-q)%np
       END SELECT
-      aSide%curvedNode(QuadMapInv(p,q))%np%refCount=aSide%curvedNode(QuadMapInv(p,q))%np%refCount+1
+      Side%curvedNode(QuadMapInv(p,q))%np%refCount=Side%curvedNode(QuadMapInv(p,q))%np%refCount+1
     END DO !p
   END DO !q
 CASE DEFAULT
   CALL abort(__STAMP__,'Only triangular and quadrangular sides are supported.')
 END SELECT
 END SUBROUTINE referenceSideToFlipped
+
 
 FUNCTION ElemIsCurved(Elem)
 !===================================================================================================================================
@@ -1439,7 +1436,6 @@ END DO
 maxDist=SQRT(maxDist)
 WRITE(UNIT_stdOut,'(A,E11.4)')'maximum distance of projection points: ',maxDist
 CALL Timer(.FALSE.)
-WRITE(UNIT_stdOut,'(132("~"))')
 END SUBROUTINE ProjectToExactSurfaces
 
 SUBROUTINE exactSurfaceFunction(xold,exactFunction,xnew)
@@ -1534,6 +1530,7 @@ INTEGER                   :: i  ! ?
 REAL                      :: v(3,2)  ! ?
 INTEGER                   :: normalCaseCount(2)  ! ?
 !===================================================================================================================================
+CALL Timer(.TRUE.)
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,'(A)')'CREATE CURVED EDGES FROM NORMALS ... '
 
@@ -1575,6 +1572,7 @@ IF (SUM(normalCaseCount) .GT. 0)  THEN
   ERRWRITE(UNIT_stdOut,*)'Tangent calculation by cross product:',normalCaseCount(2)
 END IF
 
+CALL Timer(.FALSE.)
 END SUBROUTINE create3DSplines
 
 
@@ -2066,7 +2064,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 TYPE(tElem),POINTER       :: Elem  ! ?
-!-----------------------------------------------------------------------------------------------------------------------------------
+!===================================================================================================================================
 !RETURN !DEBUG
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,*)'CREATING CURVED ELEMENTS FROM CURVED SURFACES ...'
@@ -2095,7 +2093,7 @@ SUBROUTINE curvedSurfacesToHexa(Elem)
 USE MOD_Basis_Vars,ONLY:QuadMapInv,HexaMapInv
 USE MOD_Mesh_Vars, ONLY:tElem,tSide,N
 USE MOD_Mesh_Vars, ONLY:getNewNode,tNodePtr
-USE MOD_Mesh_Basis,ONLY:isOriented
+USE MOD_Mesh_Basis,ONLY:getFlip
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -2131,13 +2129,7 @@ xpos(0,N,N)%np=>Elem%Node(8)%np
 ! fill side points 
 Side=>Elem%firstSide
 DO WHILE(ASSOCIATED(Side)) 
-  IF(isOriented(Side))THEN !oriented side
-    flip=0
-  ELSE !not oriented
-    DO flip=1,4
-      IF(ASSOCIATED(Side%Node(flip)%np,Side%OrientedNode(1)%np)) EXIT
-    END DO
-  END IF
+  flip=getFlip(Side)
 
   DO q=0,N; DO p=0,N
     NULLIFY(xSide(p,q)%np)
@@ -2630,6 +2622,7 @@ TYPE(tElem),POINTER       :: Elem  ! ?
 TYPE(tSide),POINTER       :: Side  ! ?
 TYPE(tEdge),POINTER       :: Edge  ! ?
 INTEGER                   :: iEdge ! ?
+LOGICAL                   :: periodicMortarFound ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 WRITE(UNIT_stdOut,'(132("~"))')
 WRITE(UNIT_stdOut,*)'REBUILDING CURVED MORTAR INTERFACES...'
@@ -2640,12 +2633,17 @@ CALL GetMortarVandermonde(N, M_0_1_T, M_0_2_T)
 M_0_1_T=TRANSPOSE(M_0_1_T)
 M_0_2_T=TRANSPOSE(M_0_2_T)
 
+periodicMortarFound=.FALSE.
 Elem=>firstElem
 DO WHILE(ASSOCIATED(Elem))
   Side=>Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
-    IF(Side%MortarType.GT.0) &
+    IF(Side%MortarType.GT.0) THEN
+      IF(ASSOCIATED(Side%BC))THEN
+        IF(Side%BC%BCType.EQ.1) periodicMortarFound=.TRUE.
+      END IF
       CALL MapBigSideToSmall(Side)
+    END IF
     Side=>Side%nextElemSide
   END DO
   Elem=>Elem%nextElem
@@ -2659,11 +2657,6 @@ DO WHILE(ASSOCIATED(Elem))
       DO iEdge=1,Side%nNodes
         Edge=>Side%Edge(iEdge)%edp
         IF(.NOT.ASSOCIATED(Edge%parentEdge).AND.ASSOCIATED(Edge%MortarEdge))THEN
-          IF(ASSOCIATED(Side%BC))THEN
-            IF(Side%BC%BCType.EQ.1) &
-            CALL abort(__STAMP__,&
-              'Rebuilding curved periodic mortar edges is not yet implemented.')
-          END IF
           CALL MapBigEdgeToSmall(Edge)
         END IF
       END DO
@@ -2672,6 +2665,19 @@ DO WHILE(ASSOCIATED(Elem))
   END DO
   Elem=>Elem%nextElem
 END DO
+
+! check if periodics are still watertight
+IF(periodicMortarFound)THEN
+  WRITE(UNIT_stdOut,'(132("!"))')
+  WRITE(UNIT_stdOut,*) ' WARNING: Periodic mortar edges have been found in the mesh. Rebuilding these mortar edges is not yet implemented!'
+  WRITE(UNIT_stdOut,*) '          The mesh may not be watertight along the edges of curved periodic mortars.'
+  WRITE(UNIT_stdOut,'(132("!"))')
+  !CALL abort(__STAMP__,&
+  !  'Rebuilding curved periodic mortar edges is not yet implemented.')
+END IF
+
+WRITE(UNIT_stdOut,*)'...DONE.'
+WRITE(UNIT_stdOut,'(132("~"))')
 END SUBROUTINE RebuildMortarGeometry
 
 
@@ -2696,17 +2702,19 @@ INTEGER                          :: nMortars,p,q,l
 REAL                             :: XGeo2DBig(   3,0:N,0:N)
 REAL                             :: XGeo2DSmall4(3,0:N,0:N,4)
 REAL                             :: XGeo2DSmall2(3,0:N,0:N,2)
+REAL                             :: dir
 !-----------------------------------------------------------------------------------------------------------------------------------
 XGeo2DBig=0.
 XGeo2DSmall4=0.
 XGeo2DSmall2=0.
 CALL PackGeo(N,Side,XGeo2DBig)
 
-! in case of periodic BCs add displacement vector
+! In case of periodic BCs always add displacement vector. Pay attention to direction!
 IF(ASSOCIATED(Side%BC))THEN
-  IF(Side%BC%BCType.EQ.1.AND.Side%BC%BCalphaInd.GT.0)THEN
+  IF(Side%BC%BCType.EQ.1.AND.Side%BC%BCalphaInd.NE.0)THEN
+    dir=1.*SIGN(1,Side%BC%BCalphaInd)
     DO q=0,N; DO p=0,N
-      XGeo2DBig(:,p,q)=XGeo2DBig(:,p,q)+VV(:,ABS(Side%BC%BCalphaInd))
+      XGeo2DBig(:,p,q)=XGeo2DBig(:,p,q) + dir*VV(:,ABS(Side%BC%BCalphaInd))
     END DO; END DO
   END IF
 END IF
@@ -2765,7 +2773,6 @@ DO p=1,nMortars
 END DO
 
 END SUBROUTINE MapBigSideToSmall
-
 
 
 RECURSIVE SUBROUTINE MapBigEdgeToSmall(edge)

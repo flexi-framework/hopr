@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -58,7 +59,7 @@ INTEGER :: next2(4,3:4)=RESHAPE((/3,1,2,0,3,4,1,2/),SHAPE(next2))
 
 CONTAINS
 
-SUBROUTINE Connect()
+SUBROUTINE Connect(reconnect,deletePeriodic)
 !===================================================================================================================================
 ! Eliminates multiple nodes, checks periodic boundary conditions and connects elements to their neighbours.
 !===================================================================================================================================
@@ -75,6 +76,8 @@ USE MOD_Mesh_Tools,       ONLY:BCVisu
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
+LOGICAL,INTENT(IN)        :: reconnect
+LOGICAL,INTENT(IN)        :: deletePeriodic
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -106,9 +109,13 @@ Elem=>FirstElem
 DO WHILE(ASSOCIATED(Elem))
   Side=>Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
+    IF(reconnect)  NULLIFY(side%connection)
     nTotalSides=nTotalSides+1
     IF (ASSOCIATED(Side%BC)) THEN
       nBCSides=nBCSides+1
+      IF(deletePeriodic) THEN
+        IF(Side%BC%BCType .EQ. 1) Side%BC%BCtype=0
+      END IF
       IF (Side%BC%BCType .EQ. 0) THEN
         CALL deleteBC(Side%BC)
         nBCSides=nBCSides-1
@@ -252,6 +259,8 @@ END IF
 WRITE(UNIT_stdOut,'(A,F0.3,A)')'Mesh Connect completed with success.  '
 CALL Timer(.FALSE.)
 END SUBROUTINE Connect
+
+
 SUBROUTINE ConnectMesh()
 !===================================================================================================================================
 ! Connect all sides which can be found by node association. Uses Quicksort 

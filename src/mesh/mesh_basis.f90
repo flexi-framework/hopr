@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -28,14 +29,12 @@ MODULE MOD_Mesh_Basis
 ! MODULES
 USE MOD_Globals
 USE MOD_Mesh_Vars,ONLY:tEdge
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 PRIVATE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
 !-----------------------------------------------------------------------------------------------------------------------------------
-! Private Part ---------------------------------------------------------------------------------------------------------------------
-! Public Part ----------------------------------------------------------------------------------------------------------------------
+
 INTERFACE ElemGeometry
   MODULE PROCEDURE ElemGeometry
 END INTERFACE
@@ -76,6 +75,10 @@ INTERFACE isOriented
    MODULE PROCEDURE isOriented
 END INTERFACE
 
+INTERFACE getFlip
+   MODULE PROCEDURE getFlip
+END INTERFACE
+
 INTERFACE PACKGEO
    MODULE PROCEDURE PACK1D
    MODULE PROCEDURE PACK2D
@@ -98,6 +101,7 @@ PUBLIC::BuildEdges
 PUBLIC::FlushMesh
 PUBLIC::assignBC
 PUBLIC::isOriented
+PUBLIC::getFlip
 PUBLIC::FindElemTypes
 PUBLIC::PackGeo
 PUBLIC::UnpackGeo
@@ -114,7 +118,6 @@ SUBROUTINE ElemGeometry(Elem,TrafoOpt,TrafoInvOpt)
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:tElem,tSide,tSidePtr,tBC,tNode,N,jacobianTolerance
 USE MOD_Basis_Vars,ONLY:TetraMapInv,PrismMapInv,PyraMapInv,HexaMapInv
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -238,7 +241,6 @@ SUBROUTINE INV33(M,MInv,detM)
 ! Computes the inverse of a 3x3 matrix
 !===================================================================================================================================
 ! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -289,7 +291,6 @@ SUBROUTINE FindElemTypes()
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:tElem,tSide,FirstElem
 USE MOD_Mesh_Tolerances,ONLY:SAMEPOINT
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -366,7 +367,6 @@ SUBROUTINE getNewHexa(Elem,zone,node1,node2,node3,node4,node5,node6,node7,node8)
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:getNewElem
 USE MOD_Mesh_Vars,ONLY:tElem,tNode
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -411,7 +411,6 @@ USE MOD_Mesh_Vars,ONLY:MeshDim
 USE MOD_Mesh_Vars,ONLY:DZ
 USE MOD_Mesh_Vars,ONLY:nNodesElemSideMapping,ElemSideMapping
 USE MOD_Mesh_Vars,ONLY:getNewSide,getNewNode
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -582,7 +581,6 @@ FUNCTION GetBoundaryIndex(BCString)
 !===================================================================================================================================
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:nUserDefinedBoundaries,BoundaryName
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
@@ -618,7 +616,6 @@ SUBROUTINE buildEdges()
 USE MOD_Mesh_Vars,ONLY:tElem,tSide,tEdge,tNode,tEdgePtr
 USE MOD_Mesh_Vars,ONLY:firstElem
 USE MOD_Mesh_Vars,ONLY:GetNewEdge
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -744,9 +741,19 @@ DO WHILE(ASSOCIATED(aElem))
         CYCLE
       END IF
     END IF
+
+    ! check all edges of a side
     DO iEdge=1,aSide%nNodes
       aEdge=>aSide%Edge(iEdge)%edp
-      IF(ASSOCIATED(aEdge%MortarEdge)) CYCLE
+      IF(ASSOCIATED(aEdge%MortarEdge)) CYCLE ! already built
+
+      ! search for all small edges that share at least one node with big edge
+      ! 0-2 edges found: this should NEVER happen
+      ! 3   edges found: the conforming case, occurring for the non-mortar edges of 2 -> 1 side mortars: ignore
+      ! 4   edges found: the one we search for and the only case which should occur, if we're using 4 -> mortars.
+      !                Two of these small edges belong to the mortar.
+      ! >4  edges found: this should NEVER happen
+
       indA(1)=aEdge%Node(1)%np%ind
       indA(2)=aEdge%Node(2)%np%ind
       edgeCount=0
@@ -763,11 +770,13 @@ DO WHILE(ASSOCIATED(aElem))
           END IF
         END DO
       END DO
+
       IF(edgeCount.EQ.3) CYCLE
       IF(edgeCount.NE.4) THEN
         STOP 'Mismatch of neighbour edge count of non-conforming edges.'
       END IF
 
+      ! now select the 2 edges of the found 4 edges, sharing a common node
       DO jEdge=1,3
         DO kEdge=jEdge+1,4
           IF(ANY(indB(1,jEdge).EQ.indB(:,kEdge)).OR.ANY(indB(2,jEdge).EQ.indB(:,kEdge)))THEN
@@ -805,7 +814,6 @@ SUBROUTINE FlushMesh()
 USE MOD_Mesh_Vars,ONLY:tElem
 USE MOD_Mesh_Vars,ONLY:firstElem
 USE MOD_Mesh_Vars,ONLY:DeleteElem
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -828,7 +836,6 @@ SUBROUTINE assignBC(BCcopy,BCorig)
 !===================================================================================================================================
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:tBC
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -858,7 +865,6 @@ FUNCTION isOriented(Side)
 !===================================================================================================================================
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:tSide
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -876,16 +882,46 @@ IF ((ASSOCIATED(Side%Node(1)%np, Side%orientedNode(1)%np)) .AND. &
 END IF
 END FUNCTION isOriented
 
+
+FUNCTION getFlip(Side)
+!===================================================================================================================================
+! Get flip of side
+!===================================================================================================================================
+! MODULES
+USE MOD_Mesh_Vars,ONLY:tSide
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+TYPE(tSide),POINTER,INTENT(IN) :: Side         ! ? 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+INTEGER                        :: getFlip   ! ? 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES 
+INTEGER                        :: i
+!===================================================================================================================================
+getFlip=-1
+IF(isOriented(Side))THEN !oriented side
+  getFlip=0
+ELSE !not oriented
+  DO i=1,Side%nNodes
+    IF(ASSOCIATED(Side%Node(i)%np,Side%OrientedNode(1)%np))THEN
+      getFlip=i 
+      EXIT
+    END IF
+  END DO
+END IF
+END FUNCTION getFlip
+
+
 SUBROUTINE Pack1D(Ngeo,edge,data_out) 
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! description
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! MODULES  
 USE MOD_Mesh_Vars,ONLY:tEdge
-!----------------------------------------------------------------------------------------------------------------------------------!
-! insert modules here
-!----------------------------------------------------------------------------------------------------------------------------------!
 IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)             :: Ngeo
 TYPE(tEdge),POINTER,INTENT(IN) :: edge
@@ -894,22 +930,25 @@ REAL,INTENT(OUT)               :: data_out(3,0:Ngeo)
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo 
 !===================================================================================================================================
-DO iNgeo=0,Ngeo
-  data_out(:,iNgeo) = edge%curvedNode(iNgeo+1)%np%x
-END DO 
+IF(NGeo.GT.1)THEN
+  DO iNgeo=0,Ngeo
+    data_out(:,iNgeo) = edge%curvedNode(iNgeo+1)%np%x
+  END DO 
+ELSE 
+  data_out(:,0) = edge%Node(1)%np%x
+  data_out(:,1) = edge%Node(2)%np%x
+END IF
 END SUBROUTINE Pack1D
 
 SUBROUTINE Pack2D(Ngeo,side,data_out) 
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! description
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! MODULES                                                                                                                          !
 USE MOD_Mesh_Vars,ONLY:tSide
 USE MOD_Basis_Vars ,ONLY:QuadMapInv
-!----------------------------------------------------------------------------------------------------------------------------------!
-! insert modules here
-!----------------------------------------------------------------------------------------------------------------------------------!
 IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------!
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)  :: Ngeo
 TYPE(tSide),POINTER,INTENT(IN) :: side
@@ -918,25 +957,30 @@ REAL,INTENT(OUT)    :: data_out(3,0:Ngeo,0:Ngeo)
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo,jNgeo,i1D 
 !===================================================================================================================================
-DO jNgeo=0,Ngeo
-  DO iNgeo=0,Ngeo
-    i1D = QuadMapInv(iNgeo,jNgeo)
-    data_out(:,iNgeo,jNgeo) = side%curvedNode(i1D)%NP%x
+IF(Ngeo.GT.1)THEN
+  DO jNgeo=0,Ngeo
+    DO iNgeo=0,Ngeo
+      i1D = QuadMapInv(iNgeo,jNgeo)
+      data_out(:,iNgeo,jNgeo) = side%curvedNode(i1D)%NP%x
+    END DO 
   END DO 
-END DO 
+ELSE
+  data_out(:,0,0) = side%OrientedNode(1)%NP%x
+  data_out(:,1,0) = side%OrientedNode(2)%NP%x
+  data_out(:,1,1) = side%OrientedNode(3)%NP%x
+  data_out(:,0,1) = side%OrientedNode(4)%NP%x
+END IF
 END SUBROUTINE Pack2D
 
 SUBROUTINE Pack3D(Ngeo,elem,data_out) 
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! description
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! MODULES                                                                                                                          !
 USE MOD_Mesh_Vars,ONLY:tElem
 USE MOD_Basis_Vars ,ONLY:HexaMapInv
-!----------------------------------------------------------------------------------------------------------------------------------!
-! insert modules here
-!----------------------------------------------------------------------------------------------------------------------------------!
 IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------!
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)  :: Ngeo
 TYPE(tElem),POINTER,INTENT(IN) :: elem
@@ -945,26 +989,35 @@ REAL,INTENT(OUT)    :: data_out(3,0:Ngeo,0:Ngeo,0:Ngeo)
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo,jNgeo,kNgeo,i1D 
 !===================================================================================================================================
-DO kNgeo=0,Ngeo
-  DO jNgeo=0,Ngeo
-    DO iNgeo=0,Ngeo
-      i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
-      data_out(:,iNgeo,jNgeo,kNgeo) = elem%curvedNode(i1D)%NP%x
+IF(Ngeo.GT.1)THEN
+  DO kNgeo=0,Ngeo
+    DO jNgeo=0,Ngeo
+      DO iNgeo=0,Ngeo
+        i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
+        data_out(:,iNgeo,jNgeo,kNgeo) = elem%curvedNode(i1D)%NP%x
+      END DO 
     END DO 
   END DO 
-END DO 
+ELSE
+  data_out(:,0,0,0) = elem%Node(1)%NP%x
+  data_out(:,1,0,0) = elem%Node(2)%NP%x
+  data_out(:,1,1,0) = elem%Node(3)%NP%x
+  data_out(:,0,1,0) = elem%Node(4)%NP%x
+  data_out(:,0,0,1) = elem%Node(5)%NP%x
+  data_out(:,1,0,1) = elem%Node(6)%NP%x
+  data_out(:,1,1,1) = elem%Node(7)%NP%x
+  data_out(:,0,1,1) = elem%Node(8)%NP%x
+END IF
 END SUBROUTINE Pack3D
 
 SUBROUTINE Unpack1D(Ngeo,data_in,edge) 
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! description
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! MODULES                                                                                                                          !
 USE MOD_Mesh_Vars,ONLY:tEdge
-!----------------------------------------------------------------------------------------------------------------------------------!
-! insert modules here
-!----------------------------------------------------------------------------------------------------------------------------------!
 IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------!
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)  :: Ngeo
 REAL,INTENT(IN)     :: data_in(3,0:Ngeo)
@@ -973,22 +1026,25 @@ TYPE(tEdge),POINTER,INTENT(IN) :: edge
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo 
 !===================================================================================================================================
-DO iNgeo=0,Ngeo
-  edge%curvedNode(iNgeo+1)%NP%x = data_in(:,iNgeo)
-END DO 
+IF(NGeo.GT.1)THEN
+  DO iNgeo=0,Ngeo
+    edge%curvedNode(iNgeo+1)%NP%x = data_in(:,iNgeo)
+  END DO 
+ELSE
+  edge%Node(1)%NP%x = data_in(:,0)
+  edge%Node(2)%NP%x = data_in(:,1)
+END IF
 END SUBROUTINE Unpack1D
 
 SUBROUTINE Unpack2D(Ngeo,data_in,side) 
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! description
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! MODULES                                                                                                                          !
 USE MOD_Mesh_Vars,ONLY:tSide
 USE MOD_Basis_Vars ,ONLY:QuadMapInv
-!----------------------------------------------------------------------------------------------------------------------------------!
-! insert modules here
-!----------------------------------------------------------------------------------------------------------------------------------!
 IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------!
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)  :: Ngeo
 REAL,INTENT(IN)     :: data_in(3,0:Ngeo,0:Ngeo)
@@ -997,25 +1053,30 @@ TYPE(tSide),POINTER,INTENT(IN) :: side
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo,jNgeo,i1D
 !===================================================================================================================================
-DO jNgeo=0,Ngeo
-  DO iNgeo=0,Ngeo
-    i1D = QuadMapInv(iNgeo,jNgeo)
-    side%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo)
+IF(NGeo.GT.1)THEN
+  DO jNgeo=0,Ngeo
+    DO iNgeo=0,Ngeo
+      i1D = QuadMapInv(iNgeo,jNgeo)
+      side%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo)
+    END DO 
   END DO 
-END DO 
+ELSE
+  side%OrientedNode(1)%NP%x = data_in(:,0,0)
+  side%OrientedNode(2)%NP%x = data_in(:,1,0)
+  side%OrientedNode(3)%NP%x = data_in(:,1,1)
+  side%OrientedNode(4)%NP%x = data_in(:,0,1)
+END IF
 END SUBROUTINE Unpack2D
 
 SUBROUTINE Unpack3D(Ngeo,data_in,elem) 
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! description
-!----------------------------------------------------------------------------------------------------------------------------------!
+!===================================================================================================================================
 ! MODULES                                                                                                                          !
 USE MOD_Mesh_Vars,ONLY:tElem
 USE MOD_Basis_Vars ,ONLY:HexaMapInv
-!----------------------------------------------------------------------------------------------------------------------------------!
-! insert modules here
-!----------------------------------------------------------------------------------------------------------------------------------!
 IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------!
 ! INPUT / OUTPUT VARIABLES 
 INTEGER,INTENT(IN)  :: Ngeo
 REAL,INTENT(IN)     :: data_in(3,0:Ngeo,0:Ngeo,0:Ngeo)
@@ -1024,14 +1085,25 @@ TYPE(tElem),POINTER,INTENT(IN) :: elem
 ! LOCAL VARIABLES
 INTEGER           :: iNgeo,jNgeo,kNgeo,i1D
 !===================================================================================================================================
-DO kNgeo=0,Ngeo
-  DO jNgeo=0,Ngeo
-    DO iNgeo=0,Ngeo
-      i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
-      elem%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo,kNgeo)
+IF(NGeo.GT.1)THEN
+  DO kNgeo=0,Ngeo
+    DO jNgeo=0,Ngeo
+      DO iNgeo=0,Ngeo
+        i1D = HexaMapInv(iNgeo,jNgeo,kNgeo)
+        elem%curvedNode(i1D)%NP%x = data_in(:,iNgeo,jNgeo,kNgeo)
+      END DO 
     END DO 
   END DO 
-END DO 
+ELSE
+  elem%Node(1)%NP%x = data_in(:,0,0,0)
+  elem%Node(2)%NP%x = data_in(:,1,0,0)
+  elem%Node(3)%NP%x = data_in(:,1,1,0)
+  elem%Node(4)%NP%x = data_in(:,0,1,0)
+  elem%Node(5)%NP%x = data_in(:,0,0,1)
+  elem%Node(6)%NP%x = data_in(:,1,0,1)
+  elem%Node(7)%NP%x = data_in(:,1,1,1)
+  elem%Node(8)%NP%x = data_in(:,0,1,1)
+END IF
 END SUBROUTINE Unpack3D
 
 END MODULE MOD_Mesh_Basis

@@ -26,7 +26,6 @@ MODULE MOD_Readin_HDF5
 ! ?
 !===================================================================================================================================
 ! MODULES
-USE HDF5
 USE MOD_IO_HDF5
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -34,8 +33,7 @@ PRIVATE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
 !-----------------------------------------------------------------------------------------------------------------------------------
-! Private Part ---------------------------------------------------------------------------------------------------------------------
-! Public Part ----------------------------------------------------------------------------------------------------------------------
+
 INTERFACE ReadMeshFromHDF5
   MODULE PROCEDURE ReadMeshFromHDF5
 END INTERFACE
@@ -61,8 +59,6 @@ USE MOD_Mesh_Vars,ONLY:nNodesElemSideMapping,ElemSideMapping
 USE MOD_Mesh_Vars,ONLY:BoundaryType
 USE MOD_Mesh_Vars,ONLY:getNewElem,getNewNode,getNewBC,getNewSide,deleteSide
 USE MOD_Mesh_Vars,ONLY:xiMinMax,ElemToTree,TreeCoords,NGeoTree,nGlobalTrees,MortarMesh,nTrees,offsetTree
-!USE MOD_Mesh_Connect,ONLY:SetMortarOrientedNodes
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -72,6 +68,9 @@ LOGICAL,INTENT(IN)           :: doConnection
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+TYPE(tNodePtr),POINTER         :: Nodes(:) ! ?
+TYPE(tSidePtr),POINTER         :: Sides(:) ! ?
+TYPE(tElemPtr),POINTER         :: Elems(:) ! ?
 TYPE(tElem),POINTER            :: Elem  ! ?
 TYPE(tSide),POINTER            :: aSide,aaSide,bSide,bbSide  ! ?
 INTEGER                        :: i1,j1,k1,l1,nBCSides,nPeriodicSides  ! ?

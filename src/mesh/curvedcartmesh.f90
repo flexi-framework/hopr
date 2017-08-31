@@ -9,6 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
+! Copyright (C) 2017  Florian Hindenlang <hindenlang@gmail.com>
 ! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
@@ -27,20 +28,22 @@ MODULE MOD_CurvedCartMesh
 !===================================================================================================================================
 ! MODULES
 USE MOD_Globals
-
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 PRIVATE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! GLOBAL VARIABLES 
 !-----------------------------------------------------------------------------------------------------------------------------------
-! Private Part ---------------------------------------------------------------------------------------------------------------------
 
 INTERFACE CurvedCartesianMesh
   MODULE PROCEDURE CurvedCartesianMesh
 END INTERFACE
 
+INTERFACE GetNewCurvedHexahedron
+  MODULE PROCEDURE GetNewCurvedHexahedron
+END INTERFACE
+
 PUBLIC::CurvedCartesianMesh
+PUBLIC::GetNewCurvedHexahedron
 !===================================================================================================================================
 
 CONTAINS
@@ -56,15 +59,12 @@ USE MOD_Mesh_Vars,ONLY:FirstElem
 USE MOD_Mesh_Vars,ONLY:getNewElem
 USE MOD_Mesh_Basis,ONLY:CreateSides
 USE MOD_Basis_Vars,ONLY:HexaMap
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+! INPUT/OUTPUT VARIABLES
 INTEGER,INTENT(IN)              :: NGeo  ! ?
 INTEGER,INTENT(IN)              :: Zone  ! ?
-TYPE(tNodePtr),INTENT(IN)                  :: CurvedNode(0:Ngeo,0:NGeo,0:Ngeo)  ! ?
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
+TYPE(tNodePtr),INTENT(IN)       :: CurvedNode(0:Ngeo,0:NGeo,0:Ngeo)  ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 TYPE(tElem),POINTER             :: aElem   ! ?
@@ -116,14 +116,9 @@ USE MOD_Mesh_Vars,ONLY:deleteSide,deleteNode
 USE MOD_Mesh_Vars,ONLY:BoundaryOrder,nElems,BCIndex
 USE MOD_Mesh_Vars,ONLY:stretchType,fac,DXMaxToDXMin
 USE MOD_IO_HDF5  ,ONLY:Elem_IJK,nElems_IJK
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
-!   
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-!   
+! INPUT/OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES 
 TYPE(tNodePtr)               :: CurvedNode(0:BoundaryOrder-1,0:BoundaryOrder-1,0:BoundaryOrder-1)   ! ?
@@ -293,16 +288,13 @@ SUBROUTINE BuildRefDomain(Nin,nElems,R_glob,DR1,DR2,DR3)
 !===================================================================================================================================
 ! compute the coordinates (r,s,t) in the reference domain [-1,1]x[-1,1]x[-1,1] at the points Xi
 !===================================================================================================================================
-! MODULE INPUT VARIABLES
-USE MOD_Mesh_Vars,ONLY:fac,fac2,stretchType,DxMaxToDxMin
-! MODULE OUTPUT VARIABLES
 ! MODULES
-! IMPLICIT VARIABLE HANDLING
+USE MOD_Mesh_Vars,ONLY:fac,fac2,stretchType,DxMaxToDxMin
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 INTEGER,INTENT(IN) :: Nin,nElems(3)  ! ?
-REAL,INTENT(IN) :: DR1(nElems(1)),DR2(nElems(2)),DR3(nElems(3)) ! Ref Domain grid spacings
+REAL,INTENT(IN)    :: DR1(nElems(1)),DR2(nElems(2)),DR3(nElems(3)) ! Ref Domain grid spacings
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
 REAL,INTENT(INOUT) :: R_glob(3,0:Nin,0:Nin,0:Nin,nElems(1),nElems(2),nElems(3)) ! Ref Domain Coordinates r,s,t for all elems
@@ -440,11 +432,8 @@ SUBROUTINE BuildPhysicalDomain(Nin,nElems,X)
 !===================================================================================================================================
 ! compute the coordinates (X,Y,Z) in the physical space by evaluating at r,s,t positions of reference points
 !===================================================================================================================================
-!MODULE INPUT VARIABLES
 USE MOD_Mesh_Vars,ONLY:CurvedMeshType,WhichMapping,X0,DX,XP,fac
-!MODULE OUTPUT VARIABLES
 ! MODULES
-! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
@@ -479,7 +468,7 @@ INTEGER,INTENT(IN) :: Nin,nElems(3)
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
 REAL,INTENT(INOUT) :: X(3,0:Nin,0:Nin,0:Nin,nElems(1),nElems(2),nElems(3)) ! IN: contains the Ref Domain coords r,s,t
-                                                                              ! OUT: contains XYZ position of the ref points
+                                                                           ! OUT: contains XYZ position of the ref points
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -723,20 +712,14 @@ SUBROUTINE EvaluateFace(X,Para,DX,XP,WhichMapping,WhichFace)
 ! Determines the value of the Face Function with number whichFaceFunction of the volume mapping with number whichMapping
 ! gets 2D reference parameter Para (-1...1) and gives 3D physical value X
 !===================================================================================================================================
-! MODULE INPUT VARIABLES
-USE MOD_Mesh_Vars,ONLY:R_0,R_INF,DY,PHI
 ! MODULES
-! IMPLICIT VARIABLE HANDLING
+USE MOD_Mesh_Vars,ONLY:R_0,R_INF,DY,PHI
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT VARIABLES
+! INPUT/OUTPUT VARIABLES
 REAL,INTENT(IN)    :: Para(2),XP(3,8),DX(3)  ! ?
 INTEGER,INTENT(IN) :: WhichMapping,WhichFace  ! ?
-!-----------------------------------------------------------------------------------------------------------------------------------
-! INPUT/OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! OUTPUT VARIABLES
-REAL,INTENT(OUT)    :: X(3)  ! ?
+REAL,INTENT(OUT)   :: X(3)  ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL,DIMENSION(3)   :: e1,e2,e3        ! kartesian unit vectors
