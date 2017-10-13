@@ -198,6 +198,7 @@ END DO
 nInner=0     ! inner sides
 nPeriodic=0  ! periodic sides
 Elem=>FirstElem
+WRITE(UNIT_stdOut,'(A)')'check'
 DO WHILE(ASSOCIATED(Elem))
   Side=>Elem%firstSide
   DO WHILE(ASSOCIATED(Side))
@@ -221,7 +222,6 @@ DO WHILE(ASSOCIATED(Elem))
         END IF
       END IF
       IF(Side%BC%BCType .EQ. 100) THEN
-        STOP
         nInner(1)=nInner(1)+1
         IF(.NOT. ASSOCIATED(Side%Connection)) THEN
           IF(.NOT.ASSOCIATED(Side%MortarSide))THEN
@@ -247,6 +247,7 @@ DO WHILE(ASSOCIATED(Elem))
   END DO
   Elem=>Elem%nextElem
 END DO
+WRITE(UNIT_stdOut,'(A)')'check2'
 IF(nInner(2)+nPeriodic(2) .GT. 0) THEN
   WRITE(*,*) 'Sides with missing connection found!'
   WRITE(*,*) 'Inner sides: ',nInner(2),' of ',nInner(1),' sides missing.'
