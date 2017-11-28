@@ -9,7 +9,7 @@
 ! /____//   /____//  /______________//  /____//           /____//   |_____/)    ,X`      XXX`
 ! )____)    )____)   )______________)   )____)            )____)    )_____)   ,xX`     .XX`
 !                                                                           xxX`      XXx
-! Copyright (C) 2015  Prof. Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
+! Copyright (C) 2017 Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
 ! HOPR is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License 
@@ -103,6 +103,7 @@ DO iFile=1,nMeshFiles
   ! Open CGNS file
   CALL OpenBase(TRIM(MeshFileName(iFile)),MODE_READ,md,md,CGNSFile,CGNSBase,.TRUE.)
   CALL CG_VERSION_F(CGNSFile, version, iError)
+  print*, iError
   WRITE(UNIT_stdOut,*)'CGNS version:',version
   CALL CG_IS_CGNS_F(TRIM(MeshFileName(iFile)), file_type, iError)
 

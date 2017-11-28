@@ -49,10 +49,13 @@ or contribute to the project you can use the mailing list
 You can also subscribe to the mailing list [here][list].
 
 ## License
-HOPR is Copyright (C) 2015, Prof. Claus-Dieter Munz and is 
+HOPR is Copyright (C) 2017, Prof. Claus-Dieter Munz and is 
 released under the terms of the
-GNU General Public License v3.0. For the full license terms see
-the included license file [LICENSE](LICENSE).
+GNU General Public License v3.0 (GPL v3.0). For the complete
+license terms see the included license file [LICENSE](LICENSE).
+In addition to GPL v3.0 licensing selected parts of HOPR are
+available under other licenses,for more information refer to
+[MULTILICENSING.md](MULTILICENSING.md)
 
 
 [nrg]:  https://nrg.iag.uni-stuttgart.de/
