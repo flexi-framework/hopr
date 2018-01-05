@@ -776,17 +776,17 @@ DO k=1,irmax(1)
 END DO
 DEALLOCATE(NodeCoords)
 
-DO k=1,irmax(1)-N,N
-  DO l=1,irmax(2)-N,N
-    DO m=1,irmax(3)-N,N
-      CornerNode(1)%np=>Mnodes(k  ,l  ,m  )%np
-      CornerNode(2)%np=>Mnodes(k+N,l  ,m  )%np
-      CornerNode(3)%np=>Mnodes(k+N,l+N,m  )%np
-      CornerNode(4)%np=>Mnodes(k  ,l+N,m  )%np
-      CornerNode(5)%np=>Mnodes(k  ,l  ,m+N)%np
-      CornerNode(6)%np=>Mnodes(k+N,l  ,m+N)%np
-      CornerNode(7)%np=>Mnodes(k+N,l+N,m+N)%np
-      CornerNode(8)%np=>Mnodes(k  ,l+N,m+N)%np
+DO k=1,irmax(1)-N_loc,N_loc
+  DO l=1,irmax(2)-N_loc,N_loc
+    DO m=1,irmax(3)-N_loc,N_loc
+      CornerNode(1)%np=>Mnodes(k      ,l      ,m      )%np
+      CornerNode(2)%np=>Mnodes(k+N_loc,l      ,m      )%np
+      CornerNode(3)%np=>Mnodes(k+N_loc,l+N_loc,m      )%np
+      CornerNode(4)%np=>Mnodes(k      ,l+N_loc,m      )%np
+      CornerNode(5)%np=>Mnodes(k      ,l      ,m+N_loc)%np
+      CornerNode(6)%np=>Mnodes(k+N_loc,l      ,m+N_loc)%np
+      CornerNode(7)%np=>Mnodes(k+N_loc,l+N_loc,m+N_loc)%np
+      CornerNode(8)%np=>Mnodes(k      ,l+N_loc,m+N_loc)%np
       IF(meshdim.EQ.3)THEN
         CALL GetNewHexahedron(CornerNode)
         CALL CreateSides(FirstElem_in,.TRUE.)
@@ -806,7 +806,7 @@ DO k=1,irmax(1)-N,N
       IF(useCurveds.AND.MeshIsAlreadyCurved)THEN !read in curvedNodes
         FirstElem_in%nCurvedNodes=(N_loc+1)**3
         ALLOCATE(FirstElem_in%curvedNode(FirstElem_in%nCurvedNodes))
-        DO kk=0,N; DO ll=0,N; DO mm=0,N
+        DO kk=0,N_loc; DO ll=0,N_loc; DO mm=0,N_loc
           FirstElem_in%curvedNode(HexaMapInv(kk,ll,mm))%np=>Mnodes(k+kk,l+ll,m+mm)%np
         END DO; END DO; END DO
       END IF!useCurveds
