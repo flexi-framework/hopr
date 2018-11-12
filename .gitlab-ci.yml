@@ -25,16 +25,16 @@ build_gnu:
     - if [ -z "${DO_NIGHTLY}" ]; then cmake .. -DHOPR_BUILD_HDF5=OFF ; fi
     - make all
 
-build_intel:
-  stage: build
-  tags:
-    - withmodules
-  script:
-    - module load env/intel ; rm -rf build_intel || true 
-    - mkdir -p build_intel ; cd build_intel
-    - if [ -n "${DO_NIGHTLY}" ]; then cmake .. ; fi
-    - if [ -z "${DO_NIGHTLY}" ]; then cmake .. -DHOPR_BUILD_HDF5=OFF ; fi
-    - make all
+      #build_intel:
+      #  stage: build
+      #  tags:
+      #    - withmodules
+      #  script:
+      #    - module load env/intel ; rm -rf build_intel || true 
+      #    - mkdir -p build_intel ; cd build_intel
+      #    - if [ -n "${DO_NIGHTLY}" ]; then cmake .. ; fi
+      #    - if [ -z "${DO_NIGHTLY}" ]; then cmake .. -DHOPR_BUILD_HDF5=OFF ; fi
+      #    - make all
 
 clean:
   stage: error_clean
@@ -53,12 +53,12 @@ run_gnu:
   script:
     - module load env/gnu ; cd tutorials ; ./executeall.sh ../build_gnu/bin/hopr
 
-run_intel:
-  stage: test
-  tags:
-    - withmodules
-  script:
-    - module load env/intel ; cd tutorials ; ./executeall.sh ../build_intel/bin/hopr
+      #run_intel:
+      #  stage: test
+      #  tags:
+      #    - withmodules
+      #  script:
+      #    - module load env/intel ; cd tutorials ; ./executeall.sh ../build_intel/bin/hopr
 
 doxygen:
   stage: documentation
