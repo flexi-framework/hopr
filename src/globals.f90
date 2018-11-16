@@ -88,6 +88,11 @@ INTERFACE getInverse
    MODULE PROCEDURE getInverse
 END INTERFACE
 
+INTERFACE
+  SUBROUTINE setstacksizeunlimited() BIND(C)
+  END SUBROUTINE setstacksizeunlimited
+END INTERFACE
+
 !===================================================================================================================================
 
 CONTAINS
