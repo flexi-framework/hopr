@@ -631,7 +631,7 @@ IF(useCurveds.AND.MeshIsAlreadyCurved)THEN
 ELSE
   N_loc=1
 END IF
-Step=N_loc
+Step=nSkip*N_loc
 
 irmin=1
 IF(meshdim.EQ.3)THEN
@@ -644,7 +644,7 @@ irmaxorg=irmax
 WRITE(UNIT_stdOut,'(A,A,A,3I8)')'Read Zone ',TRIM(CGname),', with block elem size:',irmax(:)-1
 
 DO k=1,meshDim
-  IF (MOD((irmax(k)-1),(step)).NE.0) THEN
+  IF (MOD((irmax(k)-1),step).NE.0) THEN
     IF(useCurveds) THEN 
       WRITE(UNIT_StdOut,'(A)') 'WARNING: cannot read block, step=(order-1)*nSkip does not fit with block elem size.'
     ELSE
@@ -668,6 +668,19 @@ CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateX',REALDOUBLE,irmin,irma
 CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateY',REALDOUBLE,irmin,irmax,NodeCoords(2,:,:,:),iError)
 CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateZ',REALDOUBLE,irmin,irmax,NodeCoords(3,:,:,:),iError)
 
+! Apply skip
+IF(nSkip.NE.1)THEN
+  irmax = (irmax-1)/nSkip + 1
+  ALLOCATE(NodeCoordsTmp(3,irmax(1),irmax(2),irmax(3)))
+  DO k=1,irmax(1); DO l=1,irmax(2); DO m=1,irmax(3)
+    NodeCoordsTmp(:,k,l,m) = NodeCoords(:, 1+(k-1)*nSkip, 1+(l-1)*nSkip, 1+(m-1)*nSkip)
+  END DO; END DO; END DO !k,l,m
+  DEALLOCATE(NodeCoords)
+  ALLOCATE(NodeCoords(3,irmax(1),irmax(2),irmax(3)))
+  NodeCoords = NodeCoordsTmp
+  DEALLOCATE(NodeCoordsTmp)
+END IF !nSkip NE 1
+
 ! Apply skip only in z-DIrection
 IF(nSkipZ.NE.1)THEN
   stepk=1
@@ -684,13 +697,13 @@ IF(nSkipZ.NE.1)THEN
   SELECT CASE(whichDir)
   CASE(1)
     stepk=nSkipZ
-    zFit=.NOT.(MOD((irmax(1)-1),(stepk)).NE.0)
+    zFit=.NOT.(MOD((irmax(1)-1),stepk).NE.0)
   CASE(2)
     stepl=nSkipZ
-    zFit=.NOT.(MOD((irmax(2)-1),(stepl)).NE.0)
+    zFit=.NOT.(MOD((irmax(2)-1),stepl).NE.0)
   CASE(3)
     stepm=nSkipZ
-    zFit=.NOT.(MOD((irmax(3)-1),(stepm)).NE.0)
+    zFit=.NOT.(MOD((irmax(3)-1),stepm).NE.0)
   END SELECT 
   IF(.NOT.zfit)THEN
     IF(useCurveds)THEN
