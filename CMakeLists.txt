@@ -329,7 +329,7 @@ IF (HOPR_BUILD_CGNS)
 
     ExternalProject_Add(cgns
     GIT_REPOSITORY ${CGNSDOWNLOAD}
-    GIT_TAG ${HOPR_CGNSTAG}
+    GIT_TAG ${CGNSTAG}
     #PATCH_COMMAND sed -i s/^c/!/g ${HOPR_CGNS_DIR}/src/cgns/src/cgnslib_f.h.in
     PREFIX ${HOPR_CGNS_DIR}
     CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${HOPR_CGNS_DIR}/build /
