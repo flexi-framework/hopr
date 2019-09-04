@@ -370,7 +370,7 @@ Description:  & Side array, all information of one element is a set of all eleme
 % \nSides &  &  & &  & &   \\ \hline
 \end{tabular}\vspace{2ex}
 \begin{tabularx}{1.0\textwidth}{|lX|}\hline
-\emph{SideType}:        & Side type encoding, the number of corner nodes is the last digit (triangle/quadrangle), more details see \rf{sec:CGNS}. \\
+\emph{SideType}:        & Side type encoding, the number of corner nodes is the last digit (triangle/quadrangle), more details see \rf{sec:elemtypes}. \\
 %
 \emph{GlobalSideID}:    & unique global side identifier, can be directly used as MPI tag: it is negative if the side is a slave side (a master and a slave side is defined for side connections). \\
 %
@@ -938,14 +938,14 @@ Thereby the big side is denoted big mortar master side, the intermediate sides a
 
 \section{Changes to Existing Data Format}
 
-The following differences are present for the ElemInfo array:
+The following differences are present for the \textbf{ElemInfo} and the \textbf{SideInfo} array:
 \begin{itemize}
-\item \textbf{ElemInfo}: The range of sides defined by offsetIndSide and lastIndSide now includes the small mortar master sides.
-\item \textbf{SideInfo}: The field nbElemID of the big mortar master defines no connection to the neighbor element, but contains the type of the mortar interface from Figure~\ref{fig:mortartypes} \emph{with negative sign}, to mark that they belong to a mortar interface. The type of the interface defines the number of the small mortar master sides.
-\item \textbf{SideInfo}: Only the small mortar masters have a valid nbElemID, defining the connection to the adjacent small elements.
-\item \textbf{SideInfo}: The list of sides belonging to an element includes the small mortar master sides sorted as exemplified in table \ref{tab:mortarsorting}.
+\item \textbf{ElemInfo}: The range of sides defined by \textit{offsetIndSide} and \textit{lastIndSide} now includes the small mortar master sides for the element that owns the big mortar side.
+\item \textbf{SideInfo}: The field \textit{nbElemID} of the big mortar side defines no connection to the neighbor element, but contains the type of the mortar interface (=1/2/3) from Figure~\ref{fig:mortartypes} \textbf{with negative sign}, to mark that the following sides belong to a mortar interface. The type of the interface defines the number of the small mortar master sides (Type 1 has 4 and Type 2\&3 have 2 small master sides). 
+\item \textbf{SideInfo}: The list of sides belonging to an element includes the small mortar master sides sorted as exemplified in Table~\ref{tab:mortarsorting} and Figure~\ref{fig:mortarinterface}.
+\item \textbf{SideInfo}: Only the small mortar masters have a valid \textit{nbElemID}, defining the connection to the adjacent small elements.
 \item \textbf{SideInfo}: (Mortar) Master sides always have flip=0, thus the small element sides are always slave sides.
-
+\item \textbf{SideInfo}: If the element side belongs to a mortar but with the small mortar slave side, it is marked as such using a \textit{SideType} \textbf{with negative sign}.
 \end{itemize}
 
 \begin{table}[h!]
