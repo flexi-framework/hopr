@@ -679,9 +679,14 @@ CASE(5) ! 2D periodic hill geometry, see http://www.kbwiki.ercoftac.org/w/index.
     END IF
 
     ! slope of the line normal to the hill geometry
+    IF (((hDeriv.GT.-10E-10).AND.(x(1).LT.0.1)).OR.((hDeriv.LT.10E-10).AND.(x(1).GT.8.9))) THEN
+      ! This is the vector along the normal
+      vec = (/0.,1./)
+    ELSE
     normal = -1./hDeriv
     ! This is the vector along the normal
     vec = (/1.,normal/)
+    END IF
     ! Lenght of the vector from the hill to the current point, used for scaling
     length = xout(2) - h
 
@@ -696,6 +701,7 @@ CASE(5) ! 2D periodic hill geometry, see http://www.kbwiki.ercoftac.org/w/index.
       vecRef(1) = -1.
       vec(1)    = -1.
     END IF
+    IF (x(1).GT.8.9) vec = (/0.,1./)
     ! Normalize our vectors, the length of them is calculated beforehand
     vecRef = vecRef/NORM2(vecRef)
     vec = vec/NORM2(vec)
