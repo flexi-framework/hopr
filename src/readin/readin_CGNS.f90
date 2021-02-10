@@ -1063,9 +1063,9 @@ INTEGER                      :: ParentDataFlag                      ! 0=no paren
 INTEGER                      :: CellDim, PhysDim                    ! Dimesnion of elements,physical dimension
 INTEGER                      :: iError                              ! Error flag
 CHARACTER(LEN=30)            :: coordNameCGNS(3)                 ! List of CGNS names for the coordinates
-PP_CGNS_INT_TYPE             :: one                              ! ?
+PP_CGNS_INT_TYPE             :: one(1)                ! ?
 !===================================================================================================================================
-WRITE(UNIT_stdOut,*)'Read CGNS File: ',TRIM(FileName)
+WRITE(UNIT_stdOut,*)'Read CGNS Surface File: ',TRIM(FileName)
 ! Open CGNS file
 CALL OpenBase(TRIM(FileName),MODE_READ,md,md,CGNSFile,CGNSBase,.TRUE.)
 !CALL CG_OPEN_F(TRIM(MeshFileName(iFile)), CG_MODE_READ, CGNSFile, iError)
@@ -1121,7 +1121,7 @@ DO iZone=1,nCGNSZones
   NodeCoords=0.
   DO dm=1,3
     CGname=TRIM(CoordNameCGNS(dm))
-!    CALL CG_COORD_READ_F(CGNSfile,CGNSBase,iZone,CGName,RealDouble,one,nNodes,NodeCoords(dm,:),iError)
+    CALL CG_COORD_READ_F(CGNSfile,CGNSBase,iZone,CGName,RealDouble,one,nNodes,NodeCoords(dm,:),iError)
     IF (iError .NE. CG_OK)THEN
       WRITE(UNIT_stdOut,*)'ERROR - Could not read coordinate(',dm,'): ',TRIM(CoordNameCGNS(dm))
       CALL CG_NCOORDS_F(CGNSFile,CGNSBase,iZone,PhysDim,iError )  ! Here we use PhysDim as nCoords
