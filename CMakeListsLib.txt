@@ -263,7 +263,7 @@ ELSE()
     ENDIF()
 
     # Set CGNS_Tag
-    SET (LIBS_BUILD_CGNS_TAG "v4.1.2" CACHE STRING "CGNS version tag")
+    SET (LIBS_BUILD_CGNS_TAG "v3.4.1" CACHE STRING "CGNS version tag")
 
     # CGNS does not need to depend on HDF5, we can build both simultaneously
     EXTERNALPROJECT_ADD(cgns
