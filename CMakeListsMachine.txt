@@ -2,7 +2,7 @@
 # Detect machine environements
 # =========================================================================
 
-mark_as_advanced([CLEAR|FORCE] CMAKE_HOSTNAME)
+MARK_AS_ADVANCED(FORCE CMAKE_HOSTNAME)
 SITE_NAME(CMAKE_HOSTNAME)
 
 # HLRS HAWK / SuperMUC
@@ -74,8 +74,14 @@ ELSEIF ("${CMAKE_HOSTNAME}" MATCHES "^xenon")
   SET(CMAKE_CXX_COMPILER     mpicxx)
   SET(CMAKE_Fortran_COMPILER mpif90) # mpif08 wrapper seems to have issue
   MARK_AS_ADVANCED(FORCE C_PATH CXX_PATH Fortran_PATH)
-  # Work around MPI-IO issue 4446 on machines mountng storage via NFS
-  ADD_DEFINITIONS(-DNFS)
+
+ELSE()
+  # Set compiler target architecture
+  IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU" OR CMAKE_Fortran_COMPILER_ID MATCHES "Flang" )
+    SET(FLEXI_INSTRUCTION "-march=native")
+  ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+    SET(FLEXI_INSTRUCTION "-xHost")
+  ENDIF()
 ENDIF()
 
 
@@ -122,3 +128,12 @@ ELSE()
   MESSAGE(SEND_ERROR "Unknown compiler")
 ENDIF()
 
+# Save the current compiler flags to the cache every time cmake configures the project.
+MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS)
+MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_RELEASE)
+MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILE)
+MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_DEBUG)
+SET(CMAKE_Fortran_FLAGS            "${CMAKE_Fortran_FLAGS}"          CACHE STRING "Default compiler flags" FORCE)
+SET(CMAKE_Fortran_FLAGS_RELEASE    "${CMAKE_Fortran_FLAGS_RELEASE}"  CACHE STRING "Release compiler flags" FORCE)
+SET(CMAKE_Fortran_FLAGS_PROFILE    "${CMAKE_Fortran_FLAGS_PROFILE}"  CACHE STRING "Profile compiler flags" FORCE)
+SET(CMAKE_Fortran_FLAGS_DEBUG      "${CMAKE_Fortran_FLAGS_DEBUG}"    CACHE STRING "Debug compiler flags"   FORCE)
