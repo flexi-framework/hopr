@@ -78,9 +78,9 @@ ELSEIF ("${CMAKE_HOSTNAME}" MATCHES "^xenon")
 ELSE()
   # Set compiler target architecture
   IF (CMAKE_Fortran_COMPILER_ID MATCHES "GNU" OR CMAKE_Fortran_COMPILER_ID MATCHES "Flang" )
-    SET(FLEXI_INSTRUCTION "-march=native")
+    SET(HOPR_INSTRUCTION "-march=native")
   ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-    SET(FLEXI_INSTRUCTION "-xHost")
+    SET(HOPR_INSTRUCTION "-xHost")
   ENDIF()
 ENDIF()
 

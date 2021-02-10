@@ -114,7 +114,7 @@ IF(NOT LIBS_BUILD_HDF5)
   MARK_AS_ADVANCED(FORCE HDF5_Fortran_LIBRARY_sz)
   MARK_AS_ADVANCED(FORCE HDF5_Fortran_LIBRARY_z)
 
-# Build HDF5 in FLEXI
+# Build HDF5 in HOPR
 ELSE()
   # Origin pointing to Github
   IF("${GIT_ORIGIN}" MATCHES ".github.com")
