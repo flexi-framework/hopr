@@ -12,7 +12,7 @@
 ! Copyright (C) 2017 Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
-! HOPR is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License 
+! HOPR is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
 ! as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 !
 ! HOPR is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
@@ -32,7 +32,7 @@ USE CGNS
 IMPLICIT NONE
 PRIVATE
 !-----------------------------------------------------------------------------------------------------------------------------------
-! GLOBAL VARIABLES 
+! GLOBAL VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 CHARACTER(LEN=5)::ProgramName='HOPR'
 
@@ -60,21 +60,21 @@ INTEGER,INTENT(IN)            :: nVal                    ! Number of nodal outpu
 INTEGER,INTENT(IN)            :: NPlot                   ! Number of output points
 INTEGER,INTENT(IN)            :: nElems                  ! Number of output elements
 CHARACTER(LEN=*),INTENT(IN)   :: VarNames(nVal)          ! Names of all variables that will be written out
-REAL,INTENT(IN)               :: Coord(3,1:(NPlot+1)**dim1,1:nElems) ! CoordsVector 
+REAL,INTENT(IN)               :: Coord(3,1:(NPlot+1)**dim1,1:nElems) ! CoordsVector
 REAL,INTENT(IN)               :: Values(1:nVal,1:(NPlot+1)**dim1,1:nElems) ! Statevector
 CHARACTER(LEN=*),INTENT(IN)   :: FileString              ! Output file name
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-PP_CGNS_INT_TYPE   :: CGNSFile,CGNSBase,CGNSZone,CGNSCoords,CGNSsection,CGNSFlowSol,CGNSFieldInd ! ?
-PP_CGNS_INT_TYPE   :: iSize(1,1:3)  ! ?
-PP_CGNS_INT_TYPE   :: iErr  ! ?
+INTEGER            :: CGNSFile, CGNSBase, CGNSZone, CGNSCoords, CGNSsection, CGNSFlowSol, CGNSFieldInd ! ?
+PP_CGNS_INT_TYPE   :: one, iSize(1,1:3)  ! ?
+INTEGER            :: zero
+INTEGER            :: iErr  ! ?
 INTEGER            :: iVal,i,j,k,iElem  ! ?
 INTEGER            :: NPlot_p1,NPlot_p1_2,NPlot_p1_3,NPlot_2  ! ?
 INTEGER            :: NodeIDElem  ! ?
 PP_CGNS_INT_TYPE   :: ElemConn(1:2**dim1,1:NPlot**dim1,1:nElems)  ! ?
-PP_CGNS_INT_TYPE   :: one,zero   ! ?
 CHARACTER(LEN=255) :: CGName  ! ?
 CHARACTER(LEN=32)  :: VarNames32(nVal)                   ! CGNS uses only 32 characters for (variable-)names
 !===================================================================================================================================
@@ -89,7 +89,7 @@ IF (iErr .NE. CG_OK) CALL my_cg_error_exit('Error Opening CGNS File.',CGNSFile)
 CALL cg_base_write_f(CGNSFile,ProgramName//'Base',dim1,3,CGNSBase,iErr)
 IF (iErr .NE. CG_OK) CALL my_cg_error_exit('Error Creating CGNS Base.',CGNSFile)
 
-! Compute number of elements and nodes 
+! Compute number of elements and nodes
 isize(1,1) = ((NPlot+1)**dim1)*nElems
 isize(1,2) = (NPlot**dim1)*nElems
 isize(1,3) = 0
@@ -118,7 +118,7 @@ CALL cg_coord_write_f(CGNSFile,CGNSBase,CGNSZone,RealDouble,'CoordinateZ',      
 IF (iErr .NE. CG_OK) CALL my_cg_error_exit('Error Writing z-Coordinates.',CGNSFile)
 
 ! Build element connectivity
-NPlot_p1  =(NPlot+1) 
+NPlot_p1  =(NPlot+1)
 NPlot_p1_2=(NPlot+1)**2
 SELECT CASE(dim1)
 CASE(2)
@@ -128,19 +128,19 @@ CASE(2)
       DO i=1,NPlot
         ElemConn(1,i+Nplot*(j-1),iElem) = NodeIDElem+i+  (j-1)*Nplot_p1  !P1(CGNS=tecplot standard)
         ElemConn(2,i+Nplot*(j-1),iElem) = NodeIDElem+i+1+(j-1)*Nplot_p1  !P2
-        ElemConn(3,i+Nplot*(j-1),iElem) = NodeIDElem+i+1+ j   *Nplot_p1  !P3     
+        ElemConn(3,i+Nplot*(j-1),iElem) = NodeIDElem+i+1+ j   *Nplot_p1  !P3
         ElemConn(4,i+Nplot*(j-1),iElem) = NodeIDElem+i+   j   *Nplot_p1  !P4
-      END DO 
-    END DO 
+      END DO
+    END DO
     NodeIDElem=NodeIDElem+NPlot_p1_2
   END DO
-  ! Write Element Connectivity 
+  ! Write Element Connectivity
   CALL cg_section_write_f(CGNSFile,CGNSBase,CGNSZone,'Elements',QUAD_4,one,isize(1,2),zero, &
                           ElemConn,CGNSsection,iErr)
 CASE(3)
   NPlot_p1_3=(NPlot+1)**3
   NPlot_2=NPlot**2
-  
+
   NodeIDElem=0
   DO iElem=1,nElems
     DO k=1,NPlot
@@ -149,18 +149,18 @@ CASE(3)
           !visuHexaElem  (CGNS=tecplot standard)
           ElemConn(1,i+Nplot*(j-1)+Nplot_2*(k-1),iElem) = NodeIDElem+i+  (j-1)*NPlot_p1+(k-1)*NPlot_p1_2       !P1
           ElemConn(2,i+Nplot*(j-1)+Nplot_2*(k-1),iElem) = NodeIDElem+i+1+(j-1)*NPlot_p1+(k-1)*NPlot_p1_2       !P2
-          ElemConn(3,i+Nplot*(j-1)+Nplot_2*(k-1),iElem) = NodeIDElem+i+1+ j   *NPlot_p1+(k-1)*NPlot_p1_2       !P3     
+          ElemConn(3,i+Nplot*(j-1)+Nplot_2*(k-1),iElem) = NodeIDElem+i+1+ j   *NPlot_p1+(k-1)*NPlot_p1_2       !P3
           ElemConn(4,i+Nplot*(j-1)+Nplot_2*(k-1),iElem) = NodeIDElem+i+   j   *NPlot_p1+(k-1)*NPlot_p1_2       !P4
           ElemConn(5,i+Nplot*(j-1)+Nplot_2*(k-1),iElem) = NodeIDElem+i+  (j-1)*NPlot_p1+ k   *NPlot_p1_2       !P5
           ElemConn(6,i+Nplot*(j-1)+Nplot_2*(k-1),iElem) = NodeIDElem+i+1+(j-1)*NPlot_p1+ k   *NPlot_p1_2       !P6
-          ElemConn(7,i+Nplot*(j-1)+Nplot_2*(k-1),iElem) = NodeIDElem+i+1+ j   *NPlot_p1+ k   *NPlot_p1_2       !P7     
+          ElemConn(7,i+Nplot*(j-1)+Nplot_2*(k-1),iElem) = NodeIDElem+i+1+ j   *NPlot_p1+ k   *NPlot_p1_2       !P7
           ElemConn(8,i+Nplot*(j-1)+Nplot_2*(k-1),iElem) = NodeIDElem+i+   j   *NPlot_p1+ k   *NPlot_p1_2       !P8
-        END DO 
-      END DO 
-    END DO 
+        END DO
+      END DO
+    END DO
     NodeIDElem=NodeIDElem+NPlot_p1_3
   END DO
-  ! Write Element Connectivity 
+  ! Write Element Connectivity
   CALL cg_section_write_f(CGNSFile,CGNSBase,CGNSZone,'Elements',HEXA_8,one,isize(1,2),zero, &
                           ElemConn,CGNSsection,iErr)
 END SELECT
@@ -200,7 +200,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 CHARACTER(LEN=*),INTENT(IN)              :: ErrorMessage ! name of the file that caused an error
-PP_CGNS_INT_TYPE ,INTENT(IN)  :: CGNSFile  ! ?
+INTEGER ,INTENT(IN)                      :: CGNSFile  ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -209,7 +209,7 @@ CHARACTER(LEN=255)  :: CGNSmessage ! CGNS error message
 INTEGER             :: iErr  ! ?
 !===================================================================================================================================
 ! Retrieve error message
-CALL cg_get_error_f(CGNSmessage)      
+CALL cg_get_error_f(CGNSmessage)
 ! Exit calculation
 CALL cg_close_f(CGNSFile,iErr)
 WRITE(Unit_StdOut,'(A)') ErrorMessage

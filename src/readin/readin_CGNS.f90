@@ -12,7 +12,7 @@
 ! Copyright (C) 2017 Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
-! HOPR is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License 
+! HOPR is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
 ! as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 !
 ! HOPR is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
@@ -34,7 +34,7 @@ USE CGNS
 IMPLICIT NONE
 PRIVATE
 !-----------------------------------------------------------------------------------------------------------------------------------
-! GLOBAL VARIABLES 
+! GLOBAL VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 INTERFACE ReadCGNSmesh
   MODULE PROCEDURE ReadCGNSmesh
@@ -45,10 +45,10 @@ INTERFACE ReadCGNSSurfaceMesh
 END INTERFACE
 
 INTERFACE openBase
-  MODULE PROCEDURE openBase 
+  MODULE PROCEDURE openBase
 END INTERFACE
 
-INTERFACE abortCGNS 
+INTERFACE abortCGNS
   MODULE PROCEDURE abortCGNS
 END INTERFACE
 
@@ -78,19 +78,19 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER                    :: iFile  ! ?
-PP_CGNS_INT_TYPE           :: iZone  ! ?
-PP_CGNS_INT_TYPE           :: nBases,nCGNSZones  ! Number of bases / zones in CGNS file
+INTEGER                    :: iZone  ! ?
+INTEGER                    :: nBases,nCGNSZones  ! Number of bases / zones in CGNS file
 PP_CGNS_INT_TYPE           :: nNodesGlob         ! Total number of nodes in the mesh file (in 2d: only first layer)
-PP_CGNS_INT_TYPE           :: nZonesGlob         ! Total number of zones in the mesh.
-PP_CGNS_INT_TYPE           :: CGNSFile,CGNSBase  ! CGNS file handles
-PP_CGNS_INT_TYPE           :: CellDim, PhysDim   ! Dimesnion of elements,physical dimension
-PP_CGNS_INT_TYPE           :: iError             ! Error flag
-PP_CGNS_INT_TYPE           :: md  ! ?
-PP_CGNS_INT_TYPE           :: file_type  ! ?
+INTEGER                    :: nZonesGlob         ! Total number of zones in the mesh.
+INTEGER                    :: CGNSFile,CGNSBase  ! CGNS file handles
+INTEGER                    :: CellDim, PhysDim   ! Dimesnion of elements,physical dimension
+INTEGER                    :: iError             ! Error flag
+INTEGER                    :: md  ! ?
+INTEGER                    :: file_type  ! ?
 REAL(KIND=4)               :: version  ! ?
 
 CHARACTER(LEN=32)          :: CGName             ! necessary data for CGNS
-PP_CGNS_INT_TYPE           :: ZoneType  ! ?
+INTEGER                    :: ZoneType  ! ?
 !===================================================================================================================================
 WRITE(UNIT_stdOut,'(132("~"))')
 CALL Timer(.TRUE.)
@@ -113,7 +113,7 @@ DO iFile=1,nMeshFiles
     CALL abortCGNS(__STAMP__,CGNSFile)
   IF(nBases .GT. 1) WRITE(UNIT_stdOut,*)'WARNING - Found ',nBases,' bases in CGNS file. Reading only base 1!'
   CGNSBase=1  ! Multiple bases not supported at the moment
-  
+
   ! Check dimensions of CGNS base
   CALL CG_BASE_READ_F(CGNSfile,CGNSBase,CGname,CellDim,PhysDim,iError)
   IF(iError .NE. CG_OK) &
@@ -147,14 +147,14 @@ DO iFile=1,nMeshFiles
 END DO ! iFile=1,nMeshFiles
 ! Set total number of 2d nodes. This is needed to generate unique node indices in fill25DMesh.
 IF(MeshDim .EQ. 2) n2dNodes=nNodesGlob
-  
+
 CALL Timer(.FALSE.)
 END SUBROUTINE ReadCGNSmesh
 
 
 SUBROUTINE ReadCGNSMeshUnstruct(FirstElem_in,CGNSFile,CGNSBase,iZone,nZonesGlob,nNodesGlob)
 !===================================================================================================================================
-! This subroutine reads unstructured 3D meshes from the CGNS file and prepares the element list. 
+! This subroutine reads unstructured 3D meshes from the CGNS file and prepares the element list.
 !===================================================================================================================================
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:tElem,tElemPtr,tSide
@@ -169,9 +169,9 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 TYPE(tElem),POINTER,INTENT(INOUT)                  :: FirstElem_in  ! ?
-PP_CGNS_INT_TYPE ,INTENT(IN)         :: CGNSFile,CGNSBase  ! ?
-PP_CGNS_INT_TYPE ,INTENT(IN)         :: iZone  ! ?
-PP_CGNS_INT_TYPE ,INTENT(IN)         :: nZonesGlob  ! ?
+INTEGER ,INTENT(IN)         :: CGNSFile,CGNSBase  ! ?
+INTEGER ,INTENT(IN)         :: iZone  ! ?
+INTEGER ,INTENT(IN)         :: nZonesGlob  ! ?
 PP_CGNS_INT_TYPE ,INTENT(INOUT)      :: nNodesGlob  ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -183,35 +183,40 @@ TYPE(tSide),POINTER          :: Side                                ! Local side
 REAL, ALLOCATABLE            :: NodeCoords(:,:)                     ! Coordinates of grid nodes (nDim,nNodes)
 REAL                         :: NorVec(3)  ! ?
 PP_CGNS_INT_TYPE ,ALLOCATABLE:: ElemMapping(:)                      ! Global element index -> surface or volume element index
-PP_CGNS_INT_TYPE ,ALLOCATABLE:: ElemConnect(:,:), SurfElemConnect(:,:) ! Connectivity data for (surface) element (nNodes+1,nElems)
-PP_CGNS_INT_TYPE ,ALLOCATABLE:: LocalConnect(:), ParentData(:,:)    ! Arrays for reading the (local=one section) connectivity data
+INTEGER ,ALLOCATABLE         :: ElemConnect(:,:), SurfElemConnect(:,:) ! Connectivity data for (surface) element (nNodes+1,nElems)
+PP_CGNS_INT_TYPE, ALLOCATABLE:: LocalConnect(:), ParentData(:,:)    ! Arrays for reading the (local=one section) connectivity data
 PP_CGNS_INT_TYPE ,ALLOCATABLE:: BCPoints(:), BCElemList(:)          ! Boundary node /side indices
 PP_CGNS_INT_TYPE             :: iNode,iElem,iBCElem,iElemGlob,iVolElem,iSurfElem
-PP_CGNS_INT_TYPE             :: dm, iSect, DimVec(3),j  ! ?
-PP_CGNS_INT_TYPE             :: IndMin, IndMax, iStart, iEnd        ! Start and end index
-PP_CGNS_INT_TYPE             :: nSect                               ! Number of sections in CGNS file
-PP_CGNS_INT_TYPE             :: nZoneElems, nSectElems, nSurfElems  ! Number of elems in zone (volume+surface)/section/on surface
-PP_CGNS_INT_TYPE             :: nNodes,nElems                       ! Number of nodes / elements in a zone (volume only)
-PP_CGNS_INT_TYPE             :: nELemNodes                          ! Number of nodes of an element
-PP_CGNS_INT_TYPE             :: iBC, nCGNSBC, nBCElems, nBCPoints  ! ?
-PP_CGNS_INT_TYPE             :: BCTypeIndex                         ! Index of boundary condition defined in parameter file
-PP_CGNS_INT_TYPE             :: LocDim, LocType, nNodesLoc          ! Dimension, type, number of nodes of local=section elements
+INTEGER                      :: dm, iSect,j  ! ?
+PP_CGNS_INT_TYPE             :: DimVec(3), nBCPoints
+PP_CGNS_INT_TYPE             :: IndMin, IndMax        ! Start and end index
+PP_CGNS_INT_TYPE             :: iStart, iEnd        ! Start and end index
+INTEGER                      :: nSect                               ! Number of sections in CGNS file
+PP_CGNS_INT_TYPE             :: nSectElems  ! Number of elems in zone (volume+surface)/section/on surface
+PP_CGNS_INT_TYPE             :: nZoneElems, nSurfElems  ! Number of elems in zone (volume+surface)/section/on surface
+PP_CGNS_INT_TYPE             :: one(1), nNodes(1),nElems                       ! Number of nodes / elements in a zone (volume only)
+INTEGER                      :: nELemNodes                          ! Number of nodes of an element
+INTEGER                      :: iBC, nCGNSBC  ! ?
+PP_CGNS_INT_TYPE             :: nBCElems  ! ?
+INTEGER                      :: BCTypeIndex             ! Index of boundary condition defined in parameter file
+PP_CGNS_INT_TYPE             :: LocDim          ! Dimension, type, number of nodes of local=section elements
+INTEGER                      :: LocType, nNodesLoc          ! Dimension, type, number of nodes of local=section elements
 PP_CGNS_INT_TYPE             :: SizeZone(3)                         ! CGNS datastructure variables
-PP_CGNS_INT_TYPE             :: SectionElemType                     ! Type of elements in CGNS file
-PP_CGNS_INT_TYPE             :: ParentDataFlag                      ! 0=no parent data for elems available, 1=parent data available
-PP_CGNS_INT_TYPE             :: PntSetType                          ! BC data format (points or surface elemnents)
-PP_CGNS_INT_TYPE             :: NormalListFlag,NormalIndex(3)          ! CGNS datastructure variables
-PP_CGNS_INT_TYPE             :: DataType                            ! CGNS datastructure variables
-PP_CGNS_INT_TYPE             ::                         nDataSet    ! CGNS datastructure variables
-PP_CGNS_INT_TYPE             :: CellDim, PhysDim                    ! Dimesnion of elements,physical dimension
-PP_CGNS_INT_TYPE             :: iError                              ! Error flag
+INTEGER                      :: SectionElemType                     ! Type of elements in CGNS file
+INTEGER                      :: ParentDataFlag                      ! 0=no parent data for elems available, 1=parent data available
+INTEGER                      :: PntSetType                          ! BC data format (points or surface elemnents)
+PP_CGNS_INT_TYPE             :: NormalListFlag         ! CGNS datastructure variables
+INTEGER                      :: NormalIndex(3)          ! CGNS datastructure variables
+INTEGER                      :: DataType                            ! CGNS datastructure variables
+INTEGER                      :: nDataSet                            ! CGNS datastructure variables
+INTEGER                      :: CellDim, PhysDim                    ! Dimesnion of elements,physical dimension
+INTEGER                      :: iError                              ! Error flag
 PP_CGNS_INT_TYPE             :: FirstElemInd  ! ?
 CHARACTER(LEN=32)            :: CGName                              ! necessary data for CGNS
 CHARACTER(LEN=30)            :: coordNameCGNS(3)                 ! List of CGNS names for the coordinates
 LOGICAL, ALLOCATABLE         :: NodeIsBCNode(:)                     ! .TRUE. = node iNode is boundary node
 LOGICAL                      :: SideIsBCSide                        ! .TRUE. = Side is a boundary side
 PP_CGNS_INT_TYPE             :: skip  ! ?
-PP_CGNS_INT_TYPE             :: one  ! ?
 LOGICAL                      :: orient2D  ! ?
 INTEGER,ALLOCATABLE          :: nBCNodes(:),BCInds(:,:)
 INTEGER                      :: locInds(4),nUnique
@@ -237,7 +242,7 @@ WRITE(UNIT_stdOut,*)'Read Zone ',TRIM(CGname)
 
 ! Read node coordinates
 nNodes=SizeZone(1)
-ALLOCATE(NodeCoords(3,nNodes))
+ALLOCATE(NodeCoords(3,nNodes(1)))
 NodeCoords=0.
 DO dm=1,MeshDim
   CGname=TRIM(CoordNameCGNS(dm))
@@ -260,7 +265,7 @@ CALL CG_NSECTIONS_F(CGNSfile,CGNSBase,iZone,nSect,iError)
 IF (iError .NE. CG_OK) CALL abortCGNS(__STAMP__,CGNSFile)
 nZoneElems=0
 DO iSect=1,nSect ! Vol. and boundary face elems
-  CALL CG_SECTION_READ_F(CGNSfile,CGNSBase,iZone,iSect,CGname,SectionElemType,IndMin,IndMax,nBCElems,ParentDataFlag,iError)
+  CALL CG_SECTION_READ_F(CGNSfile,CGNSBase,iZone,iSect,CGname,SectionElemType,IndMin,IndMax,ParentDataFlag,ParentDataFlag,iError)
   IF (iError .NE. CG_OK) CALL abortCGNS(__STAMP__,CGNSFile)
   nSectElems=1+IndMax-IndMin
   nZoneElems=nZoneElems+nSectElems
@@ -280,18 +285,18 @@ iVolElem =0
 iSurfElem=0
 DO iSect=1,nSect ! Vol. and Face elems
   ! Read in Elem indMin & indMax
-  CALL CG_SECTION_READ_F(CGNSfile,CGNSBase,iZone,iSect,CGname,SectionElemType,IndMin,IndMax,nBCElems,ParentDataFlag,iError)
-  WRITE(UNIT_StdOut,*)'   read section',TRIM(CGname)
+  CALL CG_SECTION_READ_F(CGNSfile,CGNSBase,iZone,iSect,CGname,SectionElemType,IndMin,IndMax,ParentDataFlag,ParentDataFlag,iError)
+  WRITE(UNIT_StdOut,*)'   read section ',TRIM(CGname)
   IF (iError .NE. CG_OK) CALL abortCGNS(__STAMP__,CGNSFile)
   IF(SectionElemType .LT. TRI_3) CYCLE !ignore additional sections with data <nDim-1
   CALL CG_ELEMENTDATASIZE_F(CGNSFile,CGNSBase,iZone,iSect,nSectElems,iError)  ! Get number of connectivity values
   ALLOCATE(LocalConnect(nSectElems))
-  nSectElems=1+IndMax-IndMin ! Important for surface elements only 
+  nSectElems=1+IndMax-IndMin ! Important for surface elements only
                              ! (nSectElems, Parent1 | Parent2 | ParentSide1 | ParentSide2)...but we don't use it
   ALLOCATE(ParentData(nSectElems,4))
   ! Read in local connectivity data
   CALL CG_ELEMENTS_READ_F(CGNSfile,CGNSBase,iZone,iSect,LocalConnect,ParentData,iError)
-  
+
   ! Check if 2D element is not oriented in z+, check only first element#
   IF(MeshDim .EQ. 2)THEN
     orient2D=.TRUE. !
@@ -335,7 +340,7 @@ DO iSect=1,nSect ! Vol. and Face elems
       IF(iVolElem .GT. nElems)THEN
         CALL closeFile(CGNSFile)
         CALL abort(__STAMP__,&
-                       'Something wrrrrong with element numbers in CGNS File zone :',INT(iZone))
+                       'Something wrong with element numbers in CGNS File zone :',INT(iZone))
       END IF
 
       ElemConnect(1            ,iVolElem)=LocType
@@ -349,7 +354,7 @@ DO iSect=1,nSect ! Vol. and Face elems
             skip=ElemConnect(3,iVolElem)
             ElemConnect(3,iVolElem)=ElemConnect(4,iVolElem)
             ElemConnect(4,iVolElem)=skip
-          END IF 
+          END IF
         END IF
       END IF  !(MeshDim .EQ. 2)
       ElemMapping(IndMin+iElem-1)        =iVolElem
@@ -359,9 +364,9 @@ DO iSect=1,nSect ! Vol. and Face elems
       IF(iSurfElem.GT.nSurfElems)THEN
         CALL closeFile(CGNSFile)
         CALL abort(__STAMP__,&
-                       'Something wrrrrong with surf element numbers in CGNS File zone :',INT(iZone))
+                       'Something wrong with surf element numbers in CGNS File zone :',INT(iZone))
       END IF
-      
+
       SurfElemConnect(1            ,iSurfElem)=LocType
       SurfElemConnect(2:nNodesLoc+1,iSurfElem)=LocalConnect(iStart:iEnd)
       ElemMapping(IndMin+iElem-1)             =iSurfElem
@@ -395,7 +400,7 @@ DEALLOCATE(ElemConnect,NodeCoords)
 ! Now read in all boundary data
 CALL CG_NBOCOS_F(CGNSfile,CGNSBase,iZone,nCGNSBC,iError)
 IF (iError .NE. CG_OK) CALL abortCGNS(__STAMP__,CGNSFile)
-ALLOCATE(NodeIsBCNode(nNodes))
+ALLOCATE(NodeIsBCNode(nNodes(1)))
 
 DO iBC=1,nCGNSBC
   NodeIsBCNode(:)=.FALSE.    ! Reset
@@ -409,7 +414,7 @@ DO iBC=1,nCGNSBC
   END IF
 
   IF(INDEX(TRIM(CGName),'_on_CURVES') .GT. 0)CYCLE  !ICEM fix, always writes this BC in addition
-  
+
   BCTypeIndex=GetBoundaryIndex(CGName)
   IF(BCTypeIndex .EQ. -1)THEN
     WRITE(UNIT_stdOut,*)'ERROR - Could not find corresponding boundary definition of', CGName
@@ -554,7 +559,7 @@ DO iElem=1,nElems
   NULLIFY(FirstElem_in%prevElem)
 END DO !iElem=1,nElems
 DEALLOCATE(Elems)
-nNodesGlob = nNodesGlob+nNodes
+nNodesGlob = nNodesGlob+nNodes(1)
 
 END SUBROUTINE ReadCGNSMeshUnstruct
 
@@ -579,9 +584,9 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 TYPE(tElem),POINTER,INTENT(INOUT)                  :: FirstElem_in  ! ?
-PP_CGNS_INT_TYPE ,INTENT(IN)         :: CGNSFile,CGNSBase  ! ?
-PP_CGNS_INT_TYPE ,INTENT(IN)         :: iZone  ! ?
-PP_CGNS_INT_TYPE ,INTENT(IN)         :: nZonesGlob  ! ?
+INTEGER ,INTENT(IN)                  :: CGNSFile,CGNSBase  ! ?
+INTEGER ,INTENT(IN)                  :: iZone  ! ?
+INTEGER ,INTENT(IN)                  :: nZonesGlob  ! ?
 PP_CGNS_INT_TYPE ,INTENT(INOUT)      :: nNodesGlob  ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
@@ -594,13 +599,16 @@ TYPE(tElem),POINTER           :: aElem  ! ?
 TYPE(tSide),POINTER           :: aSide  ! ?
 PP_CGNS_INT_TYPE ,ALLOCATABLE :: DimVec(:,:)  ! ?
 PP_CGNS_INT_TYPE              :: irmin(3),irmax(3),irmaxorg(3)  ! ?
-PP_CGNS_INT_TYPE              :: nCGNSBC,iBC,iBCFace  ! Number of Boundary Conditions
-PP_CGNS_INT_TYPE ,ALLOCATABLE :: isize(:,:)  ! ?
-PP_CGNS_INT_TYPE              :: iSide,nBCElems,PntSetType  ! ?
+INTEGER                       :: nCGNSBC,iBC,iBCFace  ! Number of Boundary Conditions
+PP_CGNS_INT_TYPE,ALLOCATABLE  :: iSize(:,:)  ! ?
+PP_CGNS_INT_TYPE              :: nBCElems  ! ?
+PP_CGNS_INT_TYPE              :: iSide  ! ?
+INTEGER                       :: PntSetType  ! ?
 PP_CGNS_INT_TYPE ,ALLOCATABLE :: BCIndex(:,:),BCTypeIndex(:),countBCs(:),nBCFaces(:)  ! ?
-PP_CGNS_INT_TYPE              :: BCTypeI  ! ?
-PP_CGNS_INT_TYPE              :: NormalListFlag,DataType,nDataSet  ! ?
-PP_CGNS_INT_TYPE              :: iError                                 ! Error flag
+INTEGER                       :: BCTypeI  ! ?
+PP_CGNS_INT_TYPE              :: NormalListFlag  ! ?
+INTEGER                       :: DataType,nDataSet  ! ?
+INTEGER                       :: iError                                 ! Error flag
 PP_CGNS_INT_TYPE              :: i,j,k,l,m,step,kk,ll,mm  ! ?
 PP_CGNS_INT_TYPE              :: k2,k3  ! ?
 PP_CGNS_INT_TYPE              :: stepk,stepl,stepm  ! ?
@@ -614,10 +622,10 @@ REAL,ALLOCATABLE              :: Vdm_NBlock_N(:,:) ! Vdm from NBlock to N (if cu
 CHARACTER(LEN=32)             :: CGName, FamilyName,ZoneName  ! ?
 LOGICAL                       :: onbnd  ! ?
 PP_CGNS_INT_TYPE              :: one   ! ?
-PP_CGNS_INT_TYPE              :: NormalIndex(3)  ! ?
+INTEGER                       :: NormalIndex(3)  ! ?
 PP_CGNS_INT_TYPE              :: NormalListSize  ! ?
 PP_CGNS_INT_TYPE ,ALLOCATABLE :: BCElems(:,:)  ! ?
-PP_CGNS_INT_TYPE ,ALLOCATABLE :: NormalList(:)  ! ?
+REAL ,ALLOCATABLE             :: NormalList(:)  ! ?
 LOGICAL                       :: zFit
 !===================================================================================================================================
 ALLOCATE(isize(meshDim,3))
@@ -625,7 +633,7 @@ ALLOCATE(DimVec(meshDim,2))
 one=1
 CALL CG_ZONE_READ_F(CGNSfile,CGNSBase,iZone,CGname,iSize,iError)
 ZoneName=CGname
-IF(useCurveds.AND.MeshIsAlreadyCurved)THEN 
+IF(useCurveds.AND.MeshIsAlreadyCurved)THEN
   N_loc=N
   IF(NBlock.NE.-1) N_loc=NBlock
 ELSE
@@ -645,7 +653,7 @@ WRITE(UNIT_stdOut,'(A,A,A,3I8)')'Read Zone ',TRIM(CGname),', with block elem siz
 
 DO k=1,meshDim
   IF (MOD((irmax(k)-1),step).NE.0) THEN
-    IF(useCurveds) THEN 
+    IF(useCurveds) THEN
       WRITE(UNIT_StdOut,'(A)') 'WARNING: cannot read block, step=(order-1)*nSkip does not fit with block elem size.'
     ELSE
       WRITE(UNIT_StdOut,'(A)') 'WARNING: cannot read block, nSkip does not fit with block elem size.'
@@ -704,7 +712,7 @@ IF(nSkipZ.NE.1)THEN
   CASE(3)
     stepm=nSkipZ
     zFit=.NOT.(MOD((irmax(3)-1),stepm).NE.0)
-  END SELECT 
+  END SELECT
   IF(.NOT.zfit)THEN
     IF(useCurveds)THEN
       WRITE(UNIT_StdOut,'(A)') 'WARNING: cannot read block, step=(order-1)*nSkipZ does not fit with block elem size.'
@@ -771,7 +779,7 @@ DO k=1,irmax(1)
         Mnodes(k,l,m)%np%x      =NodeCoords(:,k,l,m)      ! Node coordinates are assigned
       ELSE
         Mnodes(k,l,m)%np%x(1:2) =NodeCoords(1:2,k,l,1)    ! Node coordinates are assigned
-        Mnodes(k,l,m)%np%x(3)   =REAL(m-1)*REAL(DZ)/REAL(step) ! Node coordinates are assigned       
+        Mnodes(k,l,m)%np%x(3)   =REAL(m-1)*REAL(DZ)/REAL(step) ! Node coordinates are assigned
       END IF
       nNodesGlob=nNodesGlob+1
       Mnodes(k,l,m)%np%ind=nNodesGlob ! Node index is assigned
@@ -829,7 +837,7 @@ END DO !k
 DEALLOCATE(Mnodes)
 
 !------------------ READ BCs ------------------------------------!
-! Check for number of Boundary Conditions nCGNSBC 
+! Check for number of Boundary Conditions nCGNSBC
 CALL CG_NBOCOS_F(CGNSFile,CGNSBase,iZone,nCGNSBC,iError) !Number of Boundary conditions nCGNSBC
 IF (iError .NE. CG_OK) CALL cg_error_exit_f()
 
@@ -838,10 +846,10 @@ IF (nCGNSBC.LT.1) RETURN ! exit if there are no boundary conditions
 ALLOCATE(BCIndex(1:nCGNSBC,6),BCTypeIndex(1:nCGNSBC),countBCs(1:nCGNSBC),nBCFaces(1:nCGNSBC))
 SideMap(1,1) = 5 ! xi minus
 SideMap(1,2) = 3 ! xi plus
-SideMap(2,1) = 2 ! eta minus 
+SideMap(2,1) = 2 ! eta minus
 SideMap(2,2) = 4 ! eta plus
 SideMap(3,1) = 1 ! zeta minus
-SideMap(3,2) = 6 ! zeta plus 
+SideMap(3,2) = 6 ! zeta plus
 
 ! Read in BC Data
 BCIndex=-1
@@ -865,14 +873,14 @@ DO iBC=1,nCGNSBC !Loop over all BCs
     FamilyName=CGName
   END IF
   BCTypeIndex(iBC)=GetBoundaryIndex(FamilyName)
-  IF (BCTypeIndex(iBC).EQ.-1) THEN  
+  IF (BCTypeIndex(iBC).EQ.-1) THEN
     WRITE(UNIT_stdOut,*)'ERROR - Could not find corresponding boundary definition of ',FamilyName
     CYCLE
   END IF
   ALLOCATE(BCElems(MeshDim,nBCElems))
   NormalListSize=nBCElems*MeshDim
   ALLOCATE(NormalList(NormalListSize))
-  CALL CG_BOCO_READ_F(CGNSfile,CGNSBase,iZone,iBC,BCElems,NormalList,iError) 
+  CALL CG_BOCO_READ_F(CGNSfile,CGNSBase,iZone,iBC,BCElems,NormalList,iError)
   IF(PntSetType.EQ.PointRange)THEN
     IF(ANY(BCElems.LE.0))THEN
       WRITE(UNIT_StdOut,'(A)') &
@@ -910,11 +918,11 @@ DO iBC=1,nCGNSBC !Loop over all BCs
                 ! Inner Point (not on edge or corner) on Side defines BC
                 nBCFaces(iBC)=nBCFaces(iBC)+1
                 BCIndex(iBC,nBCFaces(iBC)) = SideMap(k,1)
-                EXIT 
+                EXIT
               END IF
             END IF
           END IF
-        END DO  ! l 
+        END DO  ! l
         ! irmax side
         DO l=1,nBCElems
           IF(BCElems(k,l) .EQ. irmaxorg(k)) THEN
@@ -923,11 +931,11 @@ DO iBC=1,nCGNSBC !Loop over all BCs
                 ! Inner Point (not on edge or corner) on Side defines BC
                 nBCFaces(iBC)=nBCFaces(iBC)+1
                 BCIndex(iBC,nBCFaces(iBC)) = SideMap(k,2)
-                EXIT 
+                EXIT
               END IF
             END IF
           END IF
-        END DO  ! l 
+        END DO  ! l
       END DO ! k
 
 !      isdir=.TRUE.
@@ -951,7 +959,7 @@ DO iBC=1,nCGNSBC !Loop over all BCs
 !      ELSEIF(.NOT.ANY(isdir(:))) THEN
 !       WRITE(*,*)'Zone,BC,no BCs',ZoneName,CGName,nCGNSBC
 !       STOP 'no BC direction found'
-!      ELSE 
+!      ELSE
 !       !last possible case: edge where two BC meet.
 !        BCIndex(iBC)=-1
 !       WRITE(*,*) 'Warning: Edge BC. Zone No,BC no, BCname, ',iZone,iBC,FamilyName
@@ -969,9 +977,9 @@ DO WHILE(ASSOCIATED(aElem))
   END IF
   aSide=>aElem%FirstSide
   DO WHILE(ASSOCIATED(aSide))
-    DO iBC=1,nCGNSBC                ! nCGNSBC Boundary Conditions 
+    DO iBC=1,nCGNSBC                ! nCGNSBC Boundary Conditions
       DO iBCFace=1,nBCFaces(iBC)    ! nBCFaces: number of block faces with this BC
-        iSide=BCIndex(iBC,iBCFace) 
+        iSide=BCIndex(iBC,iBCFace)
         IF(iSide.LT.0) CYCLE
         onBnd=.TRUE.
         DO l=1,4 !Loop over all Nodes of this side
@@ -992,7 +1000,7 @@ DO WHILE(ASSOCIATED(aElem))
           countBCs(iBC) = countBCs(iBC)+1
         END IF
       END DO !iBCFace=1,nBCFaces(iBC)
-    END DO !iBC=1,nCGNSBC 
+    END DO !iBC=1,nCGNSBC
     aSide=>aSide%nextElemSide
   END DO !WHILE(ASSOCIATED(aSide))
   aElem=>aElem%nextElem
@@ -1019,40 +1027,45 @@ CHARACTER(LEN=255),INTENT(IN)                   :: FileName
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-PP_CGNS_INT_TYPE             :: iZone
-PP_CGNS_INT_TYPE             :: nBases,nCGNSZones  ! Number of bases / zones in CGNS file
+INTEGER                      :: iZone
+INTEGER                      :: nBases,nCGNSZones  ! Number of bases / zones in CGNS file
 PP_CGNS_INT_TYPE             :: nNodesGlob         ! Total number of nodes in the mesh file
 PP_CGNS_INT_TYPE             :: nElemsGlob         ! Total number of elements in mesh file
 PP_CGNS_INT_TYPE             :: nZonesGlob         ! Total number of zones in the mesh.
-PP_CGNS_INT_TYPE             :: CGNSFile,CGNSBase  ! CGNS file handles
-PP_CGNS_INT_TYPE             :: md  ! ?
-PP_CGNS_INT_TYPE             :: file_type  ! ?
+INTEGER                      :: CGNSFile,CGNSBase  ! CGNS file handles
+INTEGER                      :: md  ! ?
+INTEGER                      :: file_type  ! ?
 REAL(KIND=4)                 :: version  ! ?
-                             
+
 CHARACTER(LEN=32)            :: CGName             ! necessary data for CGNS
-PP_CGNS_INT_TYPE             :: ZoneType  ! ?
+INTEGER                      :: ZoneType  ! ?
 TYPE(tElemPtr),ALLOCATABLE   :: Elems(:)                            ! Pointer array to elements
 TYPE(tElem),POINTER          :: ActualElem  ! ?
 TYPE(tSide),POINTER          :: Side                                ! Local side pointer
 REAL, ALLOCATABLE            :: NodeCoords(:,:)                     ! Coordinates of grid nodes (nDim,nNodes)
-PP_CGNS_INT_TYPE ,ALLOCATABLE:: ElemConnect(:,:)                    ! Connectivity data for (surface) element (nNodes+1,nElems)
+INTEGER ,ALLOCATABLE         :: ElemConnect(:,:)                    ! Connectivity data for (surface) element (nNodes+1,nElems)
 PP_CGNS_INT_TYPE ,ALLOCATABLE:: LocalConnect(:), ParentData(:,:)    ! Arrays for reading the (local=one section) connectivity data
-PP_CGNS_INT_TYPE             :: iNode,iElem,iSecElem,iSide  ! ?
-PP_CGNS_INT_TYPE             :: dm, iSect, j  ! ?
-PP_CGNS_INT_TYPE             :: IndMin, IndMax, iStart, iEnd        ! Start and end index
-PP_CGNS_INT_TYPE             :: nSect                               ! Number of sections in CGNS file
-PP_CGNS_INT_TYPE             :: nNodes,nElems,nSectElems            ! Number of nodes / elements in a zone (volume only)
-PP_CGNS_INT_TYPE             :: nElemNodes,nBCElems                 ! Number of nodes of an element
-PP_CGNS_INT_TYPE             :: LocDim, LocType, nNodesLoc          ! Dimension, type, number of nodes of local=section elements
+INTEGER                      :: iNode, iSide  ! ?
+PP_CGNS_INT_TYPE             :: iElem,iSecElem ! ?
+INTEGER                      :: dm, iSect, j  ! ?
+INTEGER                      :: iStart, iEnd        ! Start and end index
+PP_CGNS_INT_TYPE             :: IndMin, IndMax       ! Start and end index
+INTEGER                      :: nSect                               ! Number of sections in CGNS file
+PP_CGNS_INT_TYPE             :: nSectElems            ! Number of nodes / elements in a zone (volume only)
+PP_CGNS_INT_TYPE             :: nNodes(1),nElems           ! Number of nodes / elements in a zone (volume only)
+INTEGER                      :: nElemNodes                ! Number of nodes of an element
+INTEGER                      :: nBCElems                 ! Number of nodes of an element
+PP_CGNS_INT_TYPE             :: LocDim                     ! Dimension, type, number of nodes of local=section elements
+INTEGER                      :: LocType, nNodesLoc          ! Dimension, type, number of nodes of local=section elements
 PP_CGNS_INT_TYPE             :: SizeZone(3)                         ! CGNS datastructure variables
-PP_CGNS_INT_TYPE             :: SectionElemType                     ! Type of elements in CGNS file
-PP_CGNS_INT_TYPE             :: ParentDataFlag                      ! 0=no parent data for elems available, 1=parent data available
-PP_CGNS_INT_TYPE             :: CellDim, PhysDim                    ! Dimesnion of elements,physical dimension
-PP_CGNS_INT_TYPE             :: iError                              ! Error flag
+INTEGER                      :: SectionElemType                     ! Type of elements in CGNS file
+INTEGER                      :: ParentDataFlag                      ! 0=no parent data for elems available, 1=parent data available
+INTEGER                      :: CellDim, PhysDim                    ! Dimesnion of elements,physical dimension
+INTEGER                      :: iError                              ! Error flag
 CHARACTER(LEN=30)            :: coordNameCGNS(3)                 ! List of CGNS names for the coordinates
-PP_CGNS_INT_TYPE             :: one  ! ?
+PP_CGNS_INT_TYPE             :: one(1)                ! ?
 !===================================================================================================================================
-WRITE(UNIT_stdOut,*)'Read CGNS File: ',TRIM(FileName)
+WRITE(UNIT_stdOut,*)'Read CGNS Surface File: ',TRIM(FileName)
 ! Open CGNS file
 CALL OpenBase(TRIM(FileName),MODE_READ,md,md,CGNSFile,CGNSBase,.TRUE.)
 !CALL CG_OPEN_F(TRIM(MeshFileName(iFile)), CG_MODE_READ, CGNSFile, iError)
@@ -1101,10 +1114,10 @@ DO iZone=1,nCGNSZones
   IF (iError .NE. CG_OK) &
     CALL abortCGNS(__STAMP__,CGNSFile)
   WRITE(UNIT_stdOut,*)'Read Zone ',TRIM(CGname)
-  
+
   ! Read node coordinates
   nNodes=SizeZone(1)
-  ALLOCATE(NodeCoords(3,nNodes))
+  ALLOCATE(NodeCoords(3,nNodes(1)))
   NodeCoords=0.
   DO dm=1,3
     CGname=TRIM(CoordNameCGNS(dm))
@@ -1126,12 +1139,12 @@ DO iZone=1,nCGNSZones
   CALL CG_NSECTIONS_F(CGNSfile,CGNSBase,iZone,nSect,iError)
   IF (iError .NE. CG_OK) CALL abortCGNS(__STAMP__,CGNSFile)
   nElems=SizeZone(2)
-  
-  
+
+
   ! Read element connectivity
   ALLOCATE(ElemConnect(5,nElems))
   ALLOCATE(Elems(nElems))
-  
+
   iElem=0
   DO iSect=1,nSect ! Vol. and Face elems
     ! Read in Elem indMin & indMax
@@ -1144,8 +1157,8 @@ DO iZone=1,nCGNSZones
     ALLOCATE(ParentData(nSectElems,4))
     ! Read in local connectivity data
     CALL CG_ELEMENTS_READ_F(CGNSfile,CGNSBase,iZone,iSect,LocalConnect,ParentData,iError)
-  
-    nSectElems=1+IndMax-IndMin ! Important for surface elements only 
+
+    nSectElems=1+IndMax-IndMin ! Important for surface elements only
                                ! (nSectElems, Parent1 | Parent2 | ParentSide1 | ParentSide2)...but we don't use it
     iStart=1
     DO iSecElem=1,nSectElems
@@ -1159,12 +1172,12 @@ DO iZone=1,nCGNSZones
       END IF
       CALL CG_NPE_F(LocType,nNodesLoc,iError) ! Get number of nodes for iElem
       iEnd=iEnd+nNodesLoc
-  
+
       LocDim=1
       IF(LocType .GT.  BAR_3) LocDim=2
       IF(LocType .GT. QUAD_9) LocDim=3
       IF(LocType .GT.  MIXED) LocDim=2 !NGON_n
-  
+
       IF(LocDim .EQ. 2) THEN ! surface element
         iElem=iElem+1
         IF(iElem.GT.nElems)THEN
@@ -1172,16 +1185,16 @@ DO iZone=1,nCGNSZones
           CALL abort(__STAMP__,&
                          'Something wrrrrong with surf element numbers in CGNS File zone :',INT(iZone))
         END IF
-        
+
         ElemConnect(1            ,iElem)=LocType
         ElemConnect(2:nNodesLoc+1,iElem)=LocalConnect(iStart:iEnd)
-  
-      END IF   
+
+      END IF
       iStart=iEnd+1
     END DO ! elements in section
     DEALLOCATE(LocalConnect,ParentData)
   END DO !sections
-  
+
   ! Rebuild the elements of zone iZone
   DO iElem=1,nElems
     CALL CG_NPE_F(ElemConnect(1,iElem),nElemNodes,iError)
@@ -1204,7 +1217,7 @@ DO iZone=1,nCGNSZones
         CALL getNewSide(ActualElem%firstSide,2)
         Side=>ActualElem%firstSide
       ELSE
-        CALL getNewSide(Side%nextElemSide,2)  
+        CALL getNewSide(Side%nextElemSide,2)
         Side=>Side%nextElemSide
       END IF
       Side%LocSide=iSide
@@ -1216,7 +1229,7 @@ DO iZone=1,nCGNSZones
     END DO
   END DO !nElems
   DEALLOCATE(ElemConnect,NodeCoords)
-  
+
   DO iElem=1,nElems
     IF(.NOT. ASSOCIATED(FirstElem_in))THEN
       FirstElem_in   => Elems(iElem)%EP
@@ -1229,7 +1242,7 @@ DO iZone=1,nCGNSZones
     NULLIFY(FirstElem_in%prevElem)
   END DO !iElem=1,nElems
   DEALLOCATE(Elems)
-  nNodesGlob = nNodesGlob+nNodes
+  nNodesGlob = nNodesGlob+nNodes(1)
   nElemsGlob = nElemsGlob+nElems
 END DO ! iZone
 
@@ -1246,23 +1259,23 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
 CHARACTER(LEN=*),INTENT(IN)    :: ioName        ! name for/of the CGNS file
-PP_CGNS_INT_TYPE,INTENT(IN)    :: mode          ! CGNS file mode: MODE_READ,MODE_MODIFY
-PP_CGNS_INT_TYPE,INTENT(IN)    :: celldim       ! dimension of the cells: 3 for volume cells, 2 for surface cells
-PP_CGNS_INT_TYPE,INTENT(IN)    :: physdim       ! physical dimension of the calculation
+INTEGER,INTENT(IN)             :: mode          ! CGNS file mode: MODE_READ,MODE_MODIFY
+INTEGER,INTENT(IN)             :: celldim       ! dimension of the cells: 3 for volume cells, 2 for surface cells
+INTEGER,INTENT(IN)             :: physdim       ! physical dimension of the calculation
 LOGICAL,OPTIONAL,INTENT(IN)    :: externBase_in ! base specified from external
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
-PP_CGNS_INT_TYPE,INTENT(OUT)    :: CGNSFile      ! CGNS file handle
-PP_CGNS_INT_TYPE,INTENT(OUT)    :: CGNSBase      ! CGNS base handle
+INTEGER,INTENT(OUT)    :: CGNSFile      ! CGNS file handle
+INTEGER,INTENT(OUT)    :: CGNSBase      ! CGNS base handle
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-PP_CGNS_INT_TYPE    :: nB,i !,j        ! loop/count variables
-PP_CGNS_INT_TYPE    :: cd,pd           ! CGNS subroutine variables
-PP_CGNS_INT_TYPE    :: ier             ! CGNS error variable
+INTEGER             :: nB,i !,j        ! loop/count variables
+INTEGER             :: cd,pd           ! CGNS subroutine variables
+INTEGER             :: ier             ! CGNS error variable
 CHARACTER(LEN=100)  :: filename        ! necessary data for CGNS
 CHARACTER(LEN=32)   :: CGname,basename ! necessary data for CGNS
 LOGICAL             :: externBase      ! provide CGNS base from external
-PP_CGNS_INT_TYPE    :: one   ! ?
+INTEGER             :: one   ! ?
 !===================================================================================================================================
 ! read/write + force creation if not existing
 one=1
@@ -1325,7 +1338,7 @@ END IF
 IF (CGNSBase .EQ. -999) THEN ! not found
   IF(mode .EQ. MODE_READ)THEN
      CALL closeFile(CGNSFile)
-     CALL abort(__STAMP__,& 
+     CALL abort(__STAMP__,&
                 'Cannot find base '//TRIM(basename)//' in cgns file: '//TRIM(filename))
   END IF
 
@@ -1347,12 +1360,12 @@ SUBROUTINE closeFile(CGNSFile)
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT VARIABLES
-PP_CGNS_INT_TYPE ,INTENT(IN)  :: CGNSFile   ! CGNS file handle
+INTEGER ,INTENT(IN)  :: CGNSFile   ! CGNS file handle
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-PP_CGNS_INT_TYPE    :: ier  ! ?
+INTEGER    :: ier  ! ?
 !===================================================================================================================================
 ! close CGNS file first (if still open)
 CALL cg_close_f(CGNSfile,ier)
@@ -1373,7 +1386,7 @@ CHARACTER(LEN=*),INTENT(IN)    :: sourceFile ! name of the file that caused an e
 INTEGER,INTENT(IN)             :: sourceLine ! number of line in file that caused an error
 CHARACTER(LEN=*),INTENT(IN)    :: compDate   ! date of computation
 CHARACTER(LEN=*),INTENT(IN)    :: compTime   ! computation time
-PP_CGNS_INT_TYPE,INTENT(IN)    :: CGNSFile   ! CGNS file handle
+INTEGER,INTENT(IN)             :: CGNSFile   ! CGNS file handle
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -1381,7 +1394,7 @@ PP_CGNS_INT_TYPE,INTENT(IN)    :: CGNSFile   ! CGNS file handle
 CHARACTER(LEN=255)  :: message    ! CGNS error message
 !===================================================================================================================================
 ! Retrieve error message
-CALL cg_get_error_f(message)      
+CALL cg_get_error_f(message)
 ! Exit calculation
 CALL closeFile(CGNSFile)
 CALL abort(sourceFile,sourceLine,compDate,compTime,message)

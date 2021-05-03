@@ -1,13 +1,3 @@
-before_script:
-  - export PATH=/opt/openmpi/4.1.0/bin:$PATH
-  - export LD_LIBRARY_PATH=/opt/openmpi/4.1.0/lib/:$LD_LIBRARY_PATH
-  - export CMAKE_PREFIX_PATH=/opt/openmpi/4.1.0/share/cmake:$CMAKE_PREFIX_PATH
-  - export CMAKE_LIBRARY_PATH=/opt/openmpi/4.1.0/lib:$CMAKE_LIBRARY_PATH
-  - export HDF5_DIR=/opt/hdf5/1.12.0/share/cmake/
-  - export LD_LIBRARY_PATH=/opt/hdf5/1.12.0/lib/:$LD_LIBRARY_PATH
-  - export CMAKE_PREFIX_PATH=/opt/hdf5/1.12.0/:$CMAKE_PREFIX_PATH
-  - export CMAKE_LIBRARY_PATH=/opt/hdf5/1.12.0/lib:$CMAKE_LIBRARY_PATH
-
 stages:
   - build
   - error_clean
@@ -17,7 +7,7 @@ stages:
 
 cache:
   key: "$CI_BUILD_REF"
-  paths: 
+  paths:
     - build_gnu/
     - doc/doxygen/doxygen
     - doc/Meshformat/Meshformat.pdf
@@ -30,7 +20,7 @@ build_gnu:
   script:
     - mkdir -p build_gnu ; cd build_gnu
     - if [ -n "${DO_NIGHTLY}" ]; then cmake .. ; fi
-    - if [ -z "${DO_NIGHTLY}" ]; then cmake .. -DHOPR_BUILD_HDF5=OFF ; fi
+    - if [ -z "${DO_NIGHTLY}" ]; then cmake .. -DLIBS_BUILD_HDF5=OFF ; fi
     - make all
 
 clean:
