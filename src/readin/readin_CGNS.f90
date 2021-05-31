@@ -127,8 +127,6 @@ DO iFile=1,nMeshFiles
   IF(iError .NE. CG_OK) CALL abortCGNS(__STAMP__,CGNSFile)
   DO iZone=1,nCGNSZones
     nZonesGlob=nZonesGlob+1
-    IF(nZonesGlob.GT.nZones)&
-      WRITE(UNIT_stdOut,*)'ERROR: number of zones in inifile does not correspond to number of zones in meshfile(s)',nZones
 
     ! Check structured / unstructured
     CALL cg_zone_type_f(CGNSFile, CGNSBase, iZone, ZoneType, iError)
@@ -627,6 +625,7 @@ PP_CGNS_INT_TYPE              :: NormalListSize  ! ?
 PP_CGNS_INT_TYPE ,ALLOCATABLE :: BCElems(:,:)  ! ?
 REAL ,ALLOCATABLE             :: NormalList(:)  ! ?
 LOGICAL                       :: zFit
+INTEGER                       :: MapCGNS(3)
 !===================================================================================================================================
 ALLOCATE(isize(meshDim,3))
 ALLOCATE(DimVec(meshDim,2))
@@ -640,6 +639,11 @@ ELSE
   N_loc=1
 END IF
 Step=nSkip*N_loc
+
+! Define mapping: (x,y,z) -> (y,z,x)
+MapCGNS(1) = 3
+MapCGNS(2) = 1
+MapCGNS(3) = 2
 
 irmin=1
 IF(meshdim.EQ.3)THEN
@@ -680,7 +684,7 @@ CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateZ',REALDOUBLE,irmin,irma
 IF(nSkip.NE.1)THEN
   irmax = (irmax-1)/nSkip + 1
   ALLOCATE(NodeCoordsTmp(3,irmax(1),irmax(2),irmax(3)))
-  DO k=1,irmax(1); DO l=1,irmax(2); DO m=1,irmax(3)
+  DO m=1,irmax(3); DO l=1,irmax(2); DO k=1,irmax(1)
     NodeCoordsTmp(:,k,l,m) = NodeCoords(:, 1+(k-1)*nSkip, 1+(l-1)*nSkip, 1+(m-1)*nSkip)
   END DO; END DO; END DO !k,l,m
   DEALLOCATE(NodeCoords)
@@ -770,13 +774,13 @@ END IF
 
 
 ! Building temporary nodes
-ALLOCATE(Mnodes(irmax(1),irmax(2),irmax(3)))
-DO k=1,irmax(1)
-  DO l=1,irmax(2)
-    DO m=1,irmax(3)
+ALLOCATE(Mnodes(irmax(MapCGNS(1)),irmax(MapCGNS(2)),irmax(MapCGNS(3))))
+DO m=1,irmax(MapCGNS(3))
+  DO l=1,irmax(MapCGNS(2))
+    DO k=1,irmax(MapCGNS(1))
       CALL GetNewNode(Mnodes(k,l,m)%np)
       IF(meshDim.EQ.3)THEN
-        Mnodes(k,l,m)%np%x      =NodeCoords(:,k,l,m)      ! Node coordinates are assigned
+        Mnodes(k,l,m)%np%x      =NodeCoords(:,l,m,k)      ! Node coordinates are assigned
       ELSE
         Mnodes(k,l,m)%np%x(1:2) =NodeCoords(1:2,k,l,1)    ! Node coordinates are assigned
         Mnodes(k,l,m)%np%x(3)   =REAL(m-1)*REAL(DZ)/REAL(step) ! Node coordinates are assigned
@@ -788,18 +792,18 @@ DO k=1,irmax(1)
       Mnodes(k,l,m)%np%tmp=0
       IF(m.EQ.1.AND.meshdim.EQ.3)        Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+1      !zeta minus
       IF(l.EQ.1)                         Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+20     !eta minus
-      IF(k.EQ.irmax(1) )                 Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+300    !xi plus
-      IF(l.EQ.irmax(2) )                 Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+4000   !eta plus
+      IF(k.EQ.irmax(MapCGNS(1)) )        Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+300    !xi plus
+      IF(l.EQ.irmax(MapCGNS(2)) )        Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+4000   !eta plus
       IF(k.EQ.1)                         Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+50000  !xi minus
-      IF(m.EQ.irmax(3).AND.meshdim.EQ.3) Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+600000 !zeta plus
+      IF(m.EQ.irmax(MapCGNS(3)).AND.meshdim.EQ.3) Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+600000 !zeta plus
     END DO
   END DO
 END DO
 DEALLOCATE(NodeCoords)
 
-DO k=1,irmax(1)-N_loc,N_loc
-  DO l=1,irmax(2)-N_loc,N_loc
-    DO m=1,irmax(3)-N_loc,N_loc
+DO m=1,irmax(MapCGNS(3))-N_loc,N_loc
+  DO l=1,irmax(MapCGNS(2))-N_loc,N_loc
+    DO k=1,irmax(MapCGNS(1))-N_loc,N_loc
       CornerNode(1)%np=>Mnodes(k      ,l      ,m      )%np
       CornerNode(2)%np=>Mnodes(k+N_loc,l      ,m      )%np
       CornerNode(3)%np=>Mnodes(k+N_loc,l+N_loc,m      )%np
@@ -827,7 +831,7 @@ DO k=1,irmax(1)-N_loc,N_loc
       IF(useCurveds.AND.MeshIsAlreadyCurved)THEN !read in curvedNodes
         FirstElem_in%nCurvedNodes=(N_loc+1)**3
         ALLOCATE(FirstElem_in%curvedNode(FirstElem_in%nCurvedNodes))
-        DO kk=0,N_loc; DO ll=0,N_loc; DO mm=0,N_loc
+        DO mm=0,N_loc; DO ll=0,N_loc; DO kk=0,N_loc
           FirstElem_in%curvedNode(HexaMapInv(kk,ll,mm))%np=>Mnodes(k+kk,l+ll,m+mm)%np
         END DO; END DO; END DO
       END IF!useCurveds
@@ -844,12 +848,12 @@ IF (iError .NE. CG_OK) CALL cg_error_exit_f()
 IF (nCGNSBC.LT.1) RETURN ! exit if there are no boundary conditions
 
 ALLOCATE(BCIndex(1:nCGNSBC,6),BCTypeIndex(1:nCGNSBC),countBCs(1:nCGNSBC),nBCFaces(1:nCGNSBC))
-SideMap(1,1) = 5 ! xi minus
-SideMap(1,2) = 3 ! xi plus
-SideMap(2,1) = 2 ! eta minus
-SideMap(2,2) = 4 ! eta plus
-SideMap(3,1) = 1 ! zeta minus
-SideMap(3,2) = 6 ! zeta plus
+SideMap(3,1) = 5 ! xi minus
+SideMap(3,2) = 3 ! xi plus
+SideMap(1,1) = 2 ! eta minus
+SideMap(1,2) = 4 ! eta plus
+SideMap(2,1) = 1 ! zeta minus
+SideMap(2,2) = 6 ! zeta plus
 
 ! Read in BC Data
 BCIndex=-1

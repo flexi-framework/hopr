@@ -13,7 +13,7 @@
 ! Copyright (C) 2017 Claus-Dieter Munz <munz@iag.uni-stuttgart.de>
 ! This file is part of HOPR, a software for the generation of high-order meshes.
 !
-! HOPR is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License 
+! HOPR is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
 ! as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 !
 ! HOPR is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
@@ -32,7 +32,7 @@ USE MOD_Globals
 IMPLICIT NONE
 PRIVATE
 !-----------------------------------------------------------------------------------------------------------------------------------
-! GLOBAL VARIABLES 
+! GLOBAL VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! Private Part ---------------------------------------------------------------------------------------------------------------------
 ! Public Part ----------------------------------------------------------------------------------------------------------------------
@@ -88,8 +88,6 @@ END IF
 
 ! Mesh mode: 0=HDF5 input, 1=Internal cartesian, 2=Gambit, 3=CGNS, 4=ANSA, 5=GMSH
 MeshMode=GETINT('Mode')
-! Get number of mesh zones in domain
-nZones  =GETINT('nZones')
 meshIsAlreadyCurved=.FALSE.
 IF (MeshMode .EQ. 1) THEN
   ! ---------- INTERNAL CARTESIAN MESH ---------------------------------------------------------------------------------------------
@@ -99,6 +97,7 @@ IF (MeshMode .EQ. 1) THEN
     InnerElemStretch = .FALSE.
   END IF
   IF(InnerElemStretch) MeshIsAlreadyCurved=.TRUE.
+  nZones  =GETINT('nZones')
   ALLOCATE(CartMeshes(nZones))
   DO i=1,nZones
     ALLOCATE(CartMeshes(i)%CM)
@@ -106,7 +105,7 @@ IF (MeshMode .EQ. 1) THEN
     DO j=1,8
       CartMeshes(i)%CM%Corner(:,j)=buf((j-1)*3+1:j*3)
     END DO
-    CartMeshes(i)%CM%BCIndex =GETINTARRAY('BCIndex',6)  ! Boundary type 
+    CartMeshes(i)%CM%BCIndex =GETINTARRAY('BCIndex',6)  ! Boundary type
     CartMeshes(i)%CM%nElems  =GETINTARRAY('nElems',3)   ! No of elems in each direction
     CartMeshes(i)%CM%l0      =GETREALARRAY('l0',3,'0.,0.,0.') ! first length (+/-) = direction
     CartMeshes(i)%CM%factor  =GETREALARRAY('factor',3,'0.,0.,0.') ! stretch factor (+/-) = direction
@@ -115,6 +114,7 @@ IF (MeshMode .EQ. 1) THEN
   END DO
 ELSEIF (MeshMode .EQ. 11) THEN
   ! ---------- INTERNAL 1 BLOCK CURVED CARTESIAN MESH -----------------------------------------------------------------
+  nZones  =GETINT('nZones')
   stretchType = GETINTARRAY('stretchType',3,'0,0,0')
   fac = GETREALARRAY('fac',3,'1.,1.,1.')
   WRITE(DefStr,'(E21.11,A1,E21.11,A1,E21.11)')fac(1),',',fac(2),',',fac(3)
@@ -122,9 +122,9 @@ ELSEIF (MeshMode .EQ. 11) THEN
   DxmaxToDxmin = GETREALARRAY('DxmaxToDxmin',3,'1.,1.,1.')
   !read in Mesh Parameters
   CurvedMeshType = GETINT('Meshtype','1')
-  BCIndex =GETINTARRAY('BCIndex',6)  ! Boundary type 
+  BCIndex =GETINTARRAY('BCIndex',6)  ! Boundary type
   nElems  =GETINTARRAY('nElems',3)   ! No of elems in each direction
-  ! rescale the factor if innercell stretching is used, so the same factor can be supplied 
+  ! rescale the factor if innercell stretching is used, so the same factor can be supplied
   ! in parameter file for cell and innercell stretching
   DO i=1,3
     IF(stretchType(i).EQ.6) THEN
@@ -164,13 +164,13 @@ ELSEIF (MeshMode .EQ. 11) THEN
       R_INF = GETREAL('R_INF','10.')
       DY    = GETREAL('DZ','2.')
       IF (WhichMapping.EQ.3) PHI   = GETREAL('PHI','180.') !angle of segment (def.: half cylinder, i.e. 180deg)
-    CASE(5) ! SINE BUMP  
+    CASE(5) ! SINE BUMP
       DX    = GETREALARRAY('DX',3,'4.,1.,1.') ! half length, width and height of domain
       R_0   = GETREAL('R_0','0.1') ! height of bump
       R_INF = GETREAL('R_INF','1.') ! length of bump
     END SELECT ! WhichMapping
   END SELECT !MEshType
-  meshisAlreadyCurved=.TRUE. 
+  meshisAlreadyCurved=.TRUE.
 ELSE
   ! ---------- EXTERNAL MESH -------------------------------------------------------------------------------------------------------
   nMeshFiles=1
@@ -178,7 +178,7 @@ ELSE
   CASE(-1,0)   ! HDF5 input file (-1: old for conversion)
     nMeshFiles=GETINT('nMeshFiles','1') ! Number of mesh files: each mesh file = one zone
     meshIsAlreadyCurved=.TRUE.
-  CASE(2)   ! Gambit 
+  CASE(2)   ! Gambit
     nMeshFiles=GETINT('nMeshFiles','1') ! Number of mesh files: each mesh file = one zone
     useBinary =GETLOGICAL('useBinary','.FALSE.')  ! Read binary mesh file (.halo files) instead of ASCII
   CASE(3)   ! CGNS mesh
@@ -216,7 +216,7 @@ IF(useCurveds) THEN
     SELECT CASE(curvingMethod)
     CASE(-1) !do nothing
     CASE(1) !normals from CAD
-      N=3 
+      N=3
       NormalsType=GETINT('NormalsType','1')
       SELECT CASE(normalsType)
       CASE(1) ! normals by reconstruction
@@ -291,7 +291,7 @@ END IF  !(nVV .GT. 0)
 MeshDim=3
 IF((MeshMode .EQ. 2) .OR. (MeshMode .EQ. 3))THEN
  ! 2.5D mesh: convert 2D mesh to 3D mesh (gambit and cgns mesh only)
-  MeshDim=GETINT('MeshDim','3') 
+  MeshDim=GETINT('MeshDim','3')
 END IF
 !for SpecMesh only 2D available
 IF((MeshMode .EQ. 6)) MeshDim=2
@@ -334,7 +334,7 @@ IF(doZcorrection)THEN
 END IF
 !splitting of elements
 SplitToHex=GETLOGICAL('SplitToHex','.FALSE.')   ! split all elements to hexa
-nFineHexa=GETINT('nFineHexa','1')               ! split all hexa by a factor 
+nFineHexa=GETINT('nFineHexa','1')               ! split all hexa by a factor
 
 nSplitBoxes=CNTSTR('SplitBox','0')
 ALLOCATE(SplitBoxes(3,2,nSplitBoxes))
@@ -455,7 +455,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
+! LOCAL VARIABLES
 TYPE(tElem),POINTER :: Elem  ! ?
 TYPE(tSide),POINTER :: Side    ! ?
 LOGICAL             :: curvedFound  ! ?
@@ -493,9 +493,9 @@ SELECT CASE (MeshMode)
     CALL readGMSH()       ! Read .MSH file (GMSH)
   CASE(6)
     MeshDim=3 !overwrite, build first 3D element layer in readin
-    CALL readSpecMesh2D()   
+    CALL readSpecMesh2D()
     meshIsAlreadyCurved=.TRUE.
-    CALL fill25DMesh() 
+    CALL fill25DMesh()
   CASE DEFAULT
     CALL abort(__STAMP__, &
       'Not known how to construct mesh')
@@ -524,7 +524,7 @@ IF(nSplitBoxes.GT.0) THEN
   AdaptedMesh=.TRUE.
 END IF
 
-! Count elements 
+! Count elements
 nMeshElems=0
 Elem=>FirstElem
 DO WHILE(ASSOCIATED(Elem))
@@ -563,7 +563,7 @@ IF(DebugVisu)THEN
 END IF
 IF(useCurveds.AND.Logging)   CALL CountSplines()  ! In case of restart there can be splines
 
-IF(OrientZ) CALL OrientElemsToZ() 
+IF(OrientZ) CALL OrientElemsToZ()
 
 IF(MeshMode .GT. 0)THEN
   CALL Connect(reconnect=.FALSE.,deletePeriodic=.FALSE.)                           ! Create connection between elements
@@ -619,7 +619,7 @@ IF(useCurveds)THEN
       IF(doScale.AND..NOT.postScale) CALL ApplyMeshScale(FirstSplitElem)
       CALL splitToSpline()
       CALL curvedEdgesToSurf(keepExistingCurveds=.FALSE.)
-    CASE(4) !!!only in combination with icem cgns meshes!!!! 
+    CASE(4) !!!only in combination with icem cgns meshes!!!!
       CALL readSpecEdges()
       CALL curvedEdgesToSurf(keepExistingCurveds=.FALSE.)
       ! jetzt muessen bei allen randbedingungen die curved sind, die Edge%curvedNode(:) besetzt sein
@@ -719,7 +719,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
+! LOCAL VARIABLES
 TYPE(tElem),POINTER  :: Elem,newElem,FirstElem_loc,lastElem,firstNewElem,lastNewElem  ! ?
 TYPE(tSide),POINTER  :: Side,TempSide  ! ?
 REAL                 :: zPos  ! ?
@@ -770,7 +770,7 @@ DO WHILE(ASSOCIATED(Elem))
     IF(LowerBCSide)THEN
       CALL getNewBC(Side%BC)
       Side%BC%BCtype     = lowerZ_BC(1) !assign BC to side
-      Side%curveIndex    = lowerZ_BC(2) 
+      Side%curveIndex    = lowerZ_BC(2)
       Side%BC%BCstate    = lowerZ_BC(3)
       Side%BC%BCalphaInd = lowerZ_BC(4)
       Side%BC%BCIndex    = lowerZ_BC_Ind
@@ -778,7 +778,7 @@ DO WHILE(ASSOCIATED(Elem))
     IF(UpperBCSide)THEN
       CALL getNewBC(Side%BC)
       Side%BC%BCtype     = upperZ_BC(1) !assign BC to side
-      Side%curveIndex    = upperZ_BC(2) 
+      Side%curveIndex    = upperZ_BC(2)
       Side%BC%BCstate    = upperZ_BC(3)
       Side%BC%BCalphaInd = upperZ_BC(4)
       Side%BC%BCIndex    = upperZ_BC_Ind
@@ -807,7 +807,7 @@ DO WHILE(ASSOCIATED(Elem))
       ELSE
         DO iNode=1,newElem%nNodes
           CALL getNewNode(newElem%Node(iNode)%np,1)
-          IF(iNode .LE. Side%nNodes)THEN 
+          IF(iNode .LE. Side%nNodes)THEN
             newElem%Node(iNode)%np%x  =Side%Elem%Node(iNode+Side%nNodes)%np%x   ! Connected side
             ! Use elem nodes, side node order could be wrong
             newElem%Node(iNode)%np%ind=Side%Elem%Node(iNode+Side%nNodes)%np%ind ! Connected side
@@ -851,7 +851,7 @@ DO WHILE(ASSOCIATED(Elem))
           TempSide%BC%BCIndex    = BCData(TempSide%LocSide,5)
         END IF
         TempSide=>TempSide%nextElemSide
-      END DO 
+      END DO
       IF(.NOT.ASSOCIATED(firstNewElem))THEN
         firstNewElem => newElem
         lastNewElem  => newElem
@@ -897,7 +897,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
+! LOCAL VARIABLES
 TYPE(tElem),POINTER       :: Elem                                                       ! Local element pointers
 TYPE(tSide),POINTER       :: Side                                                      ! Local side pointers
 TYPE(tEdge),POINTER       :: Edge                                                      ! Local side pointers
@@ -916,7 +916,7 @@ DO WHILE(ASSOCIATED(Elem))
       IF(Side%node(iNode)%np%tmp.NE.-888)THEN
         WRITE(UNIT_stdOut,'(A,I8)') 'Corner nodes der Seiten /= Corner nodes vom Element',Elem%ind
       END IF
-    END DO 
+    END DO
     DO i=1,Side%nNodes
       Edge=>Side%edge(i)%edp
       IF(Edge%Node(1)%np%tmp.NE.-888) WRITE(UNIT_stdOut,'(A,I8)')'Edge node 1 /= Corner nodes vom Element',Elem%ind
@@ -935,11 +935,11 @@ DO WHILE(ASSOCIATED(Elem))
     IF(Side%nCurvedNodes.NE.0) THEN
       DO iNode=1,Side%ncurvedNodes
         Side%curvednode(iNode)%np%tmp=-777
-      END DO 
+      END DO
       DO iNode=1,Side%nNodes
         IF(Side%node(iNode)%np%tmp.NE.-777)&
           WRITE(UNIT_stdOut,'(A,I8,A,I8)') 'Side Corner node /= Curved surface corner nodes, iNode=',iNode,'of element',Elem%ind
-      END DO 
+      END DO
       DO i=1,Side%nNodes
         Edge=>Side%edge(i)%edp
         IF(ASSOCIATED(Edge%CurvedNode))THEN
@@ -971,7 +971,7 @@ DO WHILE(ASSOCIATED(Elem))
       DO iNode=1,Side%ncurvedNodes
         IF(Side%curvednode(iNode)%np%tmp.NE.-999)&
          WRITE(UNIT_stdOut,'(A,2I8,A,I8)')'Curved surface node /= Curved volume nodes, p,q=',QuadMap(iNode,:),'of element',Elem%ind
-      END DO 
+      END DO
       DO i=1,Side%nNodes
         Edge=>Side%edge(i)%edp
         IF(ASSOCIATED(Edge%CurvedNode))THEN
@@ -1003,7 +1003,7 @@ TYPE(tElem),POINTER,INTENT(IN) :: StartElem  ! ?
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES 
+! LOCAL VARIABLES
 TYPE(tElem),POINTER       :: Elem  ! ?
 TYPE(tSide),POINTER       :: Side  ! ?
 TYPE(tEdge),POINTER       :: Edge  ! ?
