@@ -187,8 +187,9 @@ REAL               :: xout(3)
 REAL               :: alpha,HH, xi,eta
 REAL               :: cosa,cosb,sina,sinb 
 REAL               :: rotmat(2,2),arg
-REAL               :: g,h,hDeriv,hMax,xloc,normal,vec(2),length
-REAL               :: hDerivRef,vecRef(2)
+REAL               :: g,h,hMax,xLeft,normal,vec(2),length
+REAL               :: vecRefBottom(2),xBlendBottom
+REAL               :: vecRefTop(2),   xBlendTop
 !===================================================================================================================================
 dx=0.
 SELECT CASE(MeshPostDeform)
@@ -589,141 +590,58 @@ CASE(5) ! 2D periodic hill geometry, see http://www.kbwiki.ercoftac.org/w/index.
     x(:)=x_in(:,i)
     xout = x
 
-    ! Hill geometry, the original geometry is given in a scaled system 28 times the size of the computational domain
-    xloc= x(1)*28.
-    IF(xloc.GT.54) xloc=28.*9.-xloc ! The right side of the channel
-    IF((xloc.GT.-1.e-10).AND.(xloc.LE.9.))THEN
-    !Between x=0. and x=9.
-    h=min(28.,&
-          2.800000000000E+01          +0.000000000000E+00*xloc     &
-         +6.775070969851E-03*xloc**2  -2.124527775800E-03*xloc**3)
-    ELSEIF((xloc.GT.9.).AND.(xloc.LE.14.))THEN
-    !Between x=9. and x=14.
-    h=  2.507355893131E+01          +9.754803562315E-01*xloc       &
-       -1.016116352781E-01*xloc**2  +1.889794677828E-03*xloc**3
-    
-    ELSEIF((xloc.GT.14.).AND.(xloc.LE.20.))THEN
-    !Between x=14. and x=20.
-    h=  2.579601052357E+01          +8.206693007457E-01*xloc       &
-       -9.055370274339E-02*xloc**2  +1.626510569859E-03*xloc**3
-    
-    ELSEIF((xloc.GT.20.).AND.(xloc.LE.30.))THEN
-    !Between x=20. and x=30.
-    h=  4.046435022819E+01          -1.379581654948E+00*xloc       &
-       +1.945884504128E-02*xloc**2  -2.070318932190E-04*xloc**3
-    
-    ELSEIF((xloc.GT.30.).AND.(xloc.LE.40.))THEN
-    !Between x=30. and x=40.
-    h=  1.792461334664E+01          +8.743920332081E-01*xloc       &
-       -5.567361123058E-02*xloc**2  +6.277731764683E-04*xloc**3
-    
-    ELSEIF((xloc.GT.40.).AND.(xloc.LE.54.))THEN
-    !Between x=40. and x=54.
-    h=max(0.,&
-          5.639011190988E+01          -2.010520359035E+00*xloc     &
-         +1.644919857549E-02*xloc**2  +2.674976141766E-05*xloc**3)
-    ELSEIF(xloc.GT.54.)THEN
-    h=  0.
-    ELSE
-      CALL abort(__STAMP__,&
-                 'Wrong hill geometry')
-    END IF
-    h=h/28. ! Scale back to computational domain
+    ! corresponding x in left half (hill is symmetric)
+    xLeft = 4.5-ABS(x(1)-4.5)
 
-    ! polynomial for smooth mesh deformation
+    ! height of the bottom wall
+    h = PHILL_H(xLeft)
+
+    ! polynomial for smooth mesh deformation 
     hMax = 3.035
     g = 2./hMax**3*x(2)**3 - 3./hMax**2*x(2)**2 + 1. 
 
     ! First, simply move the geometry in y-direction regarding to the local hill size
     xout(2) = xout(2) + g*h
 
-    ! Then, move the grid to create a mesh normal to the wall, but only in the vicinity of the lower wall.
+    ! Then, move the grid to create a mesh approximately normal to the wall, but only in the vicinity of the lower wall.
     ! This mesh deformation will again be smoothed out towards the top.
+    IF (xLeft.GE.0.1.AND.x(2).LT.hMax) THEN
 
-    ! Get the derivative of the hill geometry
-    xloc= x(1)*28.
-    IF(xloc.GT.54) xloc=28.*9.-xloc
-    IF((xloc.GT.-1.e-10).AND.(xloc.LE.9.))THEN
-    !Between x=0. and x=9.
-    hDeriv= 0.000000000000E+00     &
-         +2.*6.775070969851E-03*xloc  -3.*2.124527775800E-03*xloc**2
-    ELSEIF((xloc.GT.9.).AND.(xloc.LE.14.))THEN
-    !Between x=9. and x=14.
-    hDeriv=  9.754803562315E-01       &
-       -2.*1.016116352781E-01*xloc  +3.*1.889794677828E-03*xloc**2
-    
-    ELSEIF((xloc.GT.14.).AND.(xloc.LE.20.))THEN
-    !Between x=14. and x=20.
-    hDeriv=  8.206693007457E-01       &
-       -2.*9.055370274339E-02*xloc  +3.*1.626510569859E-03*xloc**2
-    
-    ELSEIF((xloc.GT.20.).AND.(xloc.LE.30.))THEN
-    !Between x=20. and x=30.
-    hDeriv=  -1.379581654948E+00       &
-       +2.*1.945884504128E-02*xloc  -3.*2.070318932190E-04*xloc**2
-    
-    ELSEIF((xloc.GT.30.).AND.(xloc.LE.40.))THEN
-    !Between x=30. and x=40.
-    hDeriv=  8.743920332081E-01       &
-       -2.*5.567361123058E-02*xloc  +3.*6.277731764683E-04*xloc**2
-    
-    ELSEIF((xloc.GT.40.).AND.(xloc.LE.54.))THEN
-    !Between x=40. and x=54.
-    hDeriv=-2.010520359035E+00     &
-         +2.*1.644919857549E-02*xloc  +3.*2.674976141766E-05*xloc**2
-    ELSEIF(xloc.GT.54.)THEN
-    hDeriv=  0.
-    ELSE
-      CALL abort(__STAMP__,&
-                 'Wrong hill geometry')
-    END IF
+      ! Lenght of the vector from the hill to the current point, used for scaling
+      length = xout(2) - h
 
-    ! slope of the line normal to the hill geometry
-    IF (((hDeriv.GT.-10E-10).AND.(x(1).LT.0.1)).OR.((hDeriv.LT.10E-10).AND.(x(1).GT.8.9))) THEN
-      ! This is the vector along the normal
-      vec = (/0.,1./)
-    ELSE
-    normal = -1./hDeriv
-    ! This is the vector along the normal
-    vec = (/1.,normal/)
-    END IF
-    ! Lenght of the vector from the hill to the current point, used for scaling
-    length = xout(2) - h
-
-    ! From a specified point onwards, the slope will be lineary increased to infinity to smear out the sharp
-    ! bend at the bottom of the hill
-    hDerivRef=-2.010520359035E+00     &
-         +2.*1.644919857549E-02*50.4  +3.*2.674976141766E-05*50.4**2
-    vecRef = (/1.,-1./hDerivRef/)
-
-    ! Take the second half of the hill geometry into account
-    IF (x(1)*28..GT.126.) THEN
-      vecRef(1) = -1.
-      vec(1)    = -1.
-    END IF
-    IF (x(1).GT.8.9) vec = (/0.,1./)
-    ! Normalize our vectors, the length of them is calculated beforehand
-    vecRef = vecRef/NORM2(vecRef)
-    vec = vec/NORM2(vec)
-    ! Smooth out the mesh deformation
-    hMax = 0.5
-    g = 2./hMax**3*x(2)**3 - 3./hMax**2*x(2)**2 + 1. 
-    IF ((x(1).LT.1.8).AND.(x(1).GT.0.01)) THEN
-      IF (x(2).LT.hMax) xout(1:2) = xout(1:2) + g*length*(vec-(/0.,1./))
-    ELSE IF ((x(1).GE.1.8).AND.(x(1).LT.4.5)) THEN
+      ! surface normal vector: 
+      ! Near the horizontal walls on the top and bottom of the hill, 
+      ! the slope will be lineary increased/decreased to infinity to smear out the sharp bends
+      xBlendTop=0.8
+      xBlendBottom=1.6
       ! Linear blending between reference slope and (/0.,1./)
-      vec = vecRef + (x(1)-1.8)/(4.5-1.8)*((/0.,1./)-vecRef)
-      IF (x(2).LT.hMax) xout(1:2) = xout(1:2) + g*length*(vec-(/0.,1./))
-    ELSE IF ((x(1).GT.4.5).AND.(x(1).LT.7.2)) THEN
-      ! Linear blending between reference slope and (/0.,1./)
-      vec = (/0.,1./) + (x(1)-4.5)/(4.5-1.8)*(vecRef-(/0.,1./))
-      IF (x(2).LT.hMax) xout(1:2) = xout(1:2) + g*length*(vec-(/0.,1./))
-    ELSE IF ((x(1).GE.7.2).AND.(x(1).LT.8.99)) THEN
-      IF (x(2).LT.hMax) xout(1:2) = xout(1:2) + g*length*(vec-(/0.,1./))
-    END IF
+      IF (xLeft.LT.xBlendTop) THEN
+        ! hill top
+        vecRefTop    = PHILL_NORMAL(xBlendTop)
+        vec = (/0.,1./) + xLeft/xBlendTop*(vecRefTop-(/0.,1./))
+      ELSE IF (xLeft.GE.xBlendBottom) THEN
+        !hill bottom
+        vecRefBottom = PHILL_NORMAL(xBlendBottom)
+        vec = vecRefBottom + (xLeft-xBlendBottom)/(4.5-xBlendBottom)*((/0.,1./)-vecRefBottom)
+      ELSE 
+        ! default case (at the hill slope): take the actual normal vector
+        vec = PHILL_NORMAL(xLeft)
+      END IF
+      ! Mirror the second half of the hill geometry
+      IF(x(1).GT.4.5) vec(1)=-vec(1)
+
+      ! Smooth out the mesh deformation
+      !hMax = 3.035
+      !g = 2./hMax**3*x(2)**3 - 3./hMax**2*x(2)**2 + 1. 
+      g = 0.9*g**3
+
+      xout(1:2) = xout(1:2) + g*length*(vec-(/0.,1./))
+    END IF 
 
     X_out(:,i)=xout(:)
   END DO !i=1,nTotal
+
 CASE(21)!Laval nozzle 
         ! 3D box, x,y in [-1,1]^2 and z in [0,nozzle_length], to cylindrical cross section with a r(z) profile
         ! r(z) profile here given by a fitted monomial polynomial over z.
@@ -787,5 +705,123 @@ CASE(34) ! cos3D (1.5Pi) [-1;1]^3
 END SELECT
 
 END SUBROUTINE PostDeformFunc
+
+!===================================================================================================================================
+! Height of the periodic hill (postdeform case 5) bottom wall as a function of x
+!===================================================================================================================================
+FUNCTION PHILL_H(X_in)
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+REAL :: X_in ! contains original xyz coords
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL :: PHILL_H! contains new XYZ position 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL :: xloc
+!-----------------------------------------------------------------------------------------------------------------------------------
+! Hill geometry, the original geometry is given in a scaled system 28 times the size of the computational domain
+xloc= X_in*28.
+IF(xloc.GT.54) xloc=28.*9.-xloc ! The right side of the channel
+IF((xloc.GT.-1.e-10).AND.(xloc.LE.9.))THEN
+!Between x=0. and x=9.
+PHILL_H=min(28.,&
+      2.800000000000E+01          +0.000000000000E+00*xloc     &
+     +6.775070969851E-03*xloc**2  -2.124527775800E-03*xloc**3)
+ELSEIF((xloc.GT.9.).AND.(xloc.LE.14.))THEN
+!Between x=9. and x=14.
+PHILL_H=  2.507355893131E+01          +9.754803562315E-01*xloc       &
+   -1.016116352781E-01*xloc**2  +1.889794677828E-03*xloc**3
+
+ELSEIF((xloc.GT.14.).AND.(xloc.LE.20.))THEN
+!Between x=14. and x=20.
+PHILL_H=  2.579601052357E+01          +8.206693007457E-01*xloc       &
+   -9.055370274339E-02*xloc**2  +1.626510569859E-03*xloc**3
+
+ELSEIF((xloc.GT.20.).AND.(xloc.LE.30.))THEN
+!Between x=20. and x=30.
+PHILL_H=  4.046435022819E+01          -1.379581654948E+00*xloc       &
+   +1.945884504128E-02*xloc**2  -2.070318932190E-04*xloc**3
+
+ELSEIF((xloc.GT.30.).AND.(xloc.LE.40.))THEN
+!Between x=30. and x=40.
+PHILL_H=  1.792461334664E+01          +8.743920332081E-01*xloc       &
+   -5.567361123058E-02*xloc**2  +6.277731764683E-04*xloc**3
+
+ELSEIF((xloc.GT.40.).AND.(xloc.LE.54.))THEN
+!Between x=40. and x=54.
+PHILL_H=max(0.,&
+      5.639011190988E+01          -2.010520359035E+00*xloc     &
+     +1.644919857549E-02*xloc**2  +2.674976141766E-05*xloc**3)
+ELSEIF(xloc.GT.54.)THEN
+PHILL_H=  0.
+END IF
+PHILL_H=PHILL_H/28. ! Scale back to computational domain
+END FUNCTION PHILL_H
+
+!===================================================================================================================================
+! Surface normal of the periodic hill (postdeform case 5) bottom wall as a function of x
+!===================================================================================================================================
+FUNCTION PHILL_NORMAL(X_in)
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+REAL :: X_in ! contains original xyz coords
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL :: PHILL_NORMAL(2)    ! contains new XYZ position 
+!-----------------------------------------------------------------------------------------------------------------------------------
+! OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL :: xloc,hDeriv
+!-----------------------------------------------------------------------------------------------------------------------------------
+! Get the derivative of the hill geometry
+xloc= X_in*28.
+IF(xloc.GT.54) xloc=28.*9.-xloc
+hDeriv=  0.
+IF((xloc.GT.-1.e-10).AND.(xloc.LE.9.))THEN
+!Between x=0. and x=9.
+hDeriv= 0.000000000000E+00     &
+     +2.*6.775070969851E-03*xloc  -3.*2.124527775800E-03*xloc**2
+ELSEIF((xloc.GT.9.).AND.(xloc.LE.14.))THEN
+!Between x=9. and x=14.
+hDeriv=  9.754803562315E-01       &
+   -2.*1.016116352781E-01*xloc  +3.*1.889794677828E-03*xloc**2
+
+ELSEIF((xloc.GT.14.).AND.(xloc.LE.20.))THEN
+!Between x=14. and x=20.
+hDeriv=  8.206693007457E-01       &
+   -2.*9.055370274339E-02*xloc  +3.*1.626510569859E-03*xloc**2
+
+ELSEIF((xloc.GT.20.).AND.(xloc.LE.30.))THEN
+!Between x=20. and x=30.
+hDeriv=  -1.379581654948E+00       &
+   +2.*1.945884504128E-02*xloc  -3.*2.070318932190E-04*xloc**2
+
+ELSEIF((xloc.GT.30.).AND.(xloc.LE.40.))THEN
+!Between x=30. and x=40.
+hDeriv=  8.743920332081E-01       &
+   -2.*5.567361123058E-02*xloc  +3.*6.277731764683E-04*xloc**2
+
+ELSEIF((xloc.GT.40.).AND.(xloc.LE.54.))THEN
+!Between x=40. and x=54.
+hDeriv=-2.010520359035E+00     &
+     +2.*1.644919857549E-02*xloc  +3.*2.674976141766E-05*xloc**2
+END IF
+
+IF(ABS(hDeriv).LT.1.E-10)THEN
+  PHILL_NORMAL=(/0.,1./)
+ELSE
+  ! This is the vector along the normal
+  PHILL_NORMAL = (/1.,-1./hDeriv/)
+  PHILL_NORMAL = PHILL_NORMAL/NORM2(PHILL_NORMAL)
+END IF 
+END FUNCTION PHILL_NORMAL
 
 END MODULE MOD_Mesh_PostDeform
