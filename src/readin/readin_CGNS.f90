@@ -127,13 +127,15 @@ DO iFile=1,nMeshFiles
   IF(iError .NE. CG_OK) CALL abortCGNS(__STAMP__,CGNSFile)
   DO iZone=1,nCGNSZones
     nZonesGlob=nZonesGlob+1
+    IF(nZonesGlob.GT.nZones)&
+      WRITE(UNIT_stdOut,*)'ERROR: number of zones in inifile does not correspond to number of zones in meshfile(s)',nZones
 
     ! Check structured / unstructured
     CALL cg_zone_type_f(CGNSFile, CGNSBase, iZone, ZoneType, iError)
     IF (iError .NE. CG_OK) CALL cg_error_exit_f()
-    IF (ZoneType.EQ.Structured)THEN
+    IF (ZoneType.EQ.CG_Structured)THEN
       CALL ReadCGNSMeshStruct(FirstElem,CGNSFile,CGNSBase,iZone,nZonesGlob,nNodesGlob)
-    ELSEIF(ZoneType.EQ.Unstructured)THEN
+    ELSEIF(ZoneType.EQ.CG_Unstructured)THEN
       CALL ReadCGNSMeshUnstruct(FirstElem,CGNSFile,CGNSBase,iZone,nZonesGlob,nNodesGlob)
     ELSE
       STOP 'Wrong zone type specifier, should be structured or unstructured.'
@@ -244,7 +246,7 @@ ALLOCATE(NodeCoords(3,nNodes(1)))
 NodeCoords=0.
 DO dm=1,MeshDim
   CGname=TRIM(CoordNameCGNS(dm))
-  CALL CG_COORD_READ_F(CGNSfile,CGNSBase,iZone,CGName,RealDouble,one,nNodes,NodeCoords(dm,:),iError)
+  CALL CG_COORD_READ_F(CGNSfile,CGNSBase,iZone,CGName,CG_RealDouble,one,nNodes,NodeCoords(dm,:),iError)
   IF (iError .NE. CG_OK)THEN
     WRITE(UNIT_stdOut,*)'ERROR - Could not read coordinate(',dm,'): ',TRIM(CoordNameCGNS(dm))
     CALL CG_NCOORDS_F(CGNSFile,CGNSBase,iZone,PhysDim,iError )  ! Here we use PhysDim as nCoords
@@ -286,7 +288,7 @@ DO iSect=1,nSect ! Vol. and Face elems
   CALL CG_SECTION_READ_F(CGNSfile,CGNSBase,iZone,iSect,CGname,SectionElemType,IndMin,IndMax,ParentDataFlag,ParentDataFlag,iError)
   WRITE(UNIT_StdOut,*)'   read section ',TRIM(CGname)
   IF (iError .NE. CG_OK) CALL abortCGNS(__STAMP__,CGNSFile)
-  IF(SectionElemType .LT. TRI_3) CYCLE !ignore additional sections with data <nDim-1
+  IF(SectionElemType .LT. CG_TRI_3) CYCLE !ignore additional sections with data <nDim-1
   CALL CG_ELEMENTDATASIZE_F(CGNSFile,CGNSBase,iZone,iSect,nSectElems,iError)  ! Get number of connectivity values
   ALLOCATE(LocalConnect(nSectElems))
   nSectElems=1+IndMax-IndMin ! Important for surface elements only
@@ -298,7 +300,7 @@ DO iSect=1,nSect ! Vol. and Face elems
   ! Check if 2D element is not oriented in z+, check only first element#
   IF(MeshDim .EQ. 2)THEN
     orient2D=.TRUE. !
-    IF(SectionElemType .EQ. MIXED) THEN
+    IF(SectionElemType .EQ. CG_MIXED) THEN
       locType=LocalConnect(1)
       iStart=2
     ELSE
@@ -317,7 +319,7 @@ DO iSect=1,nSect ! Vol. and Face elems
   iStart=1
   DO iElem=1,nSectElems
     iEnd=iStart
-    IF(SectionElemType .EQ. MIXED) THEN
+    IF(SectionElemType .EQ. CG_MIXED) THEN
       LocType=LocalConnect(iStart)  ! Mixed type elements, read elem type from array
       iStart =iStart+1              ! First value is elem type
     ELSE
@@ -328,9 +330,9 @@ DO iSect=1,nSect ! Vol. and Face elems
     iEnd=iEnd+nNodesLoc
 
     LocDim=1
-    IF(LocType .GT.  BAR_3) LocDim=2
-    IF(LocType .GT. QUAD_9) LocDim=3
-    IF(LocType .GT.  MIXED) LocDim=2 !NGON_n
+    IF(LocType .GT.  CG_BAR_3) LocDim=2
+    IF(LocType .GT. CG_QUAD_9) LocDim=3
+    IF(LocType .GT.  CG_MIXED) LocDim=2 !NGON_n
 
     IF(LocDim .EQ. MeshDim) THEN ! volume element
       iVolElem=iVolElem+1
@@ -419,11 +421,11 @@ DO iBC=1,nCGNSBC
     CYCLE
   END IF
 
-  IF(Bugfix_ANSA_CGNS) PntSetType=ElementList
+  IF(Bugfix_ANSA_CGNS) PntSetType=CG_ElementList
 
   ! Boundary is given as a list of boundary nodes
-  IF((PntSetType .EQ. PointList).OR.(PntSetType .EQ. PointRange))THEN
-    IF(PntSetType .EQ. PointRange) THEN
+  IF((PntSetType .EQ. CG_PointList).OR.(PntSetType .EQ. CG_PointRange))THEN
+    IF(PntSetType .EQ. CG_PointRange) THEN
       CALL CG_BOCO_READ_F(CGNSfile,CGNSBase,iZone,iBC,DimVec,NorVec,iError)
       nBCPoints=1+DimVec(2)-DimVec(1)
       DO j=1,nBCPoints
@@ -461,8 +463,8 @@ DO iBC=1,nCGNSBC
     END DO  ! iElem=1,nElems
 
   ! Boundary is given as a list of boundary elements
-  ELSEIF ((PntSetType .EQ. ElementList).OR.(PntSetType .EQ. ElementRange)) THEN
-    IF(PntSetType .EQ. ElementRange)THEN
+  ELSEIF ((PntSetType .EQ. CG_ElementList).OR.(PntSetType .EQ. CG_ElementRange)) THEN
+    IF(PntSetType .EQ. CG_ElementRange)THEN
       CALL CG_BOCO_READ_F(CGNSfile,CGNSBase,iZone,iBC,DimVec,NorVec,iError)
       nBCElems=1+DimVec(2)-DimVec(1)
       ALLOCATE(BCElemList(nBCElems))
@@ -625,7 +627,6 @@ PP_CGNS_INT_TYPE              :: NormalListSize  ! ?
 PP_CGNS_INT_TYPE ,ALLOCATABLE :: BCElems(:,:)  ! ?
 REAL ,ALLOCATABLE             :: NormalList(:)  ! ?
 LOGICAL                       :: zFit
-INTEGER                       :: MapCGNS(3)
 !===================================================================================================================================
 ALLOCATE(isize(meshDim,3))
 ALLOCATE(DimVec(meshDim,2))
@@ -639,11 +640,6 @@ ELSE
   N_loc=1
 END IF
 Step=nSkip*N_loc
-
-! Define mapping: (x,y,z) -> (y,z,x)
-MapCGNS(1) = 3
-MapCGNS(2) = 1
-MapCGNS(3) = 2
 
 irmin=1
 IF(meshdim.EQ.3)THEN
@@ -676,15 +672,15 @@ ELSE
 END IF
 
 ! Read Coordinates
-CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateX',REALDOUBLE,irmin,irmax,NodeCoords(1,:,:,:),iError)
-CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateY',REALDOUBLE,irmin,irmax,NodeCoords(2,:,:,:),iError)
-CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateZ',REALDOUBLE,irmin,irmax,NodeCoords(3,:,:,:),iError)
+CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateX',CG_RealDouble,irmin,irmax,NodeCoords(1,:,:,:),iError)
+CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateY',CG_RealDouble,irmin,irmax,NodeCoords(2,:,:,:),iError)
+CALL cg_coord_read_f(CGNSFile,CGNSBase,iZone,'CoordinateZ',CG_RealDouble,irmin,irmax,NodeCoords(3,:,:,:),iError)
 
 ! Apply skip
 IF(nSkip.NE.1)THEN
   irmax = (irmax-1)/nSkip + 1
   ALLOCATE(NodeCoordsTmp(3,irmax(1),irmax(2),irmax(3)))
-  DO m=1,irmax(3); DO l=1,irmax(2); DO k=1,irmax(1)
+  DO k=1,irmax(1); DO l=1,irmax(2); DO m=1,irmax(3)
     NodeCoordsTmp(:,k,l,m) = NodeCoords(:, 1+(k-1)*nSkip, 1+(l-1)*nSkip, 1+(m-1)*nSkip)
   END DO; END DO; END DO !k,l,m
   DEALLOCATE(NodeCoords)
@@ -774,13 +770,13 @@ END IF
 
 
 ! Building temporary nodes
-ALLOCATE(Mnodes(irmax(MapCGNS(1)),irmax(MapCGNS(2)),irmax(MapCGNS(3))))
-DO m=1,irmax(MapCGNS(3))
-  DO l=1,irmax(MapCGNS(2))
-    DO k=1,irmax(MapCGNS(1))
+ALLOCATE(Mnodes(irmax(1),irmax(2),irmax(3)))
+DO k=1,irmax(1)
+  DO l=1,irmax(2)
+    DO m=1,irmax(3)
       CALL GetNewNode(Mnodes(k,l,m)%np)
       IF(meshDim.EQ.3)THEN
-        Mnodes(k,l,m)%np%x      =NodeCoords(:,l,m,k)      ! Node coordinates are assigned
+        Mnodes(k,l,m)%np%x      =NodeCoords(:,k,l,m)      ! Node coordinates are assigned
       ELSE
         Mnodes(k,l,m)%np%x(1:2) =NodeCoords(1:2,k,l,1)    ! Node coordinates are assigned
         Mnodes(k,l,m)%np%x(3)   =REAL(m-1)*REAL(DZ)/REAL(step) ! Node coordinates are assigned
@@ -792,18 +788,18 @@ DO m=1,irmax(MapCGNS(3))
       Mnodes(k,l,m)%np%tmp=0
       IF(m.EQ.1.AND.meshdim.EQ.3)        Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+1      !zeta minus
       IF(l.EQ.1)                         Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+20     !eta minus
-      IF(k.EQ.irmax(MapCGNS(1)) )        Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+300    !xi plus
-      IF(l.EQ.irmax(MapCGNS(2)) )        Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+4000   !eta plus
+      IF(k.EQ.irmax(1) )                 Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+300    !xi plus
+      IF(l.EQ.irmax(2) )                 Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+4000   !eta plus
       IF(k.EQ.1)                         Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+50000  !xi minus
-      IF(m.EQ.irmax(MapCGNS(3)).AND.meshdim.EQ.3) Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+600000 !zeta plus
+      IF(m.EQ.irmax(3).AND.meshdim.EQ.3) Mnodes(k,l,m)%np%tmp=Mnodes(k,l,m)%np%tmp+600000 !zeta plus
     END DO
   END DO
 END DO
 DEALLOCATE(NodeCoords)
 
-DO m=1,irmax(MapCGNS(3))-N_loc,N_loc
-  DO l=1,irmax(MapCGNS(2))-N_loc,N_loc
-    DO k=1,irmax(MapCGNS(1))-N_loc,N_loc
+DO k=1,irmax(1)-N_loc,N_loc
+  DO l=1,irmax(2)-N_loc,N_loc
+    DO m=1,irmax(3)-N_loc,N_loc
       CornerNode(1)%np=>Mnodes(k      ,l      ,m      )%np
       CornerNode(2)%np=>Mnodes(k+N_loc,l      ,m      )%np
       CornerNode(3)%np=>Mnodes(k+N_loc,l+N_loc,m      )%np
@@ -831,7 +827,7 @@ DO m=1,irmax(MapCGNS(3))-N_loc,N_loc
       IF(useCurveds.AND.MeshIsAlreadyCurved)THEN !read in curvedNodes
         FirstElem_in%nCurvedNodes=(N_loc+1)**3
         ALLOCATE(FirstElem_in%curvedNode(FirstElem_in%nCurvedNodes))
-        DO mm=0,N_loc; DO ll=0,N_loc; DO kk=0,N_loc
+        DO kk=0,N_loc; DO ll=0,N_loc; DO mm=0,N_loc
           FirstElem_in%curvedNode(HexaMapInv(kk,ll,mm))%np=>Mnodes(k+kk,l+ll,m+mm)%np
         END DO; END DO; END DO
       END IF!useCurveds
@@ -848,12 +844,12 @@ IF (iError .NE. CG_OK) CALL cg_error_exit_f()
 IF (nCGNSBC.LT.1) RETURN ! exit if there are no boundary conditions
 
 ALLOCATE(BCIndex(1:nCGNSBC,6),BCTypeIndex(1:nCGNSBC),countBCs(1:nCGNSBC),nBCFaces(1:nCGNSBC))
-SideMap(3,1) = 5 ! xi minus
-SideMap(3,2) = 3 ! xi plus
-SideMap(1,1) = 2 ! eta minus
-SideMap(1,2) = 4 ! eta plus
-SideMap(2,1) = 1 ! zeta minus
-SideMap(2,2) = 6 ! zeta plus
+SideMap(1,1) = 5 ! xi minus
+SideMap(1,2) = 3 ! xi plus
+SideMap(2,1) = 2 ! eta minus
+SideMap(2,2) = 4 ! eta plus
+SideMap(3,1) = 1 ! zeta minus
+SideMap(3,2) = 6 ! zeta plus
 
 ! Read in BC Data
 BCIndex=-1
@@ -885,7 +881,7 @@ DO iBC=1,nCGNSBC !Loop over all BCs
   NormalListSize=nBCElems*MeshDim
   ALLOCATE(NormalList(NormalListSize))
   CALL CG_BOCO_READ_F(CGNSfile,CGNSBase,iZone,iBC,BCElems,NormalList,iError)
-  IF(PntSetType.EQ.PointRange)THEN
+  IF(PntSetType.EQ.CG_PointRange)THEN
     IF(ANY(BCElems.LE.0))THEN
       WRITE(UNIT_StdOut,'(A)') &
         'WARNING: corrupted pointrange found on Boundary '//TRIM(FamilyName)//' ( '//TRIM(CGName)//', '//TRIM(ZoneName)//' )'
@@ -903,7 +899,7 @@ DO iBC=1,nCGNSBC !Loop over all BCs
       IF (BCindex(iBC,1).EQ.-1) STOP 'ERROR - pointrange does not allow association of BC'
     END IF
   END IF
-  IF(PntSetType.EQ.PointList)THEN
+  IF(PntSetType.EQ.CG_PointList)THEN
     IF(nBCElems.EQ.1) THEN
        WRITE(UNIT_StdOut,*) 'Warning: Single point BC. Zone No,BC no, BCname, ',iZone,iBC,FamilyName
     ELSE
@@ -1102,7 +1098,7 @@ DO iZone=1,nCGNSZones
   ! Check structured / unstructured
   CALL cg_zone_type_f(CGNSFile, CGNSBase, iZone, ZoneType, iError)
   IF (iError .NE. CG_OK) CALL cg_error_exit_f()
-  IF (ZoneType.EQ.Structured)THEN
+  IF (ZoneType.EQ.CG_Structured)THEN
     STOP 'no structured readin for surface data'
   END IF
   coordNameCGNS(1) = 'CoordinateX'
@@ -1125,7 +1121,7 @@ DO iZone=1,nCGNSZones
   NodeCoords=0.
   DO dm=1,3
     CGname=TRIM(CoordNameCGNS(dm))
-    CALL CG_COORD_READ_F(CGNSfile,CGNSBase,iZone,CGName,RealDouble,one,nNodes,NodeCoords(dm,:),iError)
+    CALL CG_COORD_READ_F(CGNSfile,CGNSBase,iZone,CGName,CG_RealDouble,one,nNodes,NodeCoords(dm,:),iError)
     IF (iError .NE. CG_OK)THEN
       WRITE(UNIT_stdOut,*)'ERROR - Could not read coordinate(',dm,'): ',TRIM(CoordNameCGNS(dm))
       CALL CG_NCOORDS_F(CGNSFile,CGNSBase,iZone,PhysDim,iError )  ! Here we use PhysDim as nCoords
@@ -1155,7 +1151,7 @@ DO iZone=1,nCGNSZones
     CALL CG_SECTION_READ_F(CGNSfile,CGNSBase,iZone,iSect,CGname,SectionElemType,IndMin,IndMax,nBCElems,ParentDataFlag,iError)
     WRITE(UNIT_StdOut,*)'   read section',TRIM(CGname)
     IF (iError .NE. CG_OK) CALL abortCGNS(__STAMP__,CGNSFile)
-    IF(SectionElemType .LT. TRI_3) CYCLE !ignore additional sections with data <nDim-1
+    IF(SectionElemType .LT. CG_TRI_3) CYCLE !ignore additional sections with data <nDim-1
     CALL CG_ELEMENTDATASIZE_F(CGNSFile,CGNSBase,iZone,iSect,nSectElems,iError)  ! Get number of connectivity values
     ALLOCATE(LocalConnect(nSectElems))
     ALLOCATE(ParentData(nSectElems,4))
@@ -1167,7 +1163,7 @@ DO iZone=1,nCGNSZones
     iStart=1
     DO iSecElem=1,nSectElems
       iEnd=iStart
-      IF(SectionElemType .EQ. MIXED) THEN
+      IF(SectionElemType .EQ. CG_MIXED) THEN
         LocType=LocalConnect(iStart)  ! Mixed type elements, read elem type from array
         iStart =iStart+1              ! First value is elem type
       ELSE
@@ -1178,9 +1174,9 @@ DO iZone=1,nCGNSZones
       iEnd=iEnd+nNodesLoc
 
       LocDim=1
-      IF(LocType .GT.  BAR_3) LocDim=2
-      IF(LocType .GT. QUAD_9) LocDim=3
-      IF(LocType .GT.  MIXED) LocDim=2 !NGON_n
+      IF(LocType .GT.  CG_BAR_3) LocDim=2
+      IF(LocType .GT. CG_QUAD_9) LocDim=3
+      IF(LocType .GT.  CG_MIXED) LocDim=2 !NGON_n
 
       IF(LocDim .EQ. 2) THEN ! surface element
         iElem=iElem+1

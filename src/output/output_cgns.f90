@@ -96,23 +96,23 @@ isize(1,3) = 0
 
 ! Create new zone in file
 CGName=ProgramName//'VisuData'
-CALL cg_zone_write_f(CGNSfile,CGNSBase,TRIM(CGname),isize,Unstructured,CGNSZone,iErr)
+CALL cg_zone_write_f(CGNSfile,CGNSBase,TRIM(CGname),isize,CG_Unstructured,CGNSZone,iErr)
 IF (iErr .NE. CG_OK) CALL my_cg_error_exit('Error Creating CGNS Zone.',CGNSFile)
 
 ! Write x-coordinates
-CALL cg_coord_write_f(CGNSFile,CGNSBase,CGNSZone,RealDouble,'CoordinateX',             &
+CALL cg_coord_write_f(CGNSFile,CGNSBase,CGNSZone,CG_RealDouble,'CoordinateX',             &
                       Coord(1,:,:),                                                    &
                       CGNSCoords, iErr)
 IF (iErr .NE. CG_OK) CALL my_cg_error_exit('Error Writing x-Coordinates.',CGNSFile)
 
 ! Write y-coordinates
-CALL cg_coord_write_f(CGNSFile,CGNSBase,CGNSZone,RealDouble,'CoordinateY',             &
+CALL cg_coord_write_f(CGNSFile,CGNSBase,CGNSZone,CG_RealDouble,'CoordinateY',             &
                       Coord(2,:,:),                                                    &
                       CGNSCoords, iErr)
 IF (iErr .NE. CG_OK) CALL my_cg_error_exit('Error Writing y-Coordinates.',CGNSFile)
 
 ! Write z-coordinates
-CALL cg_coord_write_f(CGNSFile,CGNSBase,CGNSZone,RealDouble,'CoordinateZ',             &
+CALL cg_coord_write_f(CGNSFile,CGNSBase,CGNSZone,CG_RealDouble,'CoordinateZ',             &
                       Coord(3,:,:),                                                    &
                       CGNSCoords, iErr)
 IF (iErr .NE. CG_OK) CALL my_cg_error_exit('Error Writing z-Coordinates.',CGNSFile)
@@ -135,7 +135,7 @@ CASE(2)
     NodeIDElem=NodeIDElem+NPlot_p1_2
   END DO
   ! Write Element Connectivity
-  CALL cg_section_write_f(CGNSFile,CGNSBase,CGNSZone,'Elements',QUAD_4,one,isize(1,2),zero, &
+  CALL cg_section_write_f(CGNSFile,CGNSBase,CGNSZone,'Elements',CG_QUAD_4,one,isize(1,2),zero, &
                           ElemConn,CGNSsection,iErr)
 CASE(3)
   NPlot_p1_3=(NPlot+1)**3
@@ -161,7 +161,7 @@ CASE(3)
     NodeIDElem=NodeIDElem+NPlot_p1_3
   END DO
   ! Write Element Connectivity
-  CALL cg_section_write_f(CGNSFile,CGNSBase,CGNSZone,'Elements',HEXA_8,one,isize(1,2),zero, &
+  CALL cg_section_write_f(CGNSFile,CGNSBase,CGNSZone,'Elements',CG_HEXA_8,one,isize(1,2),zero, &
                           ElemConn,CGNSsection,iErr)
 END SELECT
 
@@ -169,11 +169,11 @@ END SELECT
 IF (iErr .NE. CG_OK) CALL my_cg_error_exit('Error Writing Connectivity.',CGNSFile)
 ! Write out point data
 CGname='FlowSolution'
-CALL cg_sol_write_f(CGNSFile,CGNSBase,CGNSZone,TRIM(CGname),Vertex,CGNSFlowSol,iErr)
+CALL cg_sol_write_f(CGNSFile,CGNSBase,CGNSZone,TRIM(CGname),CG_Vertex,CGNSFlowSol,iErr)
 IF (iErr .NE. CG_OK) CALL my_cg_error_exit('Error Creating CGNS Flow Solution Node.',CGNSFile)
 DO iVal=1,nVal
   VarNames32(iVal)=VarNames(iVal)(1:32)
-  CALL cg_field_write_f(CGNSFile,CGNSBase,CGNSZone,CGNSFlowSol,RealDouble,TRIM(VarNames(iVal)),     &
+  CALL cg_field_write_f(CGNSFile,CGNSBase,CGNSZone,CGNSFlowSol,CG_RealDouble,TRIM(VarNames(iVal)),     &
                         Values(iVal,:,:),                                                            &
                         CGNSFieldInd,iErr)
   IF (iErr .NE. CG_OK) CALL my_cg_error_exit('Error Writing CGNS Variable '//TRIM(VarNames(iVal))//'.',CGNSFile)
