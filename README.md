@@ -1,3 +1,5 @@
+## DEPRECATION WARNING: Development of HOPR was moved to [https://github.com/hopr-framework/hopr/](https://github.com/hopr-framework/hopr/)
+
 # HOPR
            _____     _____    _______________    _______________   _______________
           /    /)   /    /)  /    _____     /)  /    _____     /) /    _____     /)

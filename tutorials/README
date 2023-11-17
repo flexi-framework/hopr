@@ -1,6 +1,0 @@
-After compilation of the code, an executable is found in ../bin
-Go to tutorial directory:
-> cd 1-01-cartbox
-Execute the code:
-> ../../bin/hopr parameter.ini
-
